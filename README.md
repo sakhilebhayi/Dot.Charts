@@ -12,7 +12,7 @@
 
 
 ## General Information
-- A way to trade the commodity markets with ease. (Works on GOLD, SILVER, USOIL, US30 & NAS100)
+- A way to trade the commodity markets with ease. (Works on GOLD, SILVER, PLATINUM, USOIL, US30, NAS100 & BTCUSD)
 - This script is still under development do not use until stated otherwise.
 
 
