@@ -52,8 +52,8 @@ longCondition = longCond and CondIni[1] == -1
 shortCondition = shortCond and CondIni[1] == 1
 
 // Plot Buy and Sell signals on chart
-plotshape(series=longCondition, title="Buy Signal", text="BUY", textcolor=color.white, style=shape.labelup, size=size.normal, location=location.belowbar, color=color.green)
-plotshape(series=shortCondition, title="Sell Signal", text="SELL", textcolor=color.white, style=shape.labeldown, size=size.normal, location=location.abovebar, color=color.red)
+plotshape(series=longCondition, title="Buy Signal", text="BUY", textcolor=color.white, style=shape.triangleup, size=size.small, location=location.belowbar, color=color.green)
+plotshape(series=shortCondition, title="Sell Signal", text="SELL", textcolor=color.white, style=shape.triangledown, size=size.small, location=location.abovebar, color=color.red)
 
 // Create alert conditions for Buy and Sell signals
 alertcondition(longCondition, title="Buy Alert", message="Buy Signal Triggered!")
