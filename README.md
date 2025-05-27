@@ -24,6 +24,8 @@
 - Project Status: _Development_.
 - Vesion 0.10
 - Stage 1: Currently working on the time frames, I noticed that this script works best on the H4 time frame, so we have narrowed the script down to higher time frames for better results, and we'll probably add more once we've tested this method and are sure that it is effective.
+- Stage 2: Adding Take Profit signals just before the opposite signal appears, converted the script to pine version 6. The script also works well on the 30 minute time frame (This is still in BETA).
+- Stage 3: Auto execute trades based on signals provided by indicator, this will be the last stage of the script but will only be implemented once the first two stages are completely functional. 
 
 ## Contact
 Created by [BluPin Capital](https://capital.blupininc.com/)
