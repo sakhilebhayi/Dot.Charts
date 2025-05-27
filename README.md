@@ -13,16 +13,16 @@
 
 ## General Information
 - A way to trade the commodity markets with ease. (Works on GOLD, SILVER, PLATINUM, USOIL, US30, NAS100 & BTCUSD)
-- This script is still under development do not use until stated otherwise.
+- This script is still under development but it is also ready for use. (Please proceed with causion)
 
 
 ## Features
 - Buy / Sell Signals When Opportunities Open Up.
-- Supports Multiple Time Frames From H4 - M5
+- Supports Multiple Time Frames From M5 - H4
 
 ## Project Status
 - Project Status: _Development_.
-- Vesion 0.01
+- Vesion 0.10
 - Stage 1: Currently working on the time frames, I noticed that this script works best on the H4 time frame, so we have narrowed the script down to higher time frames for better results, and we'll probably add more once we've tested this method and are sure that it is effective.
 
 ## Contact
