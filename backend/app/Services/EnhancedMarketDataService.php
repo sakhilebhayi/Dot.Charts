@@ -13,6 +13,78 @@ use Illuminate\Support\Facades\Log;
  */
 class EnhancedMarketDataService
 {
+    /**
+     * General data quality checks for market data
+     * @param array $marketData
+     * @return array
+     */
+    public function assessDataQuality(array $marketData): array
+    {
+        $quality = [
+            'completeness' => !empty($marketData['current_price']) && !empty($marketData['volume']) && !empty($marketData['volatility']),
+            'recency' => isset($marketData['timestamp']) ? (time() - strtotime($marketData['timestamp']) < 3600) : false,
+            'consistency' => true,
+            'reliability_score' => 0
+        ];
+        // Consistency: check if price, volume, volatility are not outliers
+        if (isset($marketData['current_price']['price'], $marketData['volume']['volume_24h'], $marketData['volatility']['volatility_7d'])) {
+            $price = $marketData['current_price']['price'];
+            $volume = $marketData['volume']['volume_24h'];
+            $vol = $marketData['volatility']['volatility_7d'];
+            $quality['consistency'] = ($price > 0 && $volume > 0 && $vol >= 0 && $vol < 100);
+        }
+        // Reliability score: sum of checks
+        $quality['reliability_score'] = ($quality['completeness'] + $quality['recency'] + $quality['consistency']) / 3 * 100;
+        return $quality;
+    }
+    /**
+     * Aggregate signals using robust ensemble methods
+     * @param array $signalSets Array of arrays: [['technical'=>..., 'sentiment'=>..., ...], ...]
+     * @return array
+     */
+    public function aggregateEnsembleSignals(array $signalSets): array
+    {
+        $ensemble = [
+            'technical' => [],
+            'sentiment' => [],
+            'overall' => [],
+        ];
+        foreach ($signalSets as $signals) {
+            foreach (['technical', 'sentiment', 'overall'] as $key) {
+                if (isset($signals[$key])) $ensemble[$key][] = $signals[$key];
+            }
+        }
+        // Weighted average (robust to outliers)
+        $result = [];
+        foreach ($ensemble as $key => $values) {
+            if (empty($values)) {
+                $result[$key] = null;
+                continue;
+            }
+            // Remove outliers (outside 1.5*IQR)
+            sort($values);
+            $q1 = $values[(int)(0.25 * count($values))];
+            $q3 = $values[(int)(0.75 * count($values))];
+            $iqr = $q3 - $q1;
+            $filtered = array_filter($values, function($v) use ($q1, $q3, $iqr) {
+                return $v >= ($q1 - 1.5 * $iqr) && $v <= ($q3 + 1.5 * $iqr);
+            });
+            $result[$key] = count($filtered) ? array_sum($filtered) / count($filtered) : array_sum($values) / count($values);
+        }
+        // Majority voting for categorical signals (if present)
+        if (isset($signalSets[0]['signal'])) {
+            $votes = [];
+            foreach ($signalSets as $signals) {
+                if (isset($signals['signal'])) {
+                    $votes[] = $signals['signal'];
+                }
+            }
+            $counts = array_count_values($votes);
+            arsort($counts);
+            $result['majority_signal'] = key($counts);
+        }
+        return $result;
+    }
     // Free Public APIs - No authentication required
     protected $wallstreetBetsUrl;    // Social Sentiment Analysis
     protected $exchangeRateUrl;      // Currency Exchange Rates
@@ -330,12 +402,19 @@ class EnhancedMarketDataService
             $signals['sentiment'] = $this->calculateSentimentSignal($marketData);
         }
 
-        // Calculate overall signal (50/50 technical/sentiment for free APIs)
-        $weights = [
-            'technical' => 0.50,
-            'sentiment' => 0.50,
-        ];
-
+        // Dynamic weighting based on data quality and volatility
+        $confidence = ($dataSourcesAvailable / $totalSources);
+        $volatility = $marketData['volatility']['volatility_7d'] ?? 10;
+        // If confidence is high and volatility is low, favor technicals
+        if ($confidence > 0.8 && $volatility < 15) {
+            $weights = [ 'technical' => 0.7, 'sentiment' => 0.3 ];
+        } elseif ($confidence < 0.5 || $volatility > 25) {
+            // If confidence is low or volatility is high, favor sentiment
+            $weights = [ 'technical' => 0.3, 'sentiment' => 0.7 ];
+        } else {
+            // Otherwise, balanced
+            $weights = [ 'technical' => 0.5, 'sentiment' => 0.5 ];
+        }
         $signals['overall'] = (
             $signals['technical'] * $weights['technical'] +
             $signals['sentiment'] * $weights['sentiment']

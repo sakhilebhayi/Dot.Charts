@@ -1,3 +1,43 @@
+# ChartSense Laravel Backend
+
+## Setup Instructions
+
+1. Install dependencies:
+   ```bash
+   composer install
+   ```
+2. Copy environment file:
+   ```bash
+   cp .env.example .env
+   ```
+3. Generate application key:
+   ```bash
+   php artisan key:generate
+   ```
+4. Run migrations (if needed):
+   ```bash
+   php artisan migrate
+   ```
+5. Start the server:
+   ```bash
+   php artisan serve
+   ```
+
+The backend will be available at http://localhost:8000
+
+## Folder Structure
+- `app/Http/Controllers`: Controllers
+- `app/Models`: Models
+- `app/Services`: Services
+- `routes/api.php`: API routes
+- `routes/web.php`: Web routes
+- `public/`: Entry point
+- `config/`, `database/`, `resources/`, `bootstrap/`: Standard Laravel folders
+- `storage/`, `vendor/`: Generated after install
+- `frontend/`: Separate frontend app
+
+---
+
 # ChartSense Backend API
 
 Laravel-based backend for ChartSense - AI-powered trading chart analysis with comprehensive market data, news sentiment, and statistical analysis.

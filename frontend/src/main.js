@@ -40,13 +40,20 @@ document.addEventListener('DOMContentLoaded', () => {
     reader.onload = async (e) => {
       previewSrc = e.target.result;
       showAnalyzing();
-      
+
       try {
-        // Use mock analysis for demo (no API key required)
-        const analysis = generateMockAnalysis();
-        setTimeout(() => {
-          displayResults(analysis);
-        }, 1500); // Simulate processing time
+        // Only send image and context to backend; backend handles all API calls and signal generation
+        const response = await fetch('http://localhost:8000/api/chart/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: previewSrc,
+            market: 'crypto'
+          })
+        });
+        if (!response.ok) throw new Error('Backend analysis failed');
+        const result = await response.json();
+        displayResults(result.analysis);
       } catch (error) {
         showError(error.message);
       }

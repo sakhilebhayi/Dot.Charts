@@ -7,6 +7,43 @@ use Illuminate\Support\Facades\Log;
 class EnhancedStatisticalAnalysisService
 {
     /**
+     * Advanced feature engineering for signal accuracy
+     */
+    public function extractAdvancedFeatures(array $marketData, string $symbol, string $market): array
+    {
+        $features = [];
+        // Volatility clustering: periods of high/low volatility
+        $vols = $marketData['volatility']['history'] ?? [];
+        $clusters = [];
+        if (count($vols) > 10) {
+            $avg = array_sum($vols) / count($vols);
+            foreach ($vols as $i => $v) {
+                if ($v > $avg * 1.5) $clusters[] = ['index' => $i, 'type' => 'high', 'value' => $v];
+                elseif ($v < $avg * 0.7) $clusters[] = ['index' => $i, 'type' => 'low', 'value' => $v];
+            }
+        }
+        $features['volatility_clusters'] = $clusters;
+
+        // Regime detection: bull/bear/sideways
+        $prices = $marketData['historical_prices'] ?? [];
+        $regimes = [];
+        if (count($prices) > 10) {
+            for ($i = 1; $i < count($prices); $i++) {
+                $change = ($prices[$i] - $prices[$i-1]) / $prices[$i-1];
+                if ($change > 0.02) $regimes[] = 'bull';
+                elseif ($change < -0.02) $regimes[] = 'bear';
+                else $regimes[] = 'sideways';
+            }
+        }
+        $features['regime_sequence'] = $regimes;
+
+        // Cross-asset correlation (BTC, SP500, Gold)
+        $correlations = $this->analyzeCorrelations($symbol, $market, $marketData);
+        $features['cross_asset_correlation'] = $correlations;
+
+        return $features;
+    }
+    /**
      * Perform comprehensive statistical analysis with actual calculations
      */
     public function performAnalysis(array $marketData, array $newsData, string $symbol, string $market): array

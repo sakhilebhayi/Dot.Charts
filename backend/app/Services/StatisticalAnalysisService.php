@@ -9,6 +9,30 @@ use Illuminate\Support\Facades\Log;
 class StatisticalAnalysisService
 {
     /**
+     * Evaluate signal predictions with error metrics
+     * @param array $predictions
+     * @param array $actuals
+     * @return array
+     */
+    public function evaluateSignalMetrics(array $predictions, array $actuals): array
+    {
+        $metricsService = new \App\Services\SignalErrorMetricsService();
+        return $metricsService->computeMetrics($predictions, $actuals);
+    }
+    /**
+     * Validate signals using backtesting
+     * @param array $marketData
+     * @param array $signals
+     * @return array
+     */
+    public function validateSignalsWithBacktest(array $marketData, array $signals): array
+    {
+        $historicalPrices = $marketData['historical_prices'] ?? [];
+        if (empty($historicalPrices) || empty($signals)) return [];
+        $backtester = new \App\Services\SignalBacktestingService();
+        return $backtester->backtest($historicalPrices, $signals);
+    }
+    /**
      * Perform comprehensive statistical analysis
      */
     public function performAnalysis(array $marketData, array $newsData, string $symbol, string $market): array
@@ -314,8 +338,23 @@ class StatisticalAnalysisService
 
     protected function calculateSharpeRatio(array $marketData): float
     {
-        // Risk-adjusted return metric
-        return 0.5; // Placeholder
+        // Sharpe Ratio: (mean return - risk-free rate) / std dev of returns
+        $prices = $marketData['historical_prices'] ?? [];
+        if (count($prices) < 2) return 0.0;
+        $riskFreeRate = 0.02 / 252; // daily risk-free rate (2% annual)
+        $returns = [];
+        for ($i = 1; $i < count($prices); $i++) {
+            $returns[] = ($prices[$i] - $prices[$i-1]) / $prices[$i-1];
+        }
+        $meanReturn = array_sum($returns) / count($returns);
+        $sumSq = 0.0;
+        foreach ($returns as $r) {
+            $sumSq += pow($r - $meanReturn, 2);
+        }
+        $stdDev = sqrt($sumSq / count($returns));
+        if ($stdDev == 0) return 0.0;
+        $sharpe = ($meanReturn - $riskFreeRate) / $stdDev;
+        return round($sharpe, 2);
     }
 
     protected function calculateProbabilityConfidence(float $volatility): string
@@ -386,26 +425,78 @@ class StatisticalAnalysisService
 
     protected function calculateMaxDrawdown(array $marketData): float
     {
-        // Maximum observed loss from peak
-        return 15.0; // Placeholder
+        // Calculate maximum drawdown from price history
+        $prices = $marketData['historical_prices'] ?? [];
+        if (empty($prices)) return 0.0;
+        $maxDrawdown = 0.0;
+        $peak = $prices[0];
+        foreach ($prices as $price) {
+            if ($price > $peak) $peak = $price;
+            $drawdown = ($peak - $price) / $peak;
+            if ($drawdown > $maxDrawdown) $maxDrawdown = $drawdown;
+        }
+        return round($maxDrawdown * 100, 2); // as percentage
     }
 
     protected function calculateDownsideDeviation(array $marketData): float
     {
-        // Measures downside volatility only
-        return 8.0; // Placeholder
+        // Standard deviation of negative returns
+        $prices = $marketData['historical_prices'] ?? [];
+        if (count($prices) < 2) return 0.0;
+        $returns = [];
+        for ($i = 1; $i < count($prices); $i++) {
+            $ret = ($prices[$i] - $prices[$i-1]) / $prices[$i-1];
+            if ($ret < 0) $returns[] = $ret;
+        }
+        if (empty($returns)) return 0.0;
+        $mean = array_sum($returns) / count($returns);
+        $sumSq = 0.0;
+        foreach ($returns as $r) {
+            $sumSq += pow($r - $mean, 2);
+        }
+        $downsideDev = sqrt($sumSq / count($returns));
+        return round($downsideDev * 100, 2); // as percentage
     }
 
     protected function calculateSortinoRatio(array $marketData): float
     {
-        // Risk-adjusted return using downside deviation
-        return 0.7; // Placeholder
+        // Sortino Ratio: (mean return - risk-free rate) / downside deviation
+        $prices = $marketData['historical_prices'] ?? [];
+        if (count($prices) < 2) return 0.0;
+        $riskFreeRate = 0.02 / 252; // daily risk-free rate (2% annual)
+        $returns = [];
+        for ($i = 1; $i < count($prices); $i++) {
+            $returns[] = ($prices[$i] - $prices[$i-1]) / $prices[$i-1];
+        }
+        $meanReturn = array_sum($returns) / count($returns);
+        $downsideDev = $this->calculateDownsideDeviation($marketData) / 100;
+        if ($downsideDev == 0) return 0.0;
+        $sortino = ($meanReturn - $riskFreeRate) / $downsideDev;
+        return round($sortino, 2);
     }
 
     protected function calculateRiskRewardRatio(array $marketData): float
     {
-        // Potential reward vs potential risk
-        return 2.5; // Placeholder - ideally > 2
+        // Average gain vs average loss
+        $prices = $marketData['historical_prices'] ?? [];
+        if (count($prices) < 2) return 0.0;
+        $gains = $losses = 0.0;
+        $gainCount = $lossCount = 0;
+        for ($i = 1; $i < count($prices); $i++) {
+            $ret = ($prices[$i] - $prices[$i-1]) / $prices[$i-1];
+            if ($ret > 0) {
+                $gains += $ret;
+                $gainCount++;
+            } elseif ($ret < 0) {
+                $losses += abs($ret);
+                $lossCount++;
+            }
+        }
+        if ($lossCount == 0) return 0.0;
+        $avgGain = $gainCount ? $gains / $gainCount : 0.0;
+        $avgLoss = $losses / $lossCount;
+        $ratio = $avgLoss ? $avgGain / $avgLoss : 0.0;
+        return round($ratio, 2);
     }
 
     protected function interpretRSI(float $rsi): string
