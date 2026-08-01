@@ -4,7 +4,16 @@ namespace App\Services;
 
 class SignalFeedbackService
 {
-    protected $feedbackFile = __DIR__ . '/../../storage/signal_feedback.json';
+    protected $feedbackFile;
+
+    /**
+     * @param string|null $feedbackFile Optional override, mainly for tests.
+     *                                  Defaults to storage/signal_feedback.json.
+     */
+    public function __construct(?string $feedbackFile = null)
+    {
+        $this->feedbackFile = $feedbackFile ?? __DIR__ . '/../../storage/signal_feedback.json';
+    }
 
     /**
      * Store user feedback for a signal

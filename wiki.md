@@ -109,6 +109,7 @@ Per Dot.Brain's framing, Dot.Charts is the ecosystem's only regulated-market pla
 | Version | Date | Author | Change |
 |---|---|---|---|
 | 0.1.0 | 2026-08-01 | Charts Platform Lead | Initial wiki: derived from the actual ChartSense codebase (Laravel backend + Vite frontend, market-data aggregation, chart-analysis and backtesting prototypes) and cross-referenced against Dot.Brain's `platforms/dot-charts.md` for ecosystem framing |
+| 0.1.1 | 2026-08-01 | Charts Platform Lead | Engineering-quality pass: fixed `routes/api.php` never being registered (missing `api:` entry in `bootstrap/app.php` — the endpoint didn't exist at all in a real request cycle); removed a stray duplicate-class file (`DetectSymbolTrait.php`) that redeclared `EnhancedMarketDataController`; labeled the hardcoded chart-analysis response as a demo (`is_demo`/`disclaimer` fields, matching UI banner) rather than fixing the "hardcoded results" bug by fabricating real analysis; added the first PHPUnit tests in the repo (`tests/Unit`, `tests/Feature` — previously didn't exist despite `phpunit.xml` referencing them); rewrote root and backend README to drop aspirational/fictional claims (Gemini/GPT-4 Vision, `AIAgentService`) that didn't match the code; removed `downloads/` (stale doc referencing a build archive that isn't in the repo); added real logo/favicons; fixed `composer.json`'s leftover `laravel/laravel` template name |
 
 ## Open Questions
 

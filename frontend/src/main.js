@@ -53,7 +53,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!response.ok) throw new Error('Backend analysis failed');
         const result = await response.json();
-        displayResults(result.analysis);
+        displayResults(result.analysis, {
+          isDemo: result.is_demo === true,
+          disclaimer: result.disclaimer || null
+        });
       } catch (error) {
         showError(error.message);
       }
@@ -147,8 +150,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  function displayResults(analysis) {
+  function displayResults(analysis, meta = {}) {
     const style = getSignalStyle(analysis.signal);
+    const demoBanner = meta.isDemo
+      ? `<div class="demo-banner" role="status">
+          <strong>Demo result — not real analysis.</strong>
+          <span>${meta.disclaimer || 'This output is a fixed placeholder for UI development and is not generated from your chart or live market data. Do not use it to make trading decisions.'}</span>
+        </div>`
+      : '';
     const signalCard = `
       <div class="signal-card" style="background:${style.bg};border:1px solid ${style.border};display:flex;flex-direction:column;justify-content:center;height:100%">
         <div class="signal-value" style="color:${style.accent};margin-top:0">${analysis.signal}</div>
@@ -167,6 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     analysisPanel.innerHTML = `
       <div class="fade-in">
+        ${demoBanner}
         ${signalBlock}
 
         <div class="analysis-results stagger-1" style="margin-top:16px">
