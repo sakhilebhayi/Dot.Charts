@@ -1,4 +1,10 @@
-# ChartSense 📊
+<div align="center">
+
+<img src="frontend/public/images/logo.png" alt="Dot.Charts" width="200" />
+
+# Dot.Charts (repo: ChartSense) 📊
+
+</div>
 
 **AI-assisted chart analysis platform — early-stage build.** Part of the Dot Ecosystem; registered there as `dot-charts` (see [wiki.md](wiki.md) §6 for the repo/registry naming discrepancy).
 
