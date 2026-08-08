@@ -80,4 +80,9 @@ return [
         'description' => 'WallStreetBets - Stock sentiment from Reddit (100% FREE)',
     ],
 
+    // Dot.Charts Python analytics microservice (backtesting engine)
+    'analytics' => [
+        'url' => env('ANALYTICS_SERVICE_URL', 'http://localhost:8001'),
+    ],
+
 ];
