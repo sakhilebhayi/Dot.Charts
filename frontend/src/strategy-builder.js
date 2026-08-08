@@ -1,4 +1,5 @@
 import { getToken, clearToken, isLoggedIn } from './auth.js';
+import { renderBacktestResult } from './results-renderer.js';
 
 const OPERAND_TYPES = [
   { value: 'close', label: 'Close' },
@@ -211,3 +212,52 @@ if (authStateEl) {
 
 renderPanel('entry');
 renderPanel('exit');
+
+const API_BASE = 'http://localhost:8000/api';
+
+document.getElementById('testRunButton').addEventListener('click', async () => {
+  const button = document.getElementById('testRunButton');
+  const errorEl = document.getElementById('error');
+  const resultsEl = document.getElementById('results');
+
+  errorEl.style.display = 'none';
+  resultsEl.style.display = 'none';
+  button.disabled = true;
+  button.textContent = 'Running…';
+
+  const payload = {
+    symbol: document.getElementById('symbol').value.trim(),
+    asset_class: document.getElementById('assetClass').value,
+    strategy: 'custom',
+    start_date: document.getElementById('startDate').value,
+    end_date: document.getElementById('endDate').value,
+    params: currentRules(),
+  };
+
+  try {
+    const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+    const token = getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE}/backtests`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json();
+
+    if (!response.ok || body.success === false) {
+      throw new Error(body.error || 'Test run failed');
+    }
+
+    renderBacktestResult(body.result);
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.style.display = 'block';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Test Run';
+  }
+});
