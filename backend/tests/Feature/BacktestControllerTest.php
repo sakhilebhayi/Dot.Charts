@@ -191,6 +191,48 @@ class BacktestControllerTest extends TestCase
         $bollingerResponse->assertOk();
     }
 
+    public function test_store_accepts_forex_asset_class(): void
+    {
+        Http::fake([
+            '*/backtest' => Http::response([
+                'symbol' => 'EURUSD=X',
+                'asset_class' => 'forex',
+                'strategy' => 'ma_crossover',
+                'params' => ['fast_window' => 20, 'slow_window' => 50],
+                'start_date' => '2023-01-01',
+                'end_date' => '2026-01-01',
+                'metrics' => [
+                    'total_return_pct' => 2.0,
+                    'win_rate_pct' => 45.0,
+                    'max_drawdown_pct' => -1.5,
+                    'sharpe_ratio' => 0.7,
+                    'trade_count' => 10,
+                    'losing_trade_count' => 5,
+                ],
+                'equity_curve' => [['time' => '2023-01-01T00:00:00', 'equity' => 10000.0]],
+                'trades' => [],
+            ], 200),
+        ]);
+
+        $response = $this->postJson('/api/backtests', [
+            'symbol' => 'EURUSD=X',
+            'asset_class' => 'forex',
+            'strategy' => 'ma_crossover',
+            'start_date' => '2023-01-01',
+            'end_date' => '2026-01-01',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $response->assertJsonPath('result.asset_class', 'forex');
+
+        $this->assertDatabaseHas('backtest_runs', [
+            'symbol' => 'EURUSD=X',
+            'asset_class' => 'forex',
+            'status' => 'complete',
+        ]);
+    }
+
     public function test_anonymous_backtests_are_capped_at_three_per_hour(): void
     {
         Http::fake(['*/backtest' => Http::response(['metrics' => ['trade_count' => 0]], 200)]);
