@@ -30,6 +30,7 @@ class KnowledgePackControllerTest extends TestCase
     private function operatorToken(): string
     {
         $operator = User::factory()->create(['is_platform_operator' => true]);
+
         return $operator->createToken('api')->plainTextToken;
     }
 
@@ -137,6 +138,126 @@ class KnowledgePackControllerTest extends TestCase
         $response->assertJsonStructure(['data' => ['payloads', 'signatures', 'provenance', 'confidence']]);
 
         $envelope = $response->json('data');
-        $this->assertTrue((new DkpSigner())->verify($envelope));
+        $this->assertTrue((new DkpSigner)->verify($envelope));
+    }
+
+    public function test_pending_lists_only_pending_approval_packs(): void
+    {
+        $token = $this->operatorToken();
+        $pending = \App\Models\KnowledgePack::create([
+            'pack_id' => 'dkp:dot-charts:'.\Illuminate\Support\Str::uuid(),
+            'payload_type' => 'insight',
+            'pack_version' => '1.0.0',
+            'title' => 'Pending pack',
+            'summary' => 'Test',
+            'period' => 'pending-slug',
+            'envelope' => ['payloads' => [['payload_type' => 'insight', 'body' => ['statement' => 'x']]], 'signatures' => []],
+            'status' => 'pending_approval',
+            'created_at' => now(),
+        ]);
+        \App\Models\KnowledgePack::create([
+            'pack_id' => 'dkp:dot-charts:'.\Illuminate\Support\Str::uuid(),
+            'payload_type' => 'insight',
+            'pack_version' => '1.0.0',
+            'title' => 'Already approved',
+            'summary' => 'Test',
+            'period' => 'approved-slug',
+            'envelope' => ['payloads' => [], 'signatures' => []],
+            'status' => 'approved',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/knowledge-packs/pending');
+
+        $response->assertOk();
+        $ids = collect($response->json('data'))->pluck('id');
+        $this->assertTrue($ids->contains($pending->id));
+        $this->assertCount(1, $response->json('data'));
+    }
+
+    public function test_approve_signs_and_finalizes_a_pending_pack(): void
+    {
+        $token = $this->operatorToken();
+        $pack = \App\Models\KnowledgePack::create([
+            'pack_id' => 'dkp:dot-charts:'.\Illuminate\Support\Str::uuid(),
+            'payload_type' => 'insight',
+            'pack_version' => '1.0.0',
+            'title' => 'Pending pack',
+            'summary' => 'Test',
+            'period' => 'approve-slug',
+            'envelope' => ['payloads' => [], 'confidence' => 0.9, 'signatures' => []],
+            'status' => 'pending_approval',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->postJson("/api/knowledge-packs/{$pack->id}/approve");
+
+        $response->assertOk();
+        $response->assertJson(['status' => 'approved']);
+        $this->assertSame('approved', $pack->fresh()->status);
+    }
+
+    public function test_reject_requires_a_reason(): void
+    {
+        $token = $this->operatorToken();
+        $pack = \App\Models\KnowledgePack::create([
+            'pack_id' => 'dkp:dot-charts:'.\Illuminate\Support\Str::uuid(),
+            'payload_type' => 'insight',
+            'pack_version' => '1.0.0',
+            'title' => 'Pending pack',
+            'summary' => 'Test',
+            'period' => 'reject-slug',
+            'envelope' => ['payloads' => [], 'confidence' => 0.9, 'signatures' => []],
+            'status' => 'pending_approval',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->postJson("/api/knowledge-packs/{$pack->id}/reject", []);
+
+        $response->assertStatus(422);
+        $this->assertSame('pending_approval', $pack->fresh()->status);
+    }
+
+    public function test_reject_with_a_reason_marks_the_pack_rejected(): void
+    {
+        $token = $this->operatorToken();
+        $pack = \App\Models\KnowledgePack::create([
+            'pack_id' => 'dkp:dot-charts:'.\Illuminate\Support\Str::uuid(),
+            'payload_type' => 'insight',
+            'pack_version' => '1.0.0',
+            'title' => 'Pending pack',
+            'summary' => 'Test',
+            'period' => 'reject-slug-2',
+            'envelope' => ['payloads' => [], 'confidence' => 0.9, 'signatures' => []],
+            'status' => 'pending_approval',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->postJson("/api/knowledge-packs/{$pack->id}/reject", ['reason' => 'Not accurate.']);
+
+        $response->assertOk();
+        $response->assertJson(['status' => 'rejected', 'rejected_reason' => 'Not accurate.']);
+        $this->assertSame('rejected', $pack->fresh()->status);
+    }
+
+    public function test_non_operator_cannot_approve(): void
+    {
+        $user = User::factory()->create(['is_platform_operator' => false]);
+        $token = $user->createToken('api')->plainTextToken;
+        $pack = \App\Models\KnowledgePack::create([
+            'pack_id' => 'dkp:dot-charts:'.\Illuminate\Support\Str::uuid(),
+            'payload_type' => 'insight',
+            'pack_version' => '1.0.0',
+            'title' => 'Pending pack',
+            'summary' => 'Test',
+            'period' => 'auth-slug',
+            'envelope' => ['payloads' => [], 'confidence' => 0.9, 'signatures' => []],
+            'status' => 'pending_approval',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->postJson("/api/knowledge-packs/{$pack->id}/approve");
+
+        $response->assertStatus(403);
     }
 }

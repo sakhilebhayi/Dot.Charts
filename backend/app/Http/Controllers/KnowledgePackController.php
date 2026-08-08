@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\KnowledgePack;
 use App\Services\InboundMnpiGate;
+use App\Services\KnowledgePackApprovalService;
 use App\Services\ObservationPackGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,13 +14,13 @@ class KnowledgePackController extends Controller
     public function __construct(
         private readonly ObservationPackGenerator $generator,
         private readonly InboundMnpiGate $gate,
-    ) {
-    }
+        private readonly KnowledgePackApprovalService $approvalService,
+    ) {}
 
     public function generate(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'strategy_class' => 'required|string|in:' . implode(',', ObservationPackGenerator::knownStrategyClasses()),
+            'strategy_class' => 'required|string|in:'.implode(',', ObservationPackGenerator::knownStrategyClasses()),
             'period' => 'nullable|date_format:Y-m',
         ]);
 
@@ -44,6 +45,7 @@ class KnowledgePackController extends Controller
                 'payload_type' => $pack->payload_type,
                 'strategy_class' => $pack->strategy_class,
                 'account_count' => $pack->account_count,
+                'status' => $pack->status,
                 'confidence' => $pack->envelope['confidence'] ?? null,
                 'created_at' => $pack->created_at->toIso8601String(),
             ]);
@@ -69,5 +71,40 @@ class KnowledgePackController extends Controller
         $result = $this->gate->screen($validated);
 
         return response()->json($result);
+    }
+
+    public function pending(): JsonResponse
+    {
+        $packs = KnowledgePack::where('status', 'pending_approval')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (KnowledgePack $pack) => [
+                'id' => $pack->id,
+                'pack_id' => $pack->pack_id,
+                'title' => $pack->title,
+                'summary' => $pack->summary,
+                'payload_type' => $pack->payload_type,
+                'body' => $pack->envelope['payloads'][0]['body'] ?? null,
+                'created_at' => $pack->created_at->toIso8601String(),
+            ]);
+
+        return response()->json(['data' => $packs]);
+    }
+
+    public function approve(int $id, Request $request): JsonResponse
+    {
+        $pack = KnowledgePack::findOrFail($id);
+        $pack = $this->approvalService->approve($pack, $request->user());
+
+        return response()->json(['pack_id' => $pack->pack_id, 'status' => $pack->status]);
+    }
+
+    public function reject(int $id, Request $request): JsonResponse
+    {
+        $validated = $request->validate(['reason' => 'required|string']);
+        $pack = KnowledgePack::findOrFail($id);
+        $pack = $this->approvalService->reject($pack, $request->user(), $validated['reason']);
+
+        return response()->json(['pack_id' => $pack->pack_id, 'status' => $pack->status, 'rejected_reason' => $pack->rejected_reason]);
     }
 }
