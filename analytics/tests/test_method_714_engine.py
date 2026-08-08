@@ -40,6 +40,7 @@ def test_run_backtrader_method_714_returns_metrics_shape():
         "use_ema_filter": False,
         "use_atr_filter": False,
         "use_volume_filter": False,
+        "use_mtf_filter": False,  # no symbol/asset_class provided; MTF fetch is not exercised here
         "flatten_at_session_start": True,
     }
 
@@ -59,3 +60,85 @@ def test_run_backtrader_method_714_returns_metrics_shape():
     # daily decisive-up moves guarantee a momentum entry every session, so
     # a passing test here proves signals are actually reaching orders.
     assert result["metrics"]["trade_count"] > 0
+
+
+def test_run_backtrader_method_714_confidence_only_mode_trades_with_low_confidence_ok(mocker):
+    # confidence_only mode (the default): a signal with weak individual
+    # filters (trend/volume disabled -> those components read as "ok" by
+    # construction, matching how _trend_ok()/_volume_ok() already behave
+    # when their filter is off) should still trade as long as the score
+    # clears min_confidence, even without hard-gating on every filter.
+    df = _synthetic_session_df()
+    params = {
+        "mode": "momentum",
+        "use_ema_filter": False,
+        "use_volume_filter": False,
+        "use_mtf_filter": False,
+        "min_confidence": 30,  # session base alone (30) is enough
+        "symbol": "BTC/USDT",
+        "asset_class": "crypto",
+        "start_date": "2023-06-01",
+        "end_date": "2023-06-05",
+    }
+
+    result = run_backtrader(Method714Strategy, df, params)
+
+    assert result["metrics"]["trade_count"] > 0
+    first_trade = result["trades"][0]
+    assert "confidence_score" in first_trade
+    assert "confidence_breakdown" in first_trade
+    assert first_trade["confidence_score"] >= 30
+
+
+def test_run_backtrader_method_714_min_confidence_blocks_low_confidence_entries(mocker):
+    # This fixture's decisive session moves, combined with every optional
+    # filter disabled (each reads as "ok" for free per _trend_ok() etc.'s
+    # own semantics when its filter is off), reach the maximum possible
+    # score of 100 — confirmed directly against this exact fixture/params.
+    # min_confidence is set one point above that ceiling (101, outside the
+    # normal 0-100 range) specifically to prove the `score < min_confidence`
+    # comparison itself blocks entries, independent of which fixture is used.
+    df = _synthetic_session_df()
+    params = {
+        "mode": "momentum",
+        "use_ema_filter": False,
+        "use_volume_filter": False,
+        "use_mtf_filter": False,
+        "min_confidence": 101,
+        "symbol": "BTC/USDT",
+        "asset_class": "crypto",
+        "start_date": "2023-06-01",
+        "end_date": "2023-06-05",
+    }
+
+    result = run_backtrader(Method714Strategy, df, params)
+
+    assert result["metrics"]["trade_count"] == 0
+
+
+def test_run_backtrader_method_714_hard_filters_mode_vetoes_regardless_of_score(mocker):
+    # ema_slow's default (200) needs 200 bars to construct, and this
+    # fixture is only 96 bars, so use_ema_filter is left off here to avoid
+    # an unrelated indicator-construction crash. Instead this test vetoes
+    # via the volume filter: the fixture's volume is a flat 1000 on every
+    # bar, so volume[0] > volume_sma[0] * volume_mult (1000 > 1000) is
+    # never true -> _volume_ok() reliably fails and hard_filters mode
+    # should veto every entry regardless of confidence score.
+    df = _synthetic_session_df()
+    params = {
+        "mode": "momentum",
+        "use_ema_filter": False,
+        "use_atr_filter": False,
+        "use_volume_filter": True,
+        "use_mtf_filter": False,
+        "filter_mode": "hard_filters",
+        "min_confidence": 0,
+        "symbol": "BTC/USDT",
+        "asset_class": "crypto",
+        "start_date": "2023-06-01",
+        "end_date": "2023-06-05",
+    }
+
+    result = run_backtrader(Method714Strategy, df, params)
+
+    assert result["metrics"]["trade_count"] == 0

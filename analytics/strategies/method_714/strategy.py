@@ -1,12 +1,82 @@
+import pandas as pd
 import pandas_ta as ta
 import backtrader as bt
 
 from .sessions import compute_sessions, DEFAULT_SESSIONS, DEFAULT_TZ
 from .retest import generate_signals
+from .smc import compute_swing_pivots, compute_structure, compute_liquidity_sweeps, compute_prev_day_sweeps
+from .mtf import compute_htf_trend
+from .confidence import compute_confidence, extension_ok, pa_quality_ok, clv_ok
+
+
+def _compute_session_reference(sessions_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Extension band, PA quality, and CLV all reference the SESSION that
+    produced the current signal's bias — its own open/close and its
+    accumulated high/low across every bar inside it (matching the Pine
+    source's sessOpen/sessClose/sessHigh/sessLow, fixed at session-close
+    time) — not the bar where a retest_continuation signal eventually
+    fires, which can be many bars later with an irrelevant tiny
+    bar-to-bar move. Holds the most recently completed session's
+    reference OHLC for every bar until the next session starts.
+    """
+    n = len(sessions_df)
+    ref_open = [float("nan")] * n
+    ref_high = [float("nan")] * n
+    ref_low = [float("nan")] * n
+    ref_close = [float("nan")] * n
+
+    session_open_col = sessions_df["session_open"].to_numpy()
+    high_col = sessions_df["high"].to_numpy()
+    low_col = sessions_df["low"].to_numpy()
+    close_col = sessions_df["close"].to_numpy()
+    session_start = sessions_df["session_start"].to_numpy()
+    session_end = sessions_df["session_end"].to_numpy()
+    in_session = sessions_df["session_name"].notna().to_numpy()
+
+    current = None
+    running_high = float("nan")
+    running_low = float("nan")
+
+    for i in range(n):
+        if session_start[i]:
+            running_high = high_col[i]
+            running_low = low_col[i]
+        elif in_session[i]:
+            running_high = high_col[i] if pd.isna(running_high) else max(running_high, high_col[i])
+            running_low = low_col[i] if pd.isna(running_low) else min(running_low, low_col[i])
+
+        if session_end[i] and i > 0:
+            current = {
+                "open": session_open_col[i - 1],
+                "high": running_high,
+                "low": running_low,
+                "close": close_col[i - 1],
+            }
+
+        if current is not None:
+            ref_open[i] = current["open"]
+            ref_high[i] = current["high"]
+            ref_low[i] = current["low"]
+            ref_close[i] = current["close"]
+
+    out = sessions_df.copy()
+    out["ref_open"] = ref_open
+    out["ref_high"] = ref_high
+    out["ref_low"] = ref_low
+    out["ref_close"] = ref_close
+    return out
 
 
 class Method714Strategy(bt.Strategy):
     params = dict(
+        # Required — used for the MTF fetch, since the strategy only ever
+        # receives the base-timeframe DataFrame from backtrader, not the
+        # request context that produced it.
+        symbol=None,
+        asset_class=None,
+        start_date=None,
+        end_date=None,
         sessions=None,
         tz=DEFAULT_TZ,
         mode="retest_continuation",
@@ -29,23 +99,26 @@ class Method714Strategy(bt.Strategy):
         use_trailing_stop=False,
         trailing_atr_mult=2.0,
         flatten_at_session_start=True,
-        # Fraction of current portfolio value risked as position notional
-        # per entry. backtrader's default order size (no explicit `size`)
-        # is 1 full unit of the instrument — for BTC/USDT that's ~$100k+
-        # against a $10k starting cash, producing nonsensical negative
-        # triple-digit "returns". Position size is computed from this
-        # fraction instead (see `_position_size`).
         position_fraction=0.10,
+        # SMC / MTF / confidence — new this slice
+        smc_pivot_len=5,
+        smc_sweep_lookback=10,
+        fvg_min_atr_mult=0.25,
+        use_mtf_filter=True,
+        mtf_interval="4h",
+        mtf_fast=50,
+        mtf_slow=200,
+        extension_min_atr_mult=0.10,
+        extension_max_atr_mult=3.00,
+        pa_body_min=0.50,
+        pa_wick_min=0.33,
+        clv_min_pct=25.0,
+        min_confidence=45,
+        filter_mode="confidence_only",  # "confidence_only" | "hard_filters"
     )
 
     def __init__(self):
-        # ATR always exists — it drives SL/TP/breakeven/trailing regardless
-        # of use_atr_filter (which only gates the *session-range* filter).
         self.atr = bt.indicators.ATR(period=self.p.atr_length)
-
-        # EMA(200)/volume SMA are only built when their filter is enabled —
-        # building them unconditionally would force every backtest to need
-        # at least `ema_slow` bars of data even with the filter turned off.
         self.ema_fast = bt.indicators.EMA(period=self.p.ema_fast) if self.p.use_ema_filter else None
         self.ema_slow = bt.indicators.EMA(period=self.p.ema_slow) if self.p.use_ema_filter else None
         self.volume_sma = (
@@ -54,7 +127,7 @@ class Method714Strategy(bt.Strategy):
             else None
         )
 
-        df = self.data.p.dataname  # the pandas.DataFrame passed into bt.feeds.PandasData
+        df = self.data.p.dataname
         sessions_df = compute_sessions(df, self.p.sessions or DEFAULT_SESSIONS, self.p.tz)
         atr_series = ta.atr(df["high"], df["low"], df["close"], length=self.p.atr_length)
         retest_params = {
@@ -73,11 +146,43 @@ class Method714Strategy(bt.Strategy):
         self._signals = generate_signals(sessions_df, atr_series, retest_params).tz_localize(None)
         self._session_starts = sessions_df["session_start"].tz_localize(None)
 
+        ref_df = _compute_session_reference(sessions_df)
+        self._ref_open = ref_df["ref_open"].tz_localize(None)
+        self._ref_high = ref_df["ref_high"].tz_localize(None)
+        self._ref_low = ref_df["ref_low"].tz_localize(None)
+        self._ref_close = ref_df["ref_close"].tz_localize(None)
+
+        pivots_df = compute_swing_pivots(df, piv_len=self.p.smc_pivot_len)
+        structure_df = compute_structure(pivots_df)
+        sweeps_df = compute_liquidity_sweeps(structure_df, lookback_bars=self.p.smc_sweep_lookback)
+        pd_sweeps_df = compute_prev_day_sweeps(sweeps_df, tz=self.p.tz, lookback_bars=self.p.smc_sweep_lookback)
+
+        self._structure_dir = structure_df["structure_dir"].tz_localize(None)
+        self._recent_bull_sweep = sweeps_df["recent_bull_sweep"].tz_localize(None)
+        self._recent_bear_sweep = sweeps_df["recent_bear_sweep"].tz_localize(None)
+        self._recent_pd_bull_sweep = pd_sweeps_df["recent_pd_bull_sweep"].tz_localize(None)
+        self._recent_pd_bear_sweep = pd_sweeps_df["recent_pd_bear_sweep"].tz_localize(None)
+
+        if self.p.use_mtf_filter:
+            self._htf_trend = compute_htf_trend(
+                self.p.symbol,
+                self.p.asset_class,
+                self.p.start_date,
+                self.p.end_date,
+                df.index,
+                htf_interval=self.p.mtf_interval,
+                fast=self.p.mtf_fast,
+                slow=self.p.mtf_slow,
+            ).tz_localize(None)
+        else:
+            self._htf_trend = pd.Series(0, index=df.index).tz_localize(None)
+
         self.entry_price = None
         self.entry_atr = None
         self.stop_price = None
         self.take_profit_price = None
         self._last_exit_price = None
+        self._pending_confidence = None
         self.trade_log = []
         self.equity_curve = []
 
@@ -99,9 +204,57 @@ class Method714Strategy(bt.Strategy):
             return True
         return self.data.volume[0] > self.volume_sma[0] * self.p.volume_mult
 
+    def _mtf_ok(self, direction: int, current_time) -> bool:
+        if not self.p.use_mtf_filter:
+            return True
+        htf_trend = int(self._htf_trend.get(current_time, 0))
+        return (direction == 1 and htf_trend == 1) or (direction == -1 and htf_trend == -1)
+
     def _position_size(self, price: float) -> float:
         notional = self.broker.getvalue() * self.p.position_fraction
         return notional / price if price > 0 else 0
+
+    def _reference_bar(self, current_time) -> tuple[float, float, float, float]:
+        """
+        The most recently completed session's own open/high/low/close —
+        see _compute_session_reference for why this, not the live bar,
+        is what extension/PA-quality/CLV must evaluate.
+        """
+        return (
+            float(self._ref_open.get(current_time, float("nan"))),
+            float(self._ref_high.get(current_time, float("nan"))),
+            float(self._ref_low.get(current_time, float("nan"))),
+            float(self._ref_close.get(current_time, float("nan"))),
+        )
+
+    def _confidence_for_signal(self, signal: int, current_time) -> dict:
+        structure_dir = int(self._structure_dir.get(current_time, 0))
+        recent_bull_sweep = bool(self._recent_bull_sweep.get(current_time, False))
+        recent_bear_sweep = bool(self._recent_bear_sweep.get(current_time, False))
+        recent_pd_bull = bool(self._recent_pd_bull_sweep.get(current_time, False))
+        recent_pd_bear = bool(self._recent_pd_bear_sweep.get(current_time, False))
+
+        structure_aligned = (signal == 1 and structure_dir == 1) or (signal == -1 and structure_dir == -1)
+        sweep_aligned = (signal == 1 and recent_bull_sweep) or (signal == -1 and recent_bear_sweep)
+        prev_day_sweep_aligned = (signal == 1 and recent_pd_bull) or (signal == -1 and recent_pd_bear)
+
+        o, h, l, c = self._reference_bar(current_time)
+        pa_mode = "momentum" if self.p.mode == "momentum" else "contrarian"
+
+        return compute_confidence(
+            direction=signal,
+            trend_ok=self._trend_ok(signal),
+            mtf_ok=self._mtf_ok(signal, current_time),
+            atr_ok=self._atr_ok(),
+            volume_ok=self._volume_ok(),
+            structure_aligned=structure_aligned,
+            sweep_aligned=sweep_aligned,
+            pa_quality_ok=pa_quality_ok(
+                signal, o, h, l, c, mode=pa_mode, body_min=self.p.pa_body_min, wick_min=self.p.pa_wick_min
+            ),
+            clv_ok=clv_ok(signal, h, l, c, min_pct=self.p.clv_min_pct),
+            prev_day_sweep_aligned=prev_day_sweep_aligned,
+        )
 
     def next(self):
         current_time = self.data.num2date(self.data.datetime[0])
@@ -121,15 +274,45 @@ class Method714Strategy(bt.Strategy):
         signal = int(self._signals.get(current_time, 0))
         if signal == 0:
             return
-        if not self._trend_ok(signal):
-            return
-        if not self._atr_ok() or not self._volume_ok():
-            return
 
         atr_value = self.atr[0]
+
+        # Extension band is a hard gate in both filter modes, matching the
+        # Pine source's own "(hard gate)" labeling — it is never part of
+        # the confidence score. It evaluates the session's own open/close
+        # (see _reference_bar), not the live entry bar — for
+        # retest_continuation mode especially, the entry bar can be many
+        # bars after the session and its own tiny bar-to-bar move is not
+        # what "extension" is meant to measure.
+        ref_open, _, _, ref_close = self._reference_bar(current_time)
+        if not extension_ok(
+            ref_open, ref_close, atr_value,
+            min_mult=self.p.extension_min_atr_mult, max_mult=self.p.extension_max_atr_mult,
+        ):
+            return
+
+        confidence = self._confidence_for_signal(signal, current_time)
+        if confidence["score"] < self.p.min_confidence:
+            return
+
+        # In "confidence_only" mode (the default), trend/ATR/volume/MTF
+        # already shaped the score above and never independently veto —
+        # this is a deliberate change from the strategy's earlier
+        # reduced-core behavior (which hard-gated on these unconditionally)
+        # to reach parity with the Pine source's own two-mode design.
+        if self.p.filter_mode == "hard_filters":
+            if not (
+                self._trend_ok(signal)
+                and self._atr_ok()
+                and self._mtf_ok(signal, current_time)
+                and self._volume_ok()
+            ):
+                return
+
         price = self.data.close[0]
         self.entry_price = price
         self.entry_atr = atr_value
+        self._pending_confidence = confidence
         size = self._position_size(price)
         if signal == 1:
             self.stop_price = price - atr_value * self.p.sl_atr_mult
@@ -174,6 +357,7 @@ class Method714Strategy(bt.Strategy):
         # are tracked directly by this strategy instead (self.entry_price,
         # self._last_exit_price), set at the moment each order is placed.
         if trade.isclosed:
+            confidence = self._pending_confidence or {"score": None, "breakdown": None}
             self.trade_log.append(
                 {
                     "entry_time": bt.num2date(trade.dtopen).isoformat(),
@@ -182,5 +366,8 @@ class Method714Strategy(bt.Strategy):
                     "entry_price": self.entry_price,
                     "exit_price": self._last_exit_price,
                     "pnl": trade.pnl,
+                    "confidence_score": confidence["score"],
+                    "confidence_breakdown": confidence["breakdown"],
                 }
             )
+            self._pending_confidence = None

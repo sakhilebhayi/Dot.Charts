@@ -36,7 +36,18 @@ def backtest(request: BacktestRequest):
     if entry["engine"] == "vectorbt":
         result = run_vectorbt(entry["module"], df, params)
     else:
-        result = run_backtrader(entry["strategy_cls"], df, params)
+        # method_714's SMC/MTF layer needs the request context (symbol,
+        # asset_class, date range) to run its own second fetch_ohlcv call
+        # for the higher-timeframe dataset — the strategy only otherwise
+        # receives the already-fetched base-timeframe DataFrame.
+        backtrader_params = {
+            **params,
+            "symbol": request.symbol,
+            "asset_class": request.asset_class,
+            "start_date": request.start_date,
+            "end_date": request.end_date,
+        }
+        result = run_backtrader(entry["strategy_cls"], df, backtrader_params)
 
     return BacktestResult(
         symbol=request.symbol,

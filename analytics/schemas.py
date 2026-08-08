@@ -21,6 +21,8 @@ class TradeRecord(BaseModel):
     entry_price: float
     exit_price: Optional[float] = None
     pnl: Optional[float] = None
+    confidence_score: Optional[int] = None
+    confidence_breakdown: Optional[dict] = None
 
 
 class BacktestMetrics(BaseModel):
