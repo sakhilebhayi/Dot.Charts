@@ -89,8 +89,16 @@ commodity preset pattern needs the equivalent forex addition:
   equivalent `'forex'` branch, so re-running a saved forex backtest
   correctly selects the matching preset option instead of leaving the
   dropdown on its default.
-- **`frontend/history.html`**: no change needed — it has no asset-class
-  filter dropdown (only a strategy filter), confirmed by inspection.
+- **`frontend/history.html`**: **correction, found during implementation
+  verification** — this spec originally claimed no change was needed
+  here, based on a `grep` for `asset_class`/`assetClass` that came up
+  empty. That grep was case-sensitive and missed the actual element id,
+  `filterAssetClass` (capital A) — the page does have an asset-class
+  filter `<select>`, already containing Equity/Crypto/Commodity options
+  from the commodity slice. It needed the same `<option
+  value="forex">Forex</option>` addition as every other hand-enumerated
+  asset-class list. Caught by manually opening the page during
+  verification rather than trusting the earlier grep-based claim.
 
 ## Testing
 
