@@ -51,5 +51,10 @@ class AppServiceProvider extends ServiceProvider
             \App\Events\StrategyPerformanceCycleCompleted::class,
             \App\Listeners\LogStrategyPerformanceCycle::class,
         );
+
+        \Illuminate\Support\Facades\Event::listen(
+            \App\Events\ComplianceGateRejected::class,
+            \App\Listeners\LogComplianceGateRejection::class,
+        );
     }
 }
