@@ -57,3 +57,7 @@ class ChartAnalysisRequest(BaseModel):
     symbol: str
     asset_class: AssetClass
     interval: str = "1d"
+
+
+class ValidateRuleRequest(BaseModel):
+    rules: dict

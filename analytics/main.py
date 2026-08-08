@@ -1,10 +1,11 @@
+import pandas as pd
 from fastapi import FastAPI, HTTPException
 
-from schemas import BacktestRequest, BacktestResult, ChartAnalysisRequest
+from schemas import BacktestRequest, BacktestResult, ChartAnalysisRequest, ValidateRuleRequest
 from data.cache import fetch_ohlcv_cached
 from data.fetch import DataFetchError
 from strategies import STRATEGY_REGISTRY
-from strategies.custom_rules import InvalidStrategyParamsError
+from strategies.custom_rules import evaluate_rule, InvalidStrategyParamsError
 from engines.vectorbt_engine import run_vectorbt
 from engines.backtrader_engine import run_backtrader
 from analysis.chart_analysis import compute_chart_analysis
@@ -74,3 +75,32 @@ def chart_analysis(request: ChartAnalysisRequest):
         return compute_chart_analysis(request.symbol, request.asset_class, request.interval)
     except DataFetchError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.post("/validate-rule")
+def validate_rule(request: ValidateRuleRequest):
+    # A small synthetic DataFrame -- no live market-data fetch needed.
+    # 250 bars is enough for any indicator length used in practice
+    # (the longest built-in default, EMA/SMA/RSI/ATR/Bollinger, all stay
+    # well under 250) to resolve without an insufficient-history error.
+    idx = pd.date_range("2020-01-01", periods=250, freq="D")
+    close = pd.Series([100.0 + (i % 20) * 0.5 for i in range(250)], index=idx)
+    synthetic_df = pd.DataFrame({
+        "open": close, "high": close + 1, "low": close - 1, "close": close, "volume": 1000,
+    })
+
+    entry_rule = request.rules.get("entry")
+    exit_rule = request.rules.get("exit")
+
+    if not entry_rule:
+        return {"valid": False, "error": "rules must include an 'entry' rule"}
+    if not exit_rule:
+        return {"valid": False, "error": "rules must include an 'exit' rule"}
+
+    try:
+        evaluate_rule(synthetic_df, entry_rule)
+        evaluate_rule(synthetic_df, exit_rule)
+    except InvalidStrategyParamsError as exc:
+        return {"valid": False, "error": str(exc)}
+
+    return {"valid": True}
