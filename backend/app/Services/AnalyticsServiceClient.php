@@ -40,6 +40,22 @@ class AnalyticsServiceClient
     }
 
     /**
+     * @param array $payload matches the Python service's ChartAnalysisRequest shape
+     * @return array the decoded JSON response (signal/confidence/trend/patterns/supports/resistances/summary)
+     * @throws RuntimeException on a non-2xx response or connection failure
+     */
+    public function analyzeChart(array $payload): array
+    {
+        $response = Http::timeout(30)->post("{$this->baseUrl}/chart-analysis", $payload);
+
+        if ($response->failed()) {
+            throw new RuntimeException($this->errorMessage($response));
+        }
+
+        return $response->json();
+    }
+
+    /**
      * FastAPI's own validation errors (as opposed to our HTTPException calls,
      * which always set a string detail) return `detail` as an array of
      * per-field error objects, not a string — e.g. {"detail": [{"loc": [...],

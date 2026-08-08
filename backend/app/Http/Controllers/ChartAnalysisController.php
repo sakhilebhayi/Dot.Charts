@@ -1,44 +1,85 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Services\AnalyticsServiceClient;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use RuntimeException;
 
 class ChartAnalysisController extends Controller
 {
+    private const MARKET_TO_ASSET_CLASS = [
+        'stocks' => 'equity',
+        'crypto' => 'crypto',
+        'forex' => 'forex',
+    ];
+
+    public function __construct(
+        private readonly AnalyticsServiceClient $analyticsClient,
+    ) {
+    }
+
     /**
      * Analyze chart and detect symbol.
      *
-     * IMPORTANT: the real technical/SMC analysis pipeline described in the
-     * platform roadmap (wiki.md §8) is not built yet. This endpoint currently
-     * only (a) runs OCR against the uploaded image to guess a symbol, and
-     * (b) returns a fixed, non-computed placeholder analysis payload. It does
-     * NOT read live market data, does NOT run any statistical/backtesting
-     * service, and must never be presented to a user as a real trading
-     * signal. The `is_demo`/`disclaimer` fields below exist so every
-     * consumer of this endpoint (including the frontend) is forced to
-     * surface that fact rather than quietly rendering fake numbers as if
-     * they were real analysis.
+     * Real analysis: when a symbol is known — either the caller supplies
+     * one directly, or OCR against the uploaded image finds one — this
+     * fetches real recent market data for that symbol and computes real
+     * trend/structure/support-resistance analysis (see
+     * analytics/analysis/chart_analysis.py). When no symbol is known, or
+     * the analytics service call fails (e.g. a bad OCR guess that isn't a
+     * real ticker), this falls back to a fixed, clearly-labeled placeholder
+     * response — it never presents fake numbers as if they were real.
      */
     public function analyzeChart(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'image' => 'required|string',
             'market' => 'required|in:stocks,crypto,forex',
-            'additional_context' => 'nullable|string'
+            'additional_context' => 'nullable|string',
+            'symbol' => 'nullable|string|max:20',
         ]);
 
         $image = $validated['image'];
         $market = $validated['market'];
-        $context = $validated['additional_context'] ?? '';
+        $symbol = $validated['symbol'] ?? $this->detectSymbolFromImage($image);
 
-        // Detect symbol from image (best-effort OCR; frequently null)
-        $symbol = $this->detectSymbolFromImage($image);
+        if ($symbol !== null) {
+            $assetClass = self::MARKET_TO_ASSET_CLASS[$market];
 
+            try {
+                $analysis = $this->analyticsClient->analyzeChart([
+                    'symbol' => $symbol,
+                    'asset_class' => $assetClass,
+                    'interval' => '1d',
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'is_demo' => false,
+                    'disclaimer' => 'Computed from real recent market data for the detected symbol using '
+                        . 'swing-structure analysis. This is not a backtested trading strategy signal and '
+                        . 'must not be used to make trading decisions.',
+                    'analysis' => $analysis,
+                    'symbol_detected' => $symbol,
+                    'market' => $market,
+                ]);
+            } catch (RuntimeException) {
+                // Falls through to the placeholder below — a bad OCR guess
+                // or a transient analytics-service failure must not turn
+                // into a hard error for the user.
+            }
+        }
+
+        return $this->placeholderResponse($symbol, $market);
+    }
+
+    private function placeholderResponse(?string $symbol, string $market): JsonResponse
+    {
         // Placeholder analysis. Not derived from the uploaded chart, live
-        // market data, or any statistical/backtesting service — see the
-        // docblock above. Do not wire this into anything that presents
-        // itself as real trading advice without replacing this block first.
+        // market data, or any statistical/backtesting service. Do not wire
+        // this into anything that presents itself as real trading advice
+        // without replacing this block first.
         $analysis = [
             'signal' => 'Buy',
             'confidence' => 85,
@@ -46,7 +87,7 @@ class ChartAnalysisController extends Controller
             'patterns' => ['Ascending Triangle'],
             'supports' => ['48000', '47500'],
             'resistances' => ['49500', '50000'],
-            'summary' => 'Placeholder analysis — not computed from the uploaded chart or live market data.'
+            'summary' => 'Placeholder analysis — not computed from the uploaded chart or live market data.',
         ];
 
         return response()->json([
@@ -55,7 +96,7 @@ class ChartAnalysisController extends Controller
             'disclaimer' => 'This is a placeholder/demo result for UI development only. It is not generated from your chart, real market data, or any trading model, and must not be used to make trading decisions.',
             'analysis' => $analysis,
             'symbol_detected' => $symbol,
-            'market' => $market
+            'market' => $market,
         ]);
     }
 

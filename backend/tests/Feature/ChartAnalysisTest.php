@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ChartAnalysisTest extends TestCase
@@ -85,5 +86,61 @@ class ChartAnalysisTest extends TestCase
         ]);
 
         $response->assertStatus(429);
+    }
+
+    public function test_analyze_chart_with_symbol_override_returns_real_analysis(): void
+    {
+        Http::fake([
+            '*/chart-analysis' => Http::response([
+                'signal' => 'Buy',
+                'confidence' => 80,
+                'trend' => 'Bullish',
+                'patterns' => ['Bullish Break of Structure'],
+                'supports' => ['148.20', '145.10'],
+                'resistances' => ['152.30', '155.00'],
+                'summary' => 'Bullish trend with bullish structure on AAPL (1d).',
+            ], 200),
+        ]);
+
+        $response = $this->postJson('/api/chart/analyze', [
+            'image' => self::TINY_PNG_BASE64,
+            'market' => 'stocks',
+            'symbol' => 'AAPL',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'is_demo' => false,
+            'symbol_detected' => 'AAPL',
+        ]);
+        $response->assertJsonPath('analysis.signal', 'Buy');
+        $response->assertJsonPath('analysis.trend', 'Bullish');
+
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/chart-analysis')
+                && $request['symbol'] === 'AAPL'
+                && $request['asset_class'] === 'equity';
+        });
+    }
+
+    public function test_analyze_chart_falls_back_to_placeholder_when_analytics_service_fails(): void
+    {
+        Http::fake([
+            '*/chart-analysis' => Http::response(['detail' => 'No equity data for symbol \'BADSYMBOL\''], 422),
+        ]);
+
+        $response = $this->postJson('/api/chart/analyze', [
+            'image' => self::TINY_PNG_BASE64,
+            'market' => 'stocks',
+            'symbol' => 'BADSYMBOL',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'is_demo' => true,
+        ]);
+        $response->assertJsonPath('analysis.summary', 'Placeholder analysis — not computed from the uploaded chart or live market data.');
     }
 }
