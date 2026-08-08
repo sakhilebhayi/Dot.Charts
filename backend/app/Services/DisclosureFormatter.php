@@ -14,6 +14,8 @@ class DisclosureFormatter
         'ma_crossover' => 'MA Crossover',
         'rsi_mean_reversion' => 'RSI Mean-Reversion',
         'method_714' => '714 Method',
+        'breakout' => 'Breakout (Donchian)',
+        'bollinger_mean_reversion' => 'Bollinger Mean-Reversion',
     ];
 
     /**
