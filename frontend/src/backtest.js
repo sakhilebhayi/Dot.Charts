@@ -1,3 +1,5 @@
+import { getToken, clearToken, isLoggedIn } from './auth.js';
+
 const API_BASE = 'http://localhost:8000/api';
 
 const runButton = document.getElementById('runButton');
@@ -6,6 +8,20 @@ const resultsEl = document.getElementById('results');
 const assetClassSelect = document.getElementById('assetClass');
 const symbolInput = document.getElementById('symbol');
 const symbolCommoditySelect = document.getElementById('symbolCommodity');
+
+const authStateEl = document.getElementById('authState');
+if (authStateEl) {
+  if (isLoggedIn()) {
+    authStateEl.innerHTML = '<a href="#" id="logoutLink" style="color:var(--accent)">Log out</a>';
+    document.getElementById('logoutLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      clearToken();
+      window.location.reload();
+    });
+  } else {
+    authStateEl.innerHTML = '<a href="/login.html" style="color:var(--accent)">Log in</a>';
+  }
+}
 
 assetClassSelect.addEventListener('change', () => {
   const isCommodity = assetClassSelect.value === 'commodity';
@@ -35,9 +51,15 @@ runButton.addEventListener('click', async () => {
   };
 
   try {
+    const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+    const token = getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_BASE}/backtests`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers,
       body: JSON.stringify(payload),
     });
     const body = await response.json();
