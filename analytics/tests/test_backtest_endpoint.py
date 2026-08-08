@@ -144,6 +144,26 @@ def test_backtest_bollinger_mean_reversion_returns_metrics_and_trades(mocker):
     assert "trade_count" in body["metrics"]
 
 
+def test_backtest_forex_returns_metrics_and_trades(mocker):
+    mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
+
+    response = client.post(
+        "/backtest",
+        json={
+            "symbol": "EURUSD=X",
+            "asset_class": "forex",
+            "strategy": "ma_crossover",
+            "start_date": "2023-01-01",
+            "end_date": "2023-04-10",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["asset_class"] == "forex"
+    assert body["symbol"] == "EURUSD=X"
+
+
 def test_backtest_unknown_strategy_returns_422(mocker):
     mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
 
