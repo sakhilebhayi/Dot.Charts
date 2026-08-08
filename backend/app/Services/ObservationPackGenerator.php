@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\StrategyPerformanceCycleCompleted;
 use App\Models\BacktestRun;
 use App\Models\KnowledgePack;
 use Carbon\Carbon;
@@ -126,6 +127,8 @@ class ObservationPackGenerator
             'signing_key_version' => 'v1',
             'created_at' => now(),
         ]);
+
+        StrategyPerformanceCycleCompleted::dispatch($pack->pack_id, $strategyClass, $result['account_count']);
 
         return ['generated' => true, 'reason' => null, 'account_count' => $result['account_count'], 'pack' => $pack];
     }

@@ -46,5 +46,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('chart-analysis', function (Request $request) {
             return Limit::perHour(10)->by('chart-analysis:ip:'.$request->ip());
         });
+
+        \Illuminate\Support\Facades\Event::listen(
+            \App\Events\StrategyPerformanceCycleCompleted::class,
+            \App\Listeners\LogStrategyPerformanceCycle::class,
+        );
     }
 }
