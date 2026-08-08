@@ -85,4 +85,12 @@ return [
         'url' => env('ANALYTICS_SERVICE_URL', 'http://localhost:8001'),
     ],
 
+    // Dot Ecosystem Knowledge Pack signing (Subsystem I1) -- HMAC-SHA256,
+    // not a real secrets vault (none exists in this codebase). Manifest
+    // records this as signing_key_version "v1" for the vault:// naming
+    // convention without requiring real vault infrastructure.
+    'dkp' => [
+        'signing_key' => env('DKP_SIGNING_KEY'),
+    ],
+
 ];

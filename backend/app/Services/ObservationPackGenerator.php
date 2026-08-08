@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\BacktestRun;
+use App\Models\KnowledgePack;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -79,5 +80,89 @@ class ObservationPackGenerator
             return ($sorted[$mid - 1] + $sorted[$mid]) / 2;
         }
         return $sorted[$mid];
+    }
+
+    /**
+     * Full generation: builds the payload, checks the floor, signs and
+     * persists on success. Idempotent per (strategy_class, period) --
+     * re-running an already-generated period returns the existing pack's
+     * reason without creating a duplicate row.
+     */
+    public function generateForPeriod(string $strategyClass, ?string $period = null): array
+    {
+        $period = $period ?? now()->subMonthNoOverflow()->format('Y-m');
+        $periodStart = Carbon::parse($period . '-01')->startOfMonth();
+        $periodEnd = $periodStart->copy()->endOfMonth();
+
+        $existing = KnowledgePack::where('strategy_class', $strategyClass)
+            ->where('payload_type', 'observation')
+            ->whereDate('period_start', $periodStart->toDateString())
+            ->first();
+
+        if ($existing) {
+            return ['generated' => false, 'reason' => 'already_generated', 'account_count' => $existing->account_count, 'pack' => $existing];
+        }
+
+        $result = $this->buildPayload($strategyClass, $periodStart, $periodEnd);
+
+        if (! $result['eligible']) {
+            return ['generated' => false, 'reason' => 'below_floor', 'account_count' => $result['account_count'], 'pack' => null];
+        }
+
+        $payload = $result['payload'];
+        $payload['pack_id'] = $this->nextPackId($periodStart);
+
+        $signature = $this->sign($payload);
+
+        $pack = KnowledgePack::create([
+            'pack_id' => $payload['pack_id'],
+            'payload_type' => 'observation',
+            'strategy_class' => $strategyClass,
+            'period_start' => $periodStart->toDateString(),
+            'period_end' => $periodEnd->toDateString(),
+            'account_count' => $result['account_count'],
+            'payload' => $payload,
+            'signature' => $signature,
+            'signing_key_version' => 'v1',
+            'created_at' => now(),
+        ]);
+
+        return ['generated' => true, 'reason' => null, 'account_count' => $result['account_count'], 'pack' => $pack];
+    }
+
+    public function verify(KnowledgePack $pack): bool
+    {
+        return hash_equals($this->sign($pack->payload), $pack->signature);
+    }
+
+    private function sign(array $payload): string
+    {
+        return hash_hmac('sha256', $this->canonicalize($payload), (string) config('services.dkp.signing_key'));
+    }
+
+    private function canonicalize(array $payload): string
+    {
+        $this->recursiveKsort($payload);
+
+        return json_encode($payload, JSON_UNESCAPED_SLASHES);
+    }
+
+    private function recursiveKsort(array &$array): void
+    {
+        ksort($array);
+        foreach ($array as &$value) {
+            if (is_array($value)) {
+                $this->recursiveKsort($value);
+            }
+        }
+    }
+
+    private function nextPackId(Carbon $periodStart): string
+    {
+        $count = KnowledgePack::where('payload_type', 'observation')
+            ->whereDate('period_start', $periodStart->toDateString())
+            ->count();
+
+        return sprintf('dkp:charts:obs:%s:%04d', $periodStart->toDateString(), $count + 1);
     }
 }
