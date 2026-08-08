@@ -144,4 +144,47 @@ class BacktestControllerTest extends TestCase
             'status' => 'complete',
         ]);
     }
+
+    public function test_anonymous_backtests_are_capped_at_three_per_hour(): void
+    {
+        Http::fake(['*/backtest' => Http::response(['metrics' => ['trade_count' => 0]], 200)]);
+
+        $payload = [
+            'symbol' => 'AAPL',
+            'asset_class' => 'equity',
+            'strategy' => 'ma_crossover',
+            'start_date' => '2023-01-01',
+            'end_date' => '2026-01-01',
+        ];
+
+        for ($i = 0; $i < 3; $i++) {
+            $response = $this->postJson('/api/backtests', $payload);
+            $this->assertNotEquals(429, $response->status());
+        }
+
+        $this->postJson('/api/backtests', $payload)->assertStatus(429);
+    }
+
+    public function test_authenticated_backtests_have_a_higher_limit_than_anonymous(): void
+    {
+        Http::fake(['*/backtest' => Http::response(['metrics' => ['trade_count' => 0]], 200)]);
+
+        $user = \App\Models\User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+
+        $payload = [
+            'symbol' => 'AAPL',
+            'asset_class' => 'equity',
+            'strategy' => 'ma_crossover',
+            'start_date' => '2023-01-01',
+            'end_date' => '2026-01-01',
+        ];
+
+        // 4 requests would 429 an anonymous caller (limit is 3/hr) — an
+        // authenticated user must still succeed, proving the limits differ.
+        for ($i = 0; $i < 4; $i++) {
+            $response = $this->withHeader('Authorization', "Bearer {$token}")->postJson('/api/backtests', $payload);
+            $this->assertNotEquals(429, $response->status());
+        }
+    }
 }

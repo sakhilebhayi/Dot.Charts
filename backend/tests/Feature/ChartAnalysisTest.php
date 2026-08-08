@@ -68,4 +68,22 @@ class ChartAnalysisTest extends TestCase
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['market']);
     }
+
+    public function test_chart_analyze_is_rate_limited_at_ten_per_hour(): void
+    {
+        for ($i = 0; $i < 10; $i++) {
+            $response = $this->postJson('/api/chart/analyze', [
+                'image' => self::TINY_PNG_BASE64,
+                'market' => 'crypto',
+            ]);
+            $this->assertNotEquals(429, $response->status());
+        }
+
+        $response = $this->postJson('/api/chart/analyze', [
+            'image' => self::TINY_PNG_BASE64,
+            'market' => 'crypto',
+        ]);
+
+        $response->assertStatus(429);
+    }
 }

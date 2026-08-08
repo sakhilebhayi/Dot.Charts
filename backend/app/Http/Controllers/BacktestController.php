@@ -29,9 +29,13 @@ class BacktestController extends Controller
         ]);
 
         $run = BacktestRun::create([
-            // No auth is wired yet (see wiki.md) — user_id stays null for
-            // unauthenticated requests rather than forcing a login here.
-            'user_id' => $request->user()?->id,
+            // $request->user() resolves via the default guard ('web',
+            // session-based) — it never inspects a Bearer token on a route
+            // with no auth:sanctum middleware (this route stays open to
+            // anonymous callers by design), so it would always be null even
+            // for a real authenticated request. Naming the 'sanctum' guard
+            // explicitly makes token resolution work regardless.
+            'user_id' => $request->user('sanctum')?->id,
             'symbol' => $validated['symbol'],
             'asset_class' => $validated['asset_class'],
             'strategy' => $validated['strategy'],

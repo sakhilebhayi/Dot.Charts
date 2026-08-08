@@ -13,5 +13,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
 });
 
-Route::post('/chart/analyze', [ChartAnalysisController::class, 'analyzeChart']);
-Route::post('/backtests', [BacktestController::class, 'store']);
+Route::post('/chart/analyze', [ChartAnalysisController::class, 'analyzeChart'])
+    ->middleware('throttle:chart-analysis');
+Route::post('/backtests', [BacktestController::class, 'store'])
+    ->middleware('throttle:backtests');
