@@ -1,7 +1,7 @@
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
-AssetClass = Literal["equity", "crypto"]
+AssetClass = Literal["equity", "crypto", "commodity"]
 StrategyName = Literal["ma_crossover", "rsi_mean_reversion", "method_714"]
 
 

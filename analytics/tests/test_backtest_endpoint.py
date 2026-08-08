@@ -82,6 +82,26 @@ def test_backtest_ma_crossover_fetches_daily_data(mocker):
     fetch_mock.assert_called_once_with("AAPL", "equity", "2023-01-01", "2023-04-10", interval="1d")
 
 
+def test_backtest_commodity_returns_metrics_and_trades(mocker):
+    mocker.patch("main.fetch_ohlcv", return_value=_synthetic_uptrend_df())
+
+    response = client.post(
+        "/backtest",
+        json={
+            "symbol": "GC=F",
+            "asset_class": "commodity",
+            "strategy": "ma_crossover",
+            "start_date": "2023-01-01",
+            "end_date": "2023-04-10",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["asset_class"] == "commodity"
+    assert body["symbol"] == "GC=F"
+
+
 def test_backtest_unknown_strategy_returns_422(mocker):
     mocker.patch("main.fetch_ohlcv", return_value=_synthetic_uptrend_df())
 

@@ -65,6 +65,16 @@ def test_fetch_ohlcv_crypto_returns_normalized_columns(mocker):
     assert df.index.tz is not None
 
 
+def test_fetch_ohlcv_commodity_reuses_the_yfinance_path(mocker):
+    mocker.patch("data.fetch.yf.download", side_effect=_fake_yf_download)
+
+    df = fetch_ohlcv("GC=F", "commodity", "2023-01-01", "2023-01-05")
+
+    assert list(df.columns) == ["open", "high", "low", "close", "volume"]
+    assert len(df) == 5
+    assert df.index.tz is not None
+
+
 def test_fetch_ohlcv_unsupported_asset_class_raises():
     with pytest.raises(DataFetchError):
-        fetch_ohlcv("AAPL", "commodity", "2023-01-01", "2023-01-05")
+        fetch_ohlcv("AAPL", "forex", "2023-01-01", "2023-01-05")
