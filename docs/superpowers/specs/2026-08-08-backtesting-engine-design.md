@@ -1,6 +1,6 @@
 ---
 title: Real Backtesting Engine — Design
-version: 1.0.0
+version: 1.1.0
 status: approved
 owners: [Charts Platform Lead]
 last-review: 2026-08-08
@@ -20,7 +20,9 @@ analytical output the platform ships.
 Source of strategy/library ideas: [paperswithbacktest/awesome-systematic-trading](https://github.com/paperswithbacktest/awesome-systematic-trading)
 — used as a curated catalog to select concrete libraries (vectorbt, pandas-ta,
 quantstats, yfinance, ccxt) and strategy presets, not pulled in as a dependency or
-forked as code.
+forked as code. A third preset, "714 Method," is ported from an MPL-2.0-licensed
+Pine Script strategy (`ORD Session Strategy v3.5`, © Quant/Infodot) supplied directly
+for this design — see §714 Method below for the attribution and scope caveat.
 
 **Related documents:**
 - [Dot.Brain's ecosystem view of Dot.Charts](../../../Dot.Brain/platforms/dot-charts.md) — long-term vision, compliance-gate design (not built in this slice)
@@ -42,8 +44,10 @@ Knowledge Pack publishing to Dot.Brain all assume a working backtest underneath 
 ## Scope for this slice
 
 **In scope:**
-- New Python analytics microservice for quant computation
-- Two strategy presets: MA crossover, RSI mean-reversion
+- New Python analytics microservice for quant computation, with two backtesting
+  engines: `vectorbt` (vectorized) and `backtrader` (event-driven)
+- Three strategy presets: MA crossover, RSI mean-reversion (both `vectorbt`), and
+  714 Method (`backtrader`, reduced core — see §714 Method)
 - Crypto (via ccxt/Binance) and equities (via yfinance) as asset classes
 - Persisted backtest run history (new `backtest_runs` table)
 - Disclosure rendering (confidence band, attribution, loss-honesty) on every result
@@ -57,6 +61,9 @@ Knowledge Pack publishing to Dot.Brain all assume a working backtest underneath 
   price data, nothing ecosystem-sourced, so the gate is never invoked here
 - The `ChartSense` vs `dot-charts` repo-naming discrepancy — unrelated, unresolved
 - Async/queued backtest execution — synchronous request/response for v1
+- 714 Method's SMC engine (BOS/CHoCH, order blocks, fair value gaps, liquidity
+  sweeps) and weighted confidence scoring — deferred to a follow-up slice, see
+  §714 Method
 
 ## Architecture
 
@@ -67,7 +74,8 @@ flowchart LR
     L -->|HTTP call| PY[Python analytics service\nFastAPI]
     PY -->|OHLCV fetch| DATA{ccxt / yfinance}
     PY -->|indicators| TA[pandas-ta]
-    PY -->|backtest| VBT[vectorbt]
+    PY -->|vectorized backtest| VBT[vectorbt\nMA crossover, RSI]
+    PY -->|event-driven backtest| BT[backtrader\n714 Method]
     PY -->|metrics| QS[quantstats]
     PY -->|results JSON| L
     L -->|persist results, mark 'complete'| DB
@@ -81,6 +89,11 @@ flowchart LR
   user-facing text, no opinions, no persistence. Pure computation, stateless.
 - Data: `yfinance` (equities), `ccxt`/Binance (crypto) — both free/keyless, consistent
   with the project's existing "no paid vendor yet" posture.
+- Two backtesting engines, chosen per strategy: `vectorbt` for the vectorized
+  presets (MA crossover, RSI mean-reversion), `backtrader` for the stateful/
+  event-driven 714 Method (session arming, retest windows, ratcheting stops don't
+  fit a vectorized model). The strategy registry (below) owns this mapping — the
+  `POST /api/backtests` contract doesn't change per engine.
 
 ## Components & data flow
 
@@ -103,9 +116,41 @@ flowchart LR
 - Runs the strategy through `vectorbt`.
 - Derives metrics via `quantstats`: total return, win rate, max drawdown, Sharpe.
 - Returns raw JSON: metrics + equity curve series + trade list.
-- Strategies live as small, individually testable functions behind a registry
-  (`strategies/ma_crossover.py`, `strategies/rsi_mean_reversion.py`), so adding a
-  future preset (breakout, Bollinger Bands) is additive.
+- Strategies live as small, individually testable functions/classes behind a
+  registry (`strategies/ma_crossover.py`, `strategies/rsi_mean_reversion.py`,
+  `strategies/method_714.py`), keyed by name to an engine (`vectorbt` or
+  `backtrader`) so adding a future preset (breakout, Bollinger Bands) is additive.
+
+#### 714 Method (reduced core)
+
+Ported from the supplied Pine Script (`ORD Session Strategy v3.5`, MPL-2.0,
+© Quant/Infodot) via `backtrader`, this preset requires intraday OHLCV (1h or
+lower) — meaningfully limits equities backtest windows under yfinance's free-tier
+history, which the disclosure block surfaces via the existing confidence-band rule
+(short sample size → lower confidence, shown not hidden).
+
+Ported for this slice:
+- Up to 4 configurable intraday sessions (default times, Africa/Johannesburg
+  timezone, adjustable per run)
+- Signal modes: Retest Continuation (default), Contrarian, Momentum — session
+  close-vs-open sets a directional bias; in Retest Continuation, a pullback that
+  touches the session open and closes back on the bias side (within a max-bars
+  window, past a minimum rejection size) fires the entry
+- Filters: EMA 50/200 trend, ATR range filter, volume confirmation, HTF (4h) EMA
+  confirmation
+- Risk management: ATR-based stop loss/take profit, breakeven ratchet, optional
+  ATR trailing stop, flatten-at-next-session-start, one-trade-at-a-time
+
+Deferred to a follow-up slice (each a substantial sub-system on its own):
+- The SMC engine — swing-pivot Break of Structure/Change of Character, order
+  blocks, fair value gaps, liquidity sweeps (incl. previous-day high/low sweeps)
+- The weighted 0–100 confidence score combining all of the above
+
+**Naming and attribution:** shipped as "714 Method" in the registry and UI. The
+disclosure/attribution text explicitly states this is an original session-based
+implementation (Blupin/Infodot's ORD Session Strategy) — **not** a verified
+reproduction of Mashaya A. Mthethwa's proprietary 714 course material, which was
+never obtained or consulted for this design.
 
 ### Laravel side
 
@@ -130,8 +175,9 @@ flowchart LR
 
 ### Frontend
 
-- New page: symbol input, asset-class toggle, strategy dropdown (2 presets), strategy
-  params, date range → submit → poll/display run status → render equity curve chart +
+- New page: symbol input, asset-class toggle, strategy dropdown (3 presets), strategy
+  params (714 Method's session-time/mode/filter params shown only when selected),
+  date range → submit → poll/display run status → render equity curve chart +
   metrics table + disclosure block.
 - Existing OCR chart-upload page/flow is untouched.
 
@@ -145,7 +191,11 @@ flowchart LR
 
 - Python: `pytest` unit tests per strategy function (known input series → expected
   trade signals); a golden-file test for MA crossover against a fixed synthetic price
-  series. No live-network calls in tests — vendor calls are mocked.
+  series. For 714 Method: unit tests on the session engine (session start/end
+  detection, bias assignment) and the retest state machine (armed → touched →
+  rejected → signal; armed → expired; armed → invalidated) against fixed synthetic
+  intraday series, independent of live data. No live-network calls in tests —
+  vendor calls are mocked.
 - Laravel: PHPUnit feature test hitting `/api/backtests` with the Python service
   mocked (`Http::fake`), asserting persistence + disclosure block shape; a
   `DisclosureFormatter` unit test asserting loss fields are always present.
@@ -157,9 +207,15 @@ None blocking this slice. Deferred/flagged for future slices:
   the natural source for `observation`/`outcome` packs to Dot.Brain.
 - Async/queued execution should be revisited if backtest runtimes grow beyond a
   synchronous request budget.
+- 714 Method's SMC engine (BOS/CHoCH, order blocks, FVGs, liquidity sweeps) and
+  weighted confidence scoring are a follow-up slice, not this one.
+- If a verified copy of Mashaya Mthethwa's actual 714 course rules is obtained
+  later, it should be evaluated against this implementation and the naming/
+  attribution language revisited accordingly.
 
 ## Change Log
 
 | Version | Date | Author | Change |
 |---|---|---|---|
 | 1.0.0 | 2026-08-08 | Charts Platform Lead (brainstorming session) | Initial design: Python analytics microservice, vectorbt-based backtesting, MA crossover + RSI mean-reversion presets, crypto + equities via ccxt/yfinance, persisted `backtest_runs`, disclosure rendering |
+| 1.1.0 | 2026-08-08 | Charts Platform Lead (brainstorming session) | Added third preset "714 Method" (reduced core: sessions, retest/contrarian/momentum signal, EMA/ATR/volume/HTF filters, ATR risk management), ported from a supplied MPL-2.0 Pine Script (`ORD Session Strategy v3.5`, © Quant/Infodot) via a new `backtrader` engine alongside `vectorbt`; SMC engine and confidence scoring deferred; attribution clarified as an original implementation, not a verified port of Mashaya Mthethwa's proprietary course material |
