@@ -51,3 +51,9 @@ backend/storage/framework/views/*
 # Frontend specific
 frontend/dist/
 frontend/.vite/
+
+# Python analytics service
+analytics/.venv/
+analytics/__pycache__/
+analytics/**/__pycache__/
+analytics/.pytest_cache/
