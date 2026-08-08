@@ -21,7 +21,7 @@ class BacktestController extends Controller
     {
         $validated = $request->validate([
             'symbol' => 'required|string|max:20',
-            'asset_class' => 'required|in:equity,crypto',
+            'asset_class' => 'required|in:equity,crypto,commodity',
             'strategy' => 'required|in:ma_crossover,rsi_mean_reversion,method_714',
             'params' => 'nullable|array',
             'start_date' => 'required|date',

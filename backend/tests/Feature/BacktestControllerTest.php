@@ -102,4 +102,46 @@ class BacktestControllerTest extends TestCase
 
         $response->assertStatus(422);
     }
+
+    public function test_store_accepts_commodity_asset_class(): void
+    {
+        Http::fake([
+            '*/backtest' => Http::response([
+                'symbol' => 'GC=F',
+                'asset_class' => 'commodity',
+                'strategy' => 'ma_crossover',
+                'params' => ['fast_window' => 20, 'slow_window' => 50],
+                'start_date' => '2023-01-01',
+                'end_date' => '2026-01-01',
+                'metrics' => [
+                    'total_return_pct' => 5.0,
+                    'win_rate_pct' => 50.0,
+                    'max_drawdown_pct' => -3.0,
+                    'sharpe_ratio' => 0.9,
+                    'trade_count' => 12,
+                    'losing_trade_count' => 6,
+                ],
+                'equity_curve' => [['time' => '2023-01-01T00:00:00', 'equity' => 10000.0]],
+                'trades' => [],
+            ], 200),
+        ]);
+
+        $response = $this->postJson('/api/backtests', [
+            'symbol' => 'GC=F',
+            'asset_class' => 'commodity',
+            'strategy' => 'ma_crossover',
+            'start_date' => '2023-01-01',
+            'end_date' => '2026-01-01',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $response->assertJsonPath('result.asset_class', 'commodity');
+
+        $this->assertDatabaseHas('backtest_runs', [
+            'symbol' => 'GC=F',
+            'asset_class' => 'commodity',
+            'status' => 'complete',
+        ]);
+    }
 }
