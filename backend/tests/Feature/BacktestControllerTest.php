@@ -187,4 +187,40 @@ class BacktestControllerTest extends TestCase
             $this->assertNotEquals(429, $response->status());
         }
     }
+
+    public function test_authenticated_backtest_run_is_owned_by_the_user(): void
+    {
+        Http::fake([
+            '*/backtest' => Http::response([
+                'symbol' => 'AAPL',
+                'asset_class' => 'equity',
+                'strategy' => 'ma_crossover',
+                'params' => [],
+                'start_date' => '2023-01-01',
+                'end_date' => '2026-01-01',
+                'metrics' => [
+                    'total_return_pct' => 1.0, 'win_rate_pct' => 50.0, 'max_drawdown_pct' => -1.0,
+                    'sharpe_ratio' => 0.5, 'trade_count' => 12, 'losing_trade_count' => 6,
+                ],
+                'equity_curve' => [],
+                'trades' => [],
+            ], 200),
+        ]);
+
+        $user = \App\Models\User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")->postJson('/api/backtests', [
+            'symbol' => 'AAPL',
+            'asset_class' => 'equity',
+            'strategy' => 'ma_crossover',
+            'start_date' => '2023-01-01',
+            'end_date' => '2026-01-01',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('backtest_runs', [
+            'symbol' => 'AAPL',
+            'user_id' => $user->id,
+        ]);
+    }
 }
