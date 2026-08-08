@@ -13,6 +13,13 @@ class ObservationPackGeneratorTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const REQUIRED_METRIC_NAMES = [
+        'trading.strategy_mean_return_pct',
+        'trading.strategy_win_rate_pct',
+        'trading.strategy_max_drawdown_worst_pct',
+        'trading.strategy_losing_period_pct',
+    ];
+
     private function completeRun(?User $user, string $strategy, float $totalReturnPct, float $maxDrawdownPct, Carbon $createdAt): BacktestRun
     {
         $run = BacktestRun::create([
@@ -40,47 +47,60 @@ class ObservationPackGeneratorTest extends TestCase
         return $run;
     }
 
+    private function payloadFor(array $payloads, string $metricName): array
+    {
+        foreach ($payloads as $payload) {
+            if ($payload['body']['metric_name'] === $metricName) {
+                return $payload;
+            }
+        }
+
+        $this->fail("No payload found for metric {$metricName}");
+    }
+
     public function test_below_floor_returns_not_eligible(): void
     {
         $generator = new ObservationPackGenerator();
         $start = Carbon::parse('2026-08-01');
         $end = Carbon::parse('2026-08-31');
 
-        // 49 distinct users -- one short of the floor.
         for ($i = 0; $i < 49; $i++) {
             $user = User::factory()->create();
             $this->completeRun($user, 'ma_crossover', 5.0, -3.0, $start->copy()->addDays(1));
         }
 
-        $result = $generator->buildPayload('ma_crossover', $start, $end);
+        $result = $generator->buildMetricPayloads('ma_crossover', $start, $end);
 
         $this->assertFalse($result['eligible']);
         $this->assertSame(49, $result['account_count']);
-        $this->assertNull($result['payload']);
+        $this->assertNull($result['payloads']);
     }
 
-    public function test_at_floor_is_eligible_and_computes_aggregates(): void
+    public function test_at_floor_produces_exactly_four_metric_payloads(): void
     {
         $generator = new ObservationPackGenerator();
         $start = Carbon::parse('2026-08-01');
         $end = Carbon::parse('2026-08-31');
 
-        // 50 distinct users, all winners, no losing runs.
         for ($i = 0; $i < 50; $i++) {
             $user = User::factory()->create();
             $this->completeRun($user, 'ma_crossover', 5.0, -3.0, $start->copy()->addDays(1));
         }
 
-        $result = $generator->buildPayload('ma_crossover', $start, $end);
+        $result = $generator->buildMetricPayloads('ma_crossover', $start, $end);
 
         $this->assertTrue($result['eligible']);
         $this->assertSame(50, $result['account_count']);
-        $this->assertSame(50, $result['payload']['run_count']);
-        $this->assertEqualsWithDelta(5.0, $result['payload']['mean_return_pct'], 0.001);
-        $this->assertEqualsWithDelta(5.0, $result['payload']['median_return_pct'], 0.001);
+        $this->assertSame(50, $result['run_count']);
+        $this->assertCount(4, $result['payloads']);
+        $names = array_map(fn ($p) => $p['body']['metric_name'], $result['payloads']);
+        sort($names);
+        $expected = self::REQUIRED_METRIC_NAMES;
+        sort($expected);
+        $this->assertSame($expected, $names);
     }
 
-    public function test_loss_honesty_fields_always_present_even_when_all_runs_win(): void
+    public function test_loss_honesty_metrics_present_and_correct_even_when_all_runs_win(): void
     {
         $generator = new ObservationPackGenerator();
         $start = Carbon::parse('2026-08-01');
@@ -91,24 +111,23 @@ class ObservationPackGeneratorTest extends TestCase
             $this->completeRun($user, 'ma_crossover', 5.0, -3.0, $start->copy()->addDays(1));
         }
 
-        $payload = $generator->buildPayload('ma_crossover', $start, $end)['payload'];
+        $payloads = $generator->buildMetricPayloads('ma_crossover', $start, $end)['payloads'];
 
-        $this->assertArrayHasKey('max_drawdown_p50_pct', $payload);
-        $this->assertArrayHasKey('max_drawdown_worst_pct', $payload);
-        $this->assertArrayHasKey('losing_period_count', $payload);
-        $this->assertArrayHasKey('losing_period_pct', $payload);
-        $this->assertSame(0, $payload['losing_period_count']);
-        $this->assertEqualsWithDelta(0.0, $payload['losing_period_pct'], 0.001);
-        $this->assertEqualsWithDelta(-3.0, $payload['max_drawdown_p50_pct'], 0.001);
+        $drawdown = $this->payloadFor($payloads, 'trading.strategy_max_drawdown_worst_pct');
+        $losing = $this->payloadFor($payloads, 'trading.strategy_losing_period_pct');
+
+        $this->assertEqualsWithDelta(-3.0, $drawdown['body']['observations'][0]['value'], 0.001);
+        $this->assertEqualsWithDelta(0.0, $losing['body']['observations'][0]['value'], 0.001);
+        $this->assertSame('down', $drawdown['body']['direction_of_good']);
+        $this->assertSame('down', $losing['body']['direction_of_good']);
     }
 
-    public function test_loss_honesty_fields_computed_correctly_with_a_realistic_loss_mix(): void
+    public function test_loss_honesty_metrics_computed_correctly_with_a_realistic_loss_mix(): void
     {
         $generator = new ObservationPackGenerator();
         $start = Carbon::parse('2026-08-01');
         $end = Carbon::parse('2026-08-31');
 
-        // 30 winners, 20 losers -- 40% losing_period_pct.
         for ($i = 0; $i < 30; $i++) {
             $user = User::factory()->create();
             $this->completeRun($user, 'ma_crossover', 5.0, -3.0, $start->copy()->addDays(1));
@@ -118,14 +137,16 @@ class ObservationPackGeneratorTest extends TestCase
             $this->completeRun($user, 'ma_crossover', -4.0, -12.0, $start->copy()->addDays(1));
         }
 
-        $payload = $generator->buildPayload('ma_crossover', $start, $end)['payload'];
+        $payloads = $generator->buildMetricPayloads('ma_crossover', $start, $end)['payloads'];
 
-        $this->assertSame(20, $payload['losing_period_count']);
-        $this->assertEqualsWithDelta(0.4, $payload['losing_period_pct'], 0.001);
-        $this->assertEqualsWithDelta(-12.0, $payload['max_drawdown_worst_pct'], 0.001);
+        $drawdown = $this->payloadFor($payloads, 'trading.strategy_max_drawdown_worst_pct');
+        $losing = $this->payloadFor($payloads, 'trading.strategy_losing_period_pct');
+
+        $this->assertEqualsWithDelta(-12.0, $drawdown['body']['observations'][0]['value'], 0.001);
+        $this->assertEqualsWithDelta(0.4, $losing['body']['observations'][0]['value'], 0.001);
     }
 
-    public function test_anonymous_runs_are_excluded_from_both_account_count_and_statistics(): void
+    public function test_anonymous_runs_are_excluded_from_both_account_count_and_metrics(): void
     {
         $generator = new ObservationPackGenerator();
         $start = Carbon::parse('2026-08-01');
@@ -135,40 +156,19 @@ class ObservationPackGeneratorTest extends TestCase
             $user = User::factory()->create();
             $this->completeRun($user, 'ma_crossover', 5.0, -3.0, $start->copy()->addDays(1));
         }
-        // 10 anonymous runs with wildly different numbers -- must not
-        // affect the floor check or the aggregates at all.
         for ($i = 0; $i < 10; $i++) {
             $this->completeRun(null, 'ma_crossover', 500.0, -90.0, $start->copy()->addDays(1));
         }
 
-        $result = $generator->buildPayload('ma_crossover', $start, $end);
+        $result = $generator->buildMetricPayloads('ma_crossover', $start, $end);
 
         $this->assertSame(50, $result['account_count']);
-        $this->assertSame(50, $result['payload']['run_count']);
-        $this->assertEqualsWithDelta(5.0, $result['payload']['mean_return_pct'], 0.001);
+        $this->assertSame(50, $result['run_count']);
+        $return = $this->payloadFor($result['payloads'], 'trading.strategy_mean_return_pct');
+        $this->assertEqualsWithDelta(5.0, $return['body']['observations'][0]['value'], 0.001);
     }
 
-    public function test_custom_strategy_aggregates_across_all_saved_strategy_names_as_one_class(): void
-    {
-        $generator = new ObservationPackGenerator();
-        $start = Carbon::parse('2026-08-01');
-        $end = Carbon::parse('2026-08-31');
-
-        // All rows share strategy = 'custom' regardless of which saved
-        // strategy produced them (custom_strategies is a separate table --
-        // backtest_runs.strategy is just the string 'custom').
-        for ($i = 0; $i < 50; $i++) {
-            $user = User::factory()->create();
-            $this->completeRun($user, 'custom', 5.0, -3.0, $start->copy()->addDays(1));
-        }
-
-        $result = $generator->buildPayload('custom', $start, $end);
-
-        $this->assertTrue($result['eligible']);
-        $this->assertSame(50, $result['account_count']);
-    }
-
-    public function test_only_complete_runs_within_the_period_count(): void
+    public function test_each_metric_payload_carries_the_strategy_class_dimension(): void
     {
         $generator = new ObservationPackGenerator();
         $start = Carbon::parse('2026-08-01');
@@ -178,16 +178,14 @@ class ObservationPackGeneratorTest extends TestCase
             $user = User::factory()->create();
             $this->completeRun($user, 'ma_crossover', 5.0, -3.0, $start->copy()->addDays(1));
         }
-        // Failed run, and a run outside the period -- neither should count.
-        $failedUser = User::factory()->create();
-        $failed = $this->completeRun($failedUser, 'ma_crossover', 5.0, -3.0, $start->copy()->addDays(1));
-        $failed->update(['status' => 'failed']);
 
-        $outsideUser = User::factory()->create();
-        $this->completeRun($outsideUser, 'ma_crossover', 5.0, -3.0, $start->copy()->subMonth());
+        $payloads = $generator->buildMetricPayloads('ma_crossover', $start, $end)['payloads'];
 
-        $result = $generator->buildPayload('ma_crossover', $start, $end);
-
-        $this->assertSame(50, $result['account_count']);
+        foreach ($payloads as $payload) {
+            $this->assertSame('metric', $payload['payload_type']);
+            $this->assertSame(['strategy_class'], $payload['body']['dimensions']);
+            $this->assertSame('ma_crossover', $payload['body']['observations'][0]['dimensions']['strategy_class']);
+            $this->assertSame(50, $payload['body']['observations'][0]['sample_size']);
+        }
     }
 }

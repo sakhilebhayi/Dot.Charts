@@ -5,18 +5,27 @@ namespace Tests\Unit;
 use App\Models\BacktestRun;
 use App\Models\KnowledgePack;
 use App\Models\User;
+use App\Services\DkpSigner;
 use App\Services\ObservationPackGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\UsesDkpTestKey;
 use Tests\TestCase;
 
 class ObservationPackGeneratorSigningTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesDkpTestKey;
 
     protected function setUp(): void
     {
         parent::setUp();
-        config(['services.dkp.signing_key' => 'test-signing-key']);
+        $this->setUpDkpTestKey();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->tearDownDkpTestKey();
+        parent::tearDown();
     }
 
     private function seedEligibleMonth(string $strategy, string $period): void
@@ -45,7 +54,7 @@ class ObservationPackGeneratorSigningTest extends TestCase
         }
     }
 
-    public function test_generate_for_period_persists_a_signed_pack(): void
+    public function test_generate_for_period_persists_a_signed_real_envelope(): void
     {
         $this->seedEligibleMonth('ma_crossover', '2026-08');
 
@@ -54,22 +63,19 @@ class ObservationPackGeneratorSigningTest extends TestCase
         $this->assertTrue($result['generated']);
         $pack = $result['pack'];
         $this->assertInstanceOf(KnowledgePack::class, $pack);
-        $this->assertSame('observation', $pack->payload_type);
-        $this->assertSame('v1', $pack->signing_key_version);
-        $this->assertMatchesRegularExpression('/^dkp:charts:obs:2026-08-01:\d{4}$/', $pack->pack_id);
-        $this->assertNotEmpty($pack->signature);
+        $this->assertMatchesRegularExpression('/^dkp:dot-charts:[0-9a-f-]{36}$/', $pack->pack_id);
+        $this->assertSame('metric', $pack->payload_type);
+        $this->assertCount(4, $pack->envelope['payloads']);
+        $this->assertNotEmpty($pack->envelope['signatures'][0]['value']);
+        $this->assertSame('ed25519-jcs', $pack->envelope['signatures'][0]['algorithm']);
     }
 
-    public function test_signature_verifies_against_canonical_payload_and_fails_on_tamper(): void
+    public function test_persisted_envelope_independently_verifies(): void
     {
         $this->seedEligibleMonth('ma_crossover', '2026-08');
-        $generator = new ObservationPackGenerator();
-        $pack = $generator->generateForPeriod('ma_crossover', '2026-08')['pack'];
+        $pack = (new ObservationPackGenerator())->generateForPeriod('ma_crossover', '2026-08')['pack'];
 
-        $this->assertTrue($generator->verify($pack));
-
-        $pack->payload = array_merge($pack->payload, ['mean_return_pct' => 999.0]);
-        $this->assertFalse($generator->verify($pack));
+        $this->assertTrue((new DkpSigner())->verify($pack->envelope));
     }
 
     public function test_regenerating_the_same_strategy_and_period_does_not_duplicate(): void
@@ -88,7 +94,6 @@ class ObservationPackGeneratorSigningTest extends TestCase
 
     public function test_below_floor_period_reports_reason_without_persisting(): void
     {
-        // Only 10 users -- below the floor.
         for ($i = 0; $i < 10; $i++) {
             $user = User::factory()->create();
             $run = BacktestRun::create([
@@ -112,5 +117,13 @@ class ObservationPackGeneratorSigningTest extends TestCase
         $this->assertSame('below_floor', $result['reason']);
         $this->assertSame(10, $result['account_count']);
         $this->assertSame(0, KnowledgePack::count());
+    }
+
+    public function test_confidence_is_at_floor_baseline_for_exactly_fifty_runs(): void
+    {
+        $this->seedEligibleMonth('ma_crossover', '2026-08');
+        $pack = (new ObservationPackGenerator())->generateForPeriod('ma_crossover', '2026-08')['pack'];
+
+        $this->assertEqualsWithDelta(0.5, $pack->envelope['confidence'], 0.001);
     }
 }

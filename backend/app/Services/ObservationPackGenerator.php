@@ -6,11 +6,17 @@ use App\Events\StrategyPerformanceCycleCompleted;
 use App\Models\BacktestRun;
 use App\Models\KnowledgePack;
 use Carbon\Carbon;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+use RuntimeException;
 
 class ObservationPackGenerator
 {
     private const AGGREGATION_FLOOR = 50;
+    private const KEY_ID = 'dot-charts-dkp-v1';
+
+    public function __construct(private readonly DkpSigner $signer = new DkpSigner())
+    {
+    }
 
     public static function knownStrategyClasses(): array
     {
@@ -25,69 +31,84 @@ class ObservationPackGenerator
     }
 
     /**
-     * Builds the observation payload for a strategy class over a period,
-     * WITHOUT signing or persisting -- that's owned by generateForPeriod().
-     * Returns: ['eligible' => bool, 'account_count' => int, 'payload' => ?array]
+     * Builds the 4 loss-honesty metric payloads for a strategy class over a
+     * period, WITHOUT signing or persisting. Returns:
+     *   ['eligible' => bool, 'account_count' => int, 'run_count' => ?int, 'payloads' => ?array]
+     * `payloads` is always exactly 4 entries when eligible -- no code path
+     * omits the drawdown/losing-period metrics.
      */
-    public function buildPayload(string $strategyClass, Carbon $periodStart, Carbon $periodEnd): array
+    public function buildMetricPayloads(string $strategyClass, Carbon $periodStart, Carbon $periodEnd): array
     {
         $runs = BacktestRun::where('strategy', $strategyClass)
             ->where('status', 'complete')
-            ->whereNotNull('user_id') // anonymous runs never enter aggregation
+            ->whereNotNull('user_id')
             ->whereBetween('created_at', [$periodStart->copy()->startOfDay(), $periodEnd->copy()->endOfDay()])
             ->get();
 
         $accountCount = $runs->pluck('user_id')->unique()->count();
 
         if ($accountCount < self::AGGREGATION_FLOOR) {
-            return ['eligible' => false, 'account_count' => $accountCount, 'payload' => null];
+            return ['eligible' => false, 'account_count' => $accountCount, 'run_count' => null, 'payloads' => null];
         }
 
+        $runCount = $runs->count();
         $returns = $runs->map(fn ($run) => (float) ($run->results['metrics']['total_return_pct'] ?? 0.0));
+        $winRates = $runs->map(fn ($run) => (float) ($run->results['metrics']['win_rate_pct'] ?? 0.0));
         $drawdowns = $runs->map(fn ($run) => (float) ($run->results['metrics']['max_drawdown_pct'] ?? 0.0));
-        $losingRuns = $returns->filter(fn ($r) => $r < 0.0);
+        $losingCount = $returns->filter(fn ($r) => $r < 0.0)->count();
 
-        $sortedReturns = $returns->sort()->values();
-        $sortedDrawdowns = $drawdowns->sort()->values(); // ascending: most negative first
+        $observedAt = $periodEnd->copy()->endOfDay()->toIso8601String();
 
-        $payload = [
-            'payload_type' => 'observation',
-            'strategy_class' => $strategyClass,
-            'period_start' => $periodStart->toDateString(),
-            'period_end' => $periodEnd->toDateString(),
-            'account_count' => $accountCount,
-            'run_count' => $runs->count(),
-            'mean_return_pct' => round($returns->avg(), 3),
-            'median_return_pct' => round($this->median($sortedReturns), 3),
-            'win_rate_pct' => round($runs->avg(fn ($run) => (float) ($run->results['metrics']['win_rate_pct'] ?? 0.0)), 3),
-            'max_drawdown_p50_pct' => round($this->median($sortedDrawdowns), 3),
-            'max_drawdown_worst_pct' => round($sortedDrawdowns->first(), 3),
-            'losing_period_count' => $losingRuns->count(),
-            'losing_period_pct' => round($losingRuns->count() / $runs->count(), 4),
-            'generated_at' => now()->toIso8601String(),
+        $payloads = [
+            $this->metricPayload(
+                'trading.strategy_mean_return_pct',
+                'Mean total_return_pct across all complete backtest runs for this strategy class and period, among accounts meeting the n>=50 aggregation floor',
+                'percent',
+                'up',
+                $strategyClass,
+                round($returns->avg(), 3),
+                $runCount,
+                $observedAt,
+            ),
+            $this->metricPayload(
+                'trading.strategy_win_rate_pct',
+                'Mean win_rate_pct across all complete backtest runs for this strategy class and period, among accounts meeting the n>=50 aggregation floor',
+                'percent',
+                'up',
+                $strategyClass,
+                round($winRates->avg(), 3),
+                $runCount,
+                $observedAt,
+            ),
+            $this->metricPayload(
+                'trading.strategy_max_drawdown_worst_pct',
+                'Worst single-run max_drawdown_pct across all complete backtest runs for this strategy class and period, among accounts meeting the n>=50 aggregation floor -- always published, never omitted (loss-honesty rule)',
+                'percent',
+                'down',
+                $strategyClass,
+                round($drawdowns->min(), 3),
+                $runCount,
+                $observedAt,
+            ),
+            $this->metricPayload(
+                'trading.strategy_losing_period_pct',
+                'Fraction of complete backtest runs with a negative total_return_pct for this strategy class and period, among accounts meeting the n>=50 aggregation floor -- always published, never omitted (loss-honesty rule)',
+                'ratio',
+                'down',
+                $strategyClass,
+                round($losingCount / $runCount, 4),
+                $runCount,
+                $observedAt,
+            ),
         ];
 
-        return ['eligible' => true, 'account_count' => $accountCount, 'payload' => $payload];
-    }
-
-    private function median(Collection $sorted): float
-    {
-        $count = $sorted->count();
-        if ($count === 0) {
-            return 0.0;
-        }
-        $mid = intdiv($count, 2);
-        if ($count % 2 === 0) {
-            return ($sorted[$mid - 1] + $sorted[$mid]) / 2;
-        }
-        return $sorted[$mid];
+        return ['eligible' => true, 'account_count' => $accountCount, 'run_count' => $runCount, 'payloads' => $payloads];
     }
 
     /**
-     * Full generation: builds the payload, checks the floor, signs and
-     * persists on success. Idempotent per (strategy_class, period) --
-     * re-running an already-generated period returns the existing pack's
-     * reason without creating a duplicate row.
+     * Full generation: builds the 4 metric payloads, checks the floor,
+     * assembles the signed envelope, self-verifies, and persists on
+     * success. Idempotent per (strategy_class, period).
      */
     public function generateForPeriod(string $strategyClass, ?string $period = null): array
     {
@@ -96,36 +117,77 @@ class ObservationPackGenerator
         $periodEnd = $periodStart->copy()->endOfMonth();
 
         $existing = KnowledgePack::where('strategy_class', $strategyClass)
-            ->where('payload_type', 'observation')
-            ->whereDate('period_start', $periodStart->toDateString())
+            ->where('payload_type', 'metric')
+            ->where('period', $period)
             ->first();
 
         if ($existing) {
             return ['generated' => false, 'reason' => 'already_generated', 'account_count' => $existing->account_count, 'pack' => $existing];
         }
 
-        $result = $this->buildPayload($strategyClass, $periodStart, $periodEnd);
+        $result = $this->buildMetricPayloads($strategyClass, $periodStart, $periodEnd);
 
         if (! $result['eligible']) {
             return ['generated' => false, 'reason' => 'below_floor', 'account_count' => $result['account_count'], 'pack' => null];
         }
 
-        $payload = $result['payload'];
-        $payload['pack_id'] = $this->nextPackId($periodStart);
+        $packId = 'dkp:dot-charts:' . (string) Str::uuid();
+        $createdAt = now();
+        $confidence = min(0.9, 0.5 + max(0, $result['run_count'] - 50) * 0.001);
 
-        $signature = $this->sign($payload);
+        $title = "Strategy performance metrics: {$strategyClass}, {$period}";
+        $summary = "Aggregate return, win-rate, and loss-honesty metrics for the {$strategyClass} strategy class across {$result['account_count']} accounts in {$period}.";
+
+        $envelope = [
+            'dkp_version' => '1.0.0',
+            'pack_id' => $packId,
+            'pack_version' => '1.0.0',
+            'platform' => 'dot-charts',
+            'title' => $title,
+            'summary' => $summary,
+            'created_at' => $createdAt->toIso8601String(),
+            'contributors' => [[
+                'id' => 'chartsense-knowledge-pack-generator',
+                'kind' => 'ai',
+                'display_name' => 'ChartSense Knowledge Pack Generator',
+                'key_id' => self::KEY_ID,
+            ]],
+            'payloads' => $result['payloads'],
+            'provenance' => [
+                'sources' => [[
+                    'kind' => 'system',
+                    'uri' => 'chartsense://backtest_runs',
+                    'observed_at' => $periodEnd->copy()->endOfDay()->toIso8601String(),
+                ]],
+                'transformations' => [[
+                    'step' => 'aggregate_and_sign',
+                    'tool' => 'ObservationPackGenerator',
+                    'tool_version' => '2.0.0',
+                    'actor' => 'system',
+                ]],
+                'published_by' => 'dot-charts',
+            ],
+            'confidence' => round($confidence, 3),
+            'signatures' => [],
+        ];
+
+        $envelope['signatures'] = $this->signer->sign($envelope);
+
+        if (! $this->signer->verify($envelope)) {
+            throw new RuntimeException('Generated Knowledge Pack failed self-verification -- refusing to persist an unverifiable artifact.');
+        }
 
         $pack = KnowledgePack::create([
-            'pack_id' => $payload['pack_id'],
-            'payload_type' => 'observation',
+            'pack_id' => $packId,
+            'payload_type' => 'metric',
             'strategy_class' => $strategyClass,
-            'period_start' => $periodStart->toDateString(),
-            'period_end' => $periodEnd->toDateString(),
             'account_count' => $result['account_count'],
-            'payload' => $payload,
-            'signature' => $signature,
-            'signing_key_version' => 'v1',
-            'created_at' => now(),
+            'pack_version' => '1.0.0',
+            'title' => $title,
+            'summary' => $summary,
+            'period' => $period,
+            'envelope' => $envelope,
+            'created_at' => $createdAt,
         ]);
 
         StrategyPerformanceCycleCompleted::dispatch($pack->pack_id, $strategyClass, $result['account_count']);
@@ -133,39 +195,32 @@ class ObservationPackGenerator
         return ['generated' => true, 'reason' => null, 'account_count' => $result['account_count'], 'pack' => $pack];
     }
 
-    public function verify(KnowledgePack $pack): bool
-    {
-        return hash_equals($this->sign($pack->payload), $pack->signature);
-    }
-
-    private function sign(array $payload): string
-    {
-        return hash_hmac('sha256', $this->canonicalize($payload), (string) config('services.dkp.signing_key'));
-    }
-
-    private function canonicalize(array $payload): string
-    {
-        $this->recursiveKsort($payload);
-
-        return json_encode($payload, JSON_UNESCAPED_SLASHES);
-    }
-
-    private function recursiveKsort(array &$array): void
-    {
-        ksort($array);
-        foreach ($array as &$value) {
-            if (is_array($value)) {
-                $this->recursiveKsort($value);
-            }
-        }
-    }
-
-    private function nextPackId(Carbon $periodStart): string
-    {
-        $count = KnowledgePack::where('payload_type', 'observation')
-            ->whereDate('period_start', $periodStart->toDateString())
-            ->count();
-
-        return sprintf('dkp:charts:obs:%s:%04d', $periodStart->toDateString(), $count + 1);
+    private function metricPayload(
+        string $metricName,
+        string $definition,
+        string $unit,
+        string $direction,
+        string $strategyClass,
+        float $value,
+        int $sampleSize,
+        string $timestamp,
+    ): array {
+        return [
+            'payload_type' => 'metric',
+            'body' => [
+                'metric_name' => $metricName,
+                'domain' => 'trading',
+                'definition' => $definition,
+                'unit' => $unit,
+                'direction_of_good' => $direction,
+                'dimensions' => ['strategy_class'],
+                'observations' => [[
+                    'timestamp' => $timestamp,
+                    'value' => $value,
+                    'dimensions' => ['strategy_class' => $strategyClass],
+                    'sample_size' => $sampleSize,
+                ]],
+            ],
+        ];
     }
 }
