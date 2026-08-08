@@ -51,3 +51,9 @@ class BacktestResult(BaseModel):
     metrics: BacktestMetrics
     equity_curve: list[EquityPoint]
     trades: list[TradeRecord]
+
+
+class ChartAnalysisRequest(BaseModel):
+    symbol: str
+    asset_class: AssetClass
+    interval: str = "1d"

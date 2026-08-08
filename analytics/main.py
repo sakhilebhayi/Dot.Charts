@@ -1,11 +1,12 @@
 from fastapi import FastAPI, HTTPException
 
-from schemas import BacktestRequest, BacktestResult
+from schemas import BacktestRequest, BacktestResult, ChartAnalysisRequest
 from data.cache import fetch_ohlcv_cached
 from data.fetch import DataFetchError
 from strategies import STRATEGY_REGISTRY
 from engines.vectorbt_engine import run_vectorbt
 from engines.backtrader_engine import run_backtrader
+from analysis.chart_analysis import compute_chart_analysis
 
 app = FastAPI(title="Dot.Charts Analytics Service")
 
@@ -61,3 +62,11 @@ def backtest(request: BacktestRequest):
         equity_curve=result["equity_curve"],
         trades=result["trades"],
     )
+
+
+@app.post("/chart-analysis")
+def chart_analysis(request: ChartAnalysisRequest):
+    try:
+        return compute_chart_analysis(request.symbol, request.asset_class, request.interval)
+    except DataFetchError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
