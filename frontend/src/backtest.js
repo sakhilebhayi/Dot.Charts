@@ -36,6 +36,32 @@ function currentSymbol() {
     : symbolInput.value.trim();
 }
 
+const rerunData = sessionStorage.getItem('chartsense_rerun');
+if (rerunData) {
+  sessionStorage.removeItem('chartsense_rerun');
+  try {
+    const prefill = JSON.parse(rerunData);
+    document.getElementById('assetClass').value = prefill.asset_class;
+    assetClassSelect.dispatchEvent(new Event('change')); // toggles symbol field visibility
+    if (prefill.asset_class === 'commodity') {
+      symbolCommoditySelect.value = prefill.symbol;
+    } else {
+      symbolInput.value = prefill.symbol;
+    }
+    document.getElementById('strategy').value = prefill.strategy;
+    // BacktestRun casts start_date/end_date as Eloquent 'date' fields, which
+    // serialize to full ISO datetimes ("2023-01-01T00:00:00.000000Z") in
+    // JSON — but <input type="date"> requires exactly "YYYY-MM-DD" and
+    // silently rejects anything else, leaving the field blank. Truncate to
+    // the date portion regardless of which shape arrives.
+    document.getElementById('startDate').value = prefill.start_date.slice(0, 10);
+    document.getElementById('endDate').value = prefill.end_date.slice(0, 10);
+  } catch {
+    // Malformed sessionStorage payload — ignore and leave the form at its defaults
+    // rather than surfacing an error for something the user didn't directly do.
+  }
+}
+
 runButton.addEventListener('click', async () => {
   errorEl.style.display = 'none';
   resultsEl.style.display = 'none';
