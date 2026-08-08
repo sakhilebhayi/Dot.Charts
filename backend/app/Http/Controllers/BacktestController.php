@@ -73,4 +73,24 @@ class BacktestController extends Controller
             'result' => $formatted,
         ]);
     }
+
+    public function index(Request $request): JsonResponse
+    {
+        $query = BacktestRun::where('user_id', $request->user('sanctum')->id)
+            ->orderByDesc('created_at');
+
+        if ($request->filled('strategy')) {
+            $query->where('strategy', $request->string('strategy'));
+        }
+        if ($request->filled('asset_class')) {
+            $query->where('asset_class', $request->string('asset_class'));
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+
+        $runs = $query->paginate(20)->appends($request->query());
+
+        return response()->json($runs);
+    }
 }

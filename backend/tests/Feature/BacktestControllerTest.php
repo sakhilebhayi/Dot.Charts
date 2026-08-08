@@ -223,4 +223,48 @@ class BacktestControllerTest extends TestCase
             'user_id' => $user->id,
         ]);
     }
+
+    public function test_index_returns_only_the_authenticated_users_runs(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $otherUser = \App\Models\User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+
+        \App\Models\BacktestRun::factory()->create(['user_id' => $user->id, 'symbol' => 'AAPL']);
+        \App\Models\BacktestRun::factory()->create(['user_id' => $otherUser->id, 'symbol' => 'MSFT']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/backtests');
+
+        $response->assertOk();
+        $symbols = collect($response->json('data'))->pluck('symbol');
+        $this->assertTrue($symbols->contains('AAPL'));
+        $this->assertFalse($symbols->contains('MSFT'));
+    }
+
+    public function test_index_filters_by_strategy_asset_class_and_status(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+
+        \App\Models\BacktestRun::factory()->create([
+            'user_id' => $user->id, 'strategy' => 'ma_crossover', 'asset_class' => 'equity', 'status' => 'complete',
+        ]);
+        \App\Models\BacktestRun::factory()->create([
+            'user_id' => $user->id, 'strategy' => 'method_714', 'asset_class' => 'crypto', 'status' => 'failed',
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/backtests?strategy=ma_crossover&asset_class=equity&status=complete');
+
+        $response->assertOk();
+        $this->assertCount(1, $response->json('data'));
+        $this->assertSame('ma_crossover', $response->json('data.0.strategy'));
+    }
+
+    public function test_index_requires_authentication(): void
+    {
+        $response = $this->getJson('/api/backtests');
+
+        $response->assertStatus(401);
+    }
 }
