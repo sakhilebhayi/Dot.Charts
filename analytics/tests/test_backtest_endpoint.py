@@ -16,7 +16,7 @@ def _synthetic_uptrend_df():
 
 
 def test_backtest_ma_crossover_returns_metrics_and_trades(mocker):
-    mocker.patch("main.fetch_ohlcv", return_value=_synthetic_uptrend_df())
+    mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
 
     response = client.post(
         "/backtest",
@@ -45,7 +45,7 @@ def test_backtest_method_714_fetches_intraday_data(mocker):
     # bars — daily bars are always midnight and never fall inside a session
     # window, silently producing zero trades. The endpoint must request an
     # intraday interval for this strategy specifically.
-    fetch_mock = mocker.patch("main.fetch_ohlcv", return_value=_synthetic_uptrend_df())
+    fetch_mock = mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
 
     response = client.post(
         "/backtest",
@@ -66,7 +66,7 @@ def test_backtest_method_714_fetches_intraday_data(mocker):
 
 
 def test_backtest_ma_crossover_fetches_daily_data(mocker):
-    fetch_mock = mocker.patch("main.fetch_ohlcv", return_value=_synthetic_uptrend_df())
+    fetch_mock = mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
 
     client.post(
         "/backtest",
@@ -83,7 +83,7 @@ def test_backtest_ma_crossover_fetches_daily_data(mocker):
 
 
 def test_backtest_commodity_returns_metrics_and_trades(mocker):
-    mocker.patch("main.fetch_ohlcv", return_value=_synthetic_uptrend_df())
+    mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
 
     response = client.post(
         "/backtest",
@@ -103,7 +103,7 @@ def test_backtest_commodity_returns_metrics_and_trades(mocker):
 
 
 def test_backtest_unknown_strategy_returns_422(mocker):
-    mocker.patch("main.fetch_ohlcv", return_value=_synthetic_uptrend_df())
+    mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
 
     response = client.post(
         "/backtest",
@@ -122,7 +122,7 @@ def test_backtest_unknown_strategy_returns_422(mocker):
 def test_backtest_data_fetch_error_returns_422(mocker):
     from data.fetch import DataFetchError
 
-    mocker.patch("main.fetch_ohlcv", side_effect=DataFetchError("No equity data for symbol 'BADSYMBOL'"))
+    mocker.patch("main.fetch_ohlcv_cached", side_effect=DataFetchError("No equity data for symbol 'BADSYMBOL'"))
 
     response = client.post(
         "/backtest",

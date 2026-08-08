@@ -103,8 +103,36 @@ def test_fetch_ohlcv_cached_fully_covered_request_only_refreshes_tail_bar(tmp_pa
         "AAPL", "equity", "2023-01-01", "2023-01-03", interval="1d", db_path=db_path,
     )
 
-    # No fetch for the already-covered historical range -- only the tail refresh.
-    mock_fetch.assert_called_once_with("AAPL", "equity", "2023-01-03", "2023-01-03", "1d")
+    # No fetch for the already-covered historical range -- only the tail
+    # refresh, padded to "2023-01-04" since a same-day window would return
+    # zero rows from a real exclusive-end data provider (see
+    # _safe_fetch_window).
+    mock_fetch.assert_called_once_with("AAPL", "equity", "2023-01-03", "2023-01-04", "1d")
+    assert len(result) == 3
+
+
+def test_fetch_ohlcv_cached_tail_refresh_does_not_request_a_zero_width_window(tmp_path, mocker):
+    # Regression: yfinance's `end` and ccxt's since-loop upper bound are
+    # both exclusive of the boundary date, so a real live fetch with
+    # start_date == end_date returns zero rows and raises DataFetchError.
+    # A fully-covered repeat request's tail refresh must never hand the
+    # live fetcher such a window, or every repeat backtest would 422.
+    db_path = tmp_path / "test_cache.db"
+    conn = cache._connect(db_path)
+    cache._insert_bars(conn, "AAPL", "equity", "1d", _sample_df())  # covers 01-01..03
+    conn.close()
+
+    def fake_fetch_like_real_yfinance(symbol, asset_class, start_date, end_date, interval):
+        if start_date == end_date:
+            raise cache.DataFetchError(f"No equity data for symbol '{symbol}'")
+        return _sample_df().iloc[[-1]]
+
+    mocker.patch("data.cache.fetch_ohlcv", side_effect=fake_fetch_like_real_yfinance)
+
+    result = cache.fetch_ohlcv_cached(
+        "AAPL", "equity", "2023-01-01", "2023-01-03", interval="1d", db_path=db_path,
+    )
+
     assert len(result) == 3
 
 
@@ -181,18 +209,30 @@ def test_fetch_ohlcv_cached_cold_cache_failure_leaves_cache_empty(tmp_path, mock
     conn.close()
 
 
-def test_fetch_ohlcv_cached_gap_fill_failure_leaves_existing_cache_intact(tmp_path, mocker):
+def test_fetch_ohlcv_cached_gap_fill_failure_is_best_effort_and_still_serves_cached_data(
+    tmp_path, mocker,
+):
+    # A gap-fill failure past the cold-cache fetch is best-effort, not
+    # fail-closed: the symbol/asset_class are already proven valid by
+    # whatever originally populated the cache, and a real provider raises
+    # this same DataFetchError for a legitimately-empty sub-range (e.g. a
+    # weekend/holiday just before a symbol's first trading day) as it does
+    # for an actual outage -- so failing the whole request here would mean
+    # a repeat request with the same start_date 422s forever.
     db_path = tmp_path / "test_cache.db"
     conn = cache._connect(db_path)
     cache._insert_bars(conn, "AAPL", "equity", "1d", _sample_df())  # covers 01-01..03
     conn.close()
 
-    mocker.patch("data.cache.fetch_ohlcv", side_effect=cache.DataFetchError("rate limited"))
+    mocker.patch("data.cache.fetch_ohlcv", side_effect=cache.DataFetchError("no data"))
 
-    with pytest.raises(cache.DataFetchError):
-        cache.fetch_ohlcv_cached(
-            "AAPL", "equity", "2022-12-30", "2023-01-03", interval="1d", db_path=db_path,
-        )
+    result = cache.fetch_ohlcv_cached(
+        "AAPL", "equity", "2022-12-30", "2023-01-03", interval="1d", db_path=db_path,
+    )
+
+    # The backward gap (12-30, 12-31) was never filled, so only the
+    # already-cached 3 days come back -- but the request succeeds.
+    assert len(result) == 3
 
     conn = cache._connect(db_path)
     coverage = cache._get_coverage(conn, "AAPL", "equity", "1d")

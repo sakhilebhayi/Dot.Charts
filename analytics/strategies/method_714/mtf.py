@@ -1,7 +1,7 @@
 import pandas as pd
 import pandas_ta as ta
 
-from data.fetch import fetch_ohlcv
+from data.cache import fetch_ohlcv_cached
 
 
 def compute_htf_trend(
@@ -23,7 +23,7 @@ def compute_htf_trend(
     fully-closed HTF bar's EMA state — matching the Pine source's
     request.security(..., lookahead=barmerge.lookahead_off) semantics.
     """
-    htf_df = fetch_ohlcv(symbol, asset_class, start_date, end_date, interval=htf_interval)
+    htf_df = fetch_ohlcv_cached(symbol, asset_class, start_date, end_date, interval=htf_interval)
 
     ema_fast = ta.ema(htf_df["close"], length=fast)
     ema_slow = ta.ema(htf_df["close"], length=slow)

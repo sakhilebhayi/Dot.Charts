@@ -97,12 +97,22 @@ For a request `fetch_ohlcv_cached(symbol, asset_class, start, end, interval)`:
    Every other cached bar is treated as immutable and is never re-fetched.
 5. Serve `[start, end]` by querying the now-updated table for this key.
 
-**Failure handling:** if any live fetch in steps 1-4 raises
-`DataFetchError`, the whole request fails closed — nothing is written to
-the cache for that call, and the exception propagates to the caller
-unchanged. A request is never partially served from a mix of "some data we
-have" and "silently missing the rest" — `main.py`'s existing
-`DataFetchError` → HTTP 422 handling requires no changes.
+**Failure handling:** step 1's cold-cache fetch (no prior coverage at all)
+fails closed — a `DataFetchError` there propagates unchanged, since it's
+the only fetch that proves the `(symbol, asset_class)` pair is valid in
+the first place. Steps 2-4 (backward/forward extension, tail-bar refresh)
+are best-effort instead: their `DataFetchError` is caught and the write is
+skipped, but the request still succeeds serving whatever is already
+cached. This distinction was added after manual end-to-end verification
+surfaced a real failure mode the original "always fail closed" wording
+didn't anticipate: a data provider raises the exact same `DataFetchError`
+for a genuinely-empty sub-range (e.g. extending backward into the
+weekend/holiday days just before a symbol's actual first trading day) as
+it does for a real outage. Under strict fail-closed, any request whose
+`start_date` predates a symbol's first trading day would 422 on every
+repeat call, forever — worse than the rate-limit problem this cache exists
+to solve. `main.py`'s existing `DataFetchError` → HTTP 422 handling still
+requires no changes, since it only ever sees the cold-cache case now.
 
 ## Connection Lifecycle
 
@@ -128,8 +138,16 @@ happens at all. Covered cases:
   missing leading gap.
 - Forward extension (`end > cached_max`) → live fetch covers only the
   missing trailing gap.
-- Live-fetch failure during a gap-fill → `DataFetchError` propagates, and
-  the cache table is left unchanged (nothing partially written).
+- Live-fetch failure on the cold-cache fetch (no prior coverage) →
+  `DataFetchError` propagates, cache stays empty for that key.
+- Live-fetch failure during a gap-fill (backward/forward/tail, coverage
+  already exists) → caught and skipped; the request still succeeds,
+  serving whatever was already cached, and the cache table is left
+  unchanged (nothing partially written).
+- A same-day gap-fill/tail-refresh window (`start == end`) is padded
+  forward by one day before the live fetch, since real providers treat
+  `end` as exclusive and would otherwise report a false "no data" error
+  for a day that actually has data.
 
 ## Out of Scope
 

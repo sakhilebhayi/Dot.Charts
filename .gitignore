@@ -57,3 +57,4 @@ analytics/.venv/
 analytics/__pycache__/
 analytics/**/__pycache__/
 analytics/.pytest_cache/
+analytics/data/ohlcv_cache.db*

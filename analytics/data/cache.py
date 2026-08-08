@@ -102,6 +102,26 @@ def _query_range(
     return pd.DataFrame(data, index=idx)
 
 
+def _safe_fetch_window(start_date: str, end_date: str) -> tuple[str, str]:
+    """
+    Both yfinance's `end` kwarg and ccxt's since-loop upper bound are
+    exclusive of the boundary date. A gap-fill/tail-refresh window whose
+    computed start and end collapse to the same calendar day (e.g.
+    refreshing just the single most-recently-cached day) would ask the
+    live API for a zero-width range and get back no rows -- which
+    fetch_ohlcv correctly treats as a real DataFetchError, even though
+    that day's data exists. Padding `end` forward by one day whenever it
+    doesn't already exceed `start` fixes this without affecting what's
+    ultimately served, since callers still filter the cached result by
+    the originally-requested [start_ms, end_ms] in _query_range.
+    """
+    start_ts = pd.Timestamp(start_date)
+    end_ts = pd.Timestamp(end_date)
+    if end_ts <= start_ts:
+        end_ts = start_ts + pd.Timedelta(days=1)
+    return start_date, end_ts.strftime("%Y-%m-%d")
+
+
 def fetch_ohlcv_cached(
     symbol: str,
     asset_class: str,
@@ -118,21 +138,41 @@ def fetch_ohlcv_cached(
         coverage = _get_coverage(conn, symbol, asset_class, interval)
 
         if coverage is None:
-            live_df = fetch_ohlcv(symbol, asset_class, start_date, end_date, interval)
+            fetch_start, fetch_end = _safe_fetch_window(start_date, end_date)
+            live_df = fetch_ohlcv(symbol, asset_class, fetch_start, fetch_end, interval)
             _insert_bars(conn, symbol, asset_class, interval, live_df)
             return _query_range(conn, symbol, asset_class, interval, start_ms, end_ms)
 
         cached_min, cached_max = coverage
 
+        # Once a key has ANY cached coverage, its symbol/asset_class are
+        # already proven valid (by the cold-cache fetch that first
+        # populated it). From here on, a gap-fill sub-range can legitimately
+        # have zero bars -- e.g. extending backward past a symbol's first
+        # trading day into a weekend/holiday-only window -- and a real data
+        # provider reports that exactly like a genuine failure (raises
+        # DataFetchError). Failing the whole request in that case would
+        # mean *every* repeat request with the same start_date 422s
+        # forever. So gap-fill fetches are best-effort past this point:
+        # catch DataFetchError, skip the write, and still serve whatever is
+        # already cached. Only the cold-cache fetch above stays fail-closed.
         if start_ms < cached_min:
             gap_end_date = pd.Timestamp(cached_min, unit="ms", tz="UTC").strftime("%Y-%m-%d")
-            backward_df = fetch_ohlcv(symbol, asset_class, start_date, gap_end_date, interval)
-            _insert_bars(conn, symbol, asset_class, interval, backward_df)
+            fetch_start, fetch_end = _safe_fetch_window(start_date, gap_end_date)
+            try:
+                backward_df = fetch_ohlcv(symbol, asset_class, fetch_start, fetch_end, interval)
+                _insert_bars(conn, symbol, asset_class, interval, backward_df)
+            except DataFetchError:
+                pass
 
         if end_ms > cached_max:
             gap_start_date = pd.Timestamp(cached_max, unit="ms", tz="UTC").strftime("%Y-%m-%d")
-            forward_df = fetch_ohlcv(symbol, asset_class, gap_start_date, end_date, interval)
-            _insert_bars(conn, symbol, asset_class, interval, forward_df)
+            fetch_start, fetch_end = _safe_fetch_window(gap_start_date, end_date)
+            try:
+                forward_df = fetch_ohlcv(symbol, asset_class, fetch_start, fetch_end, interval)
+                _insert_bars(conn, symbol, asset_class, interval, forward_df)
+            except DataFetchError:
+                pass
 
         if start_ms <= cached_max <= end_ms:
             # The bar at the old cached_max may still have been in progress
@@ -142,8 +182,12 @@ def fetch_ohlcv_cached(
             # Algorithm step 4 for why this isn't conditioned on wall-clock
             # "now".
             tail_date = pd.Timestamp(cached_max, unit="ms", tz="UTC").strftime("%Y-%m-%d")
-            tail_df = fetch_ohlcv(symbol, asset_class, tail_date, end_date, interval)
-            _insert_bars(conn, symbol, asset_class, interval, tail_df)
+            fetch_start, fetch_end = _safe_fetch_window(tail_date, end_date)
+            try:
+                tail_df = fetch_ohlcv(symbol, asset_class, fetch_start, fetch_end, interval)
+                _insert_bars(conn, symbol, asset_class, interval, tail_df)
+            except DataFetchError:
+                pass
 
         return _query_range(conn, symbol, asset_class, interval, start_ms, end_ms)
     finally:

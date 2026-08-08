@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
 
 from schemas import BacktestRequest, BacktestResult
-from data.fetch import fetch_ohlcv, DataFetchError
+from data.cache import fetch_ohlcv_cached
+from data.fetch import DataFetchError
 from strategies import STRATEGY_REGISTRY
 from engines.vectorbt_engine import run_vectorbt
 from engines.backtrader_engine import run_backtrader
@@ -23,7 +24,7 @@ def backtest(request: BacktestRequest):
     params = {**entry["default_params"], **request.params}
 
     try:
-        df = fetch_ohlcv(
+        df = fetch_ohlcv_cached(
             request.symbol,
             request.asset_class,
             request.start_date,
