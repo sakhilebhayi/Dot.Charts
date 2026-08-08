@@ -10,6 +10,28 @@ const assetClassSelect = document.getElementById('assetClass');
 const symbolInput = document.getElementById('symbol');
 const symbolCommoditySelect = document.getElementById('symbolCommodity');
 const symbolForexSelect = document.getElementById('symbolForex');
+const strategySelect = document.getElementById('strategy');
+const savedStrategyRules = {};
+
+async function loadSavedStrategyOptions() {
+  if (!isLoggedIn()) return;
+
+  const response = await fetch(`${API_BASE}/strategies`, {
+    headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
+  });
+  if (!response.ok) return;
+  const body = await response.json();
+
+  (body.data || []).forEach((strategy) => {
+    savedStrategyRules[strategy.id] = strategy.rules;
+    const opt = document.createElement('option');
+    opt.value = `custom:${strategy.id}`;
+    opt.textContent = `${strategy.name} (custom)`;
+    strategySelect.appendChild(opt);
+  });
+}
+
+loadSavedStrategyOptions();
 
 const authStateEl = document.getElementById('authState');
 if (authStateEl) {
@@ -73,13 +95,17 @@ runButton.addEventListener('click', async () => {
   runButton.disabled = true;
   runButton.textContent = 'Running…';
 
+  const selectedStrategy = strategySelect.value;
+  const isCustom = selectedStrategy.startsWith('custom:');
+  const customId = isCustom ? selectedStrategy.slice('custom:'.length) : null;
+
   const payload = {
     symbol: currentSymbol(),
     asset_class: document.getElementById('assetClass').value,
-    strategy: document.getElementById('strategy').value,
+    strategy: isCustom ? 'custom' : selectedStrategy,
     start_date: document.getElementById('startDate').value,
     end_date: document.getElementById('endDate').value,
-    params: {},
+    params: isCustom ? savedStrategyRules[customId] : {},
   };
 
   try {
