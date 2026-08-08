@@ -93,4 +93,41 @@ class AuthControllerTest extends TestCase
 
         $response->assertStatus(401);
     }
+
+    public function test_me_returns_current_user_when_authenticated(): void
+    {
+        $user = User::factory()->create(['email' => 'ada@example.com']);
+        $token = $user->createToken('api')->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/me');
+
+        $response->assertOk();
+        $response->assertJsonPath('email', 'ada@example.com');
+    }
+
+    public function test_me_returns_401_when_not_authenticated(): void
+    {
+        $response = $this->getJson('/api/me');
+
+        $response->assertStatus(401);
+    }
+
+    public function test_logout_invalidates_the_token(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+
+        $logoutResponse = $this->withHeader('Authorization', "Bearer {$token}")->postJson('/api/logout');
+        $logoutResponse->assertOk();
+
+        // The 'sanctum' guard caches its resolved user for the lifetime of
+        // the AuthManager instance — a real request-per-process app never
+        // hits this, but two simulated requests in the same test method
+        // share that instance, so the guard must be reset to force it to
+        // re-resolve (and find the token gone) on the second call.
+        $this->app['auth']->forgetGuards();
+
+        $meResponse = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/me');
+        $meResponse->assertStatus(401);
+    }
 }
