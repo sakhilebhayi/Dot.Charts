@@ -12,19 +12,17 @@ class KnowledgePack extends Model
         'pack_id',
         'payload_type',
         'strategy_class',
-        'period_start',
-        'period_end',
         'account_count',
-        'payload',
-        'signature',
-        'signing_key_version',
+        'pack_version',
+        'title',
+        'summary',
+        'period',
+        'envelope',
         'created_at',
     ];
 
     protected $casts = [
-        'payload' => 'array',
-        'period_start' => 'date',
-        'period_end' => 'date',
+        'envelope' => 'array',
         'created_at' => 'datetime',
     ];
 }
