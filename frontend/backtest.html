@@ -50,12 +50,19 @@
       <div>
         <label for="symbol">Symbol</label>
         <input id="symbol" placeholder="AAPL or BTC/USDT" value="AAPL" />
+        <select id="symbolCommodity" style="display:none">
+          <option value="GC=F">Gold</option>
+          <option value="SI=F">Silver</option>
+          <option value="CL=F">Oil (WTI)</option>
+          <option value="^GDAXI">GER30 / GER40 (DAX)</option>
+        </select>
       </div>
       <div>
         <label for="assetClass">Asset class</label>
         <select id="assetClass">
           <option value="equity">Equity</option>
           <option value="crypto">Crypto</option>
+          <option value="commodity">Commodity</option>
         </select>
       </div>
     </div>

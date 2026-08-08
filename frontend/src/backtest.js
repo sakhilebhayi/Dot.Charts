@@ -3,6 +3,21 @@ const API_BASE = 'http://localhost:8000/api';
 const runButton = document.getElementById('runButton');
 const errorEl = document.getElementById('error');
 const resultsEl = document.getElementById('results');
+const assetClassSelect = document.getElementById('assetClass');
+const symbolInput = document.getElementById('symbol');
+const symbolCommoditySelect = document.getElementById('symbolCommodity');
+
+assetClassSelect.addEventListener('change', () => {
+  const isCommodity = assetClassSelect.value === 'commodity';
+  symbolInput.style.display = isCommodity ? 'none' : '';
+  symbolCommoditySelect.style.display = isCommodity ? '' : 'none';
+});
+
+function currentSymbol() {
+  return assetClassSelect.value === 'commodity'
+    ? symbolCommoditySelect.value
+    : symbolInput.value.trim();
+}
 
 runButton.addEventListener('click', async () => {
   errorEl.style.display = 'none';
@@ -11,7 +26,7 @@ runButton.addEventListener('click', async () => {
   runButton.textContent = 'Running…';
 
   const payload = {
-    symbol: document.getElementById('symbol').value.trim(),
+    symbol: currentSymbol(),
     asset_class: document.getElementById('assetClass').value,
     strategy: document.getElementById('strategy').value,
     start_date: document.getElementById('startDate').value,
