@@ -16,6 +16,7 @@ export default defineConfig({
         backtest: resolve(__dirname, 'backtest.html'),
         login: resolve(__dirname, 'login.html'),
         register: resolve(__dirname, 'register.html'),
+        history: resolve(__dirname, 'history.html'),
       },
     },
   },

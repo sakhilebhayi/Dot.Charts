@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dot.Charts — History</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <style>
+    :root {
+      --bg:#020617;--panel:rgba(15,23,42,.7);--border:rgba(148,163,184,.15);
+      --text:#e5e7eb;--muted:#94a3b8;--accent:#22d3ee;
+      --green:#22c55e;--red:#ef4444;--warn-bg:rgba(250,204,21,.1);--warn-border:rgba(250,204,21,.3)
+    }
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
+    body{margin:0;min-height:100vh;color:var(--text);background:var(--bg)}
+    .container{max-width:920px;margin:0 auto;padding:48px 24px}
+    h1{font-size:32px;margin-bottom:8px}
+    .back-link{color:var(--accent);text-decoration:none;font-size:14px}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px;margin-top:24px}
+    label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+    input,select{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
+      background:#0f172a;color:var(--text);font-size:15px}
+    .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+    button{padding:10px 16px;background:var(--accent);color:var(--bg);border:none;
+      border-radius:10px;font-weight:700;cursor:pointer;font-size:14px}
+    button.secondary{background:transparent;border:1px solid var(--border);color:var(--text)}
+    button.danger{background:transparent;border:1px solid var(--red);color:var(--red)}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    #runsList{margin-top:20px;display:flex;flex-direction:column;gap:10px}
+    .run-row{background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:14px 16px;
+      display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}
+    .run-row:hover{border-color:var(--accent)}
+    .run-row .meta{font-size:13px;color:var(--muted)}
+    .run-row .symbol{font-weight:700;font-size:16px}
+    .run-row .status{font-size:12px;padding:3px 8px;border-radius:999px}
+    .status.complete{background:rgba(34,197,94,.15);color:var(--green)}
+    .status.failed{background:rgba(239,68,68,.15);color:var(--red)}
+    .status.queued{background:rgba(148,163,184,.15);color:var(--muted)}
+    .run-actions{display:flex;gap:8px}
+    #loadMore{margin-top:16px;width:100%}
+    #empty{color:var(--muted);margin-top:20px;display:none}
+    #results{margin-top:24px;display:none}
+    #error{color:var(--red);margin-top:14px;display:none}
+    .metrics-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px}
+    .metric-box{background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:14px}
+    .metric-box label{margin:0 0 4px}
+    .metric-box .value{font-size:20px;font-weight:700}
+    .metric-box .value.negative{color:var(--red)}
+    #equityCurve{width:100%;height:160px;margin-top:20px;background:#0f172a;border-radius:10px;border:1px solid var(--border)}
+    .disclosure{margin-top:20px;padding:16px 18px;border-radius:10px;background:var(--warn-bg);
+      border:1px solid var(--warn-border);color:#fde68a;font-size:14px;line-height:1.6}
+    .disclosure strong{display:block;margin-bottom:6px;color:#fcd34d}
+  </style>
+</head>
+<body>
+<div class="container">
+  <a class="back-link" href="/">← Back</a>
+  <a href="/backtest.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">Run a backtest</a>
+  <span id="authState" style="float:right;font-size:14px;color:var(--muted)"></span>
+  <h1>Backtest History</h1>
+  <p style="color:var(--muted)">Your past backtests. Login required — this list is always scoped to your own account.</p>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label for="filterStrategy">Strategy</label>
+        <select id="filterStrategy">
+          <option value="">All</option>
+          <option value="ma_crossover">MA Crossover</option>
+          <option value="rsi_mean_reversion">RSI Mean-Reversion</option>
+          <option value="method_714">714 Method</option>
+        </select>
+      </div>
+      <div>
+        <label for="filterAssetClass">Asset class</label>
+        <select id="filterAssetClass">
+          <option value="">All</option>
+          <option value="equity">Equity</option>
+          <option value="crypto">Crypto</option>
+          <option value="commodity">Commodity</option>
+        </select>
+      </div>
+      <div>
+        <label for="filterStatus">Status</label>
+        <select id="filterStatus">
+          <option value="">All</option>
+          <option value="complete">Complete</option>
+          <option value="failed">Failed</option>
+          <option value="queued">Queued</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="error"></div>
+  <div id="empty">No backtests match these filters yet.</div>
+  <div id="runsList"></div>
+  <button id="loadMore" class="secondary" style="display:none">Load more</button>
+
+  <div id="results" class="card">
+    <h2 id="resultTitle"></h2>
+    <div class="metrics-grid">
+      <div class="metric-box"><label>Total return</label><div class="value" id="mTotalReturn"></div></div>
+      <div class="metric-box"><label>Win rate</label><div class="value" id="mWinRate"></div></div>
+      <div class="metric-box"><label>Max drawdown</label><div class="value negative" id="mDrawdown"></div></div>
+      <div class="metric-box"><label>Sharpe</label><div class="value" id="mSharpe"></div></div>
+      <div class="metric-box"><label>Trades</label><div class="value" id="mTrades"></div></div>
+      <div class="metric-box"><label>Losing trades</label><div class="value" id="mLosingTrades"></div></div>
+    </div>
+    <svg id="equityCurve"></svg>
+    <div class="disclosure">
+      <strong id="dConfidence"></strong>
+      <div id="dAttribution"></div>
+      <div id="dRisk" style="margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+<script type="module" src="/src/history.js"></script>
+</body>
+</html>
