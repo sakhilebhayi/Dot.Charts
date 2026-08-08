@@ -1,0 +1,213 @@
+import { getToken, clearToken, isLoggedIn } from './auth.js';
+
+const OPERAND_TYPES = [
+  { value: 'close', label: 'Close' },
+  { value: 'open', label: 'Open' },
+  { value: 'high', label: 'High' },
+  { value: 'low', label: 'Low' },
+  { value: 'volume', label: 'Volume' },
+  { value: 'ema', label: 'EMA' },
+  { value: 'sma', label: 'SMA' },
+  { value: 'rsi', label: 'RSI' },
+  { value: 'atr', label: 'ATR' },
+  { value: 'bb_upper', label: 'Bollinger Upper' },
+  { value: 'bb_mid', label: 'Bollinger Mid' },
+  { value: 'bb_lower', label: 'Bollinger Lower' },
+  { value: 'value', label: 'Value' },
+];
+
+const COMPARATORS = [
+  { value: 'crosses_above', label: 'crosses above' },
+  { value: 'crosses_below', label: 'crosses below' },
+  { value: 'greater_than', label: 'greater than' },
+  { value: 'less_than', label: 'less than' },
+];
+
+const LENGTH_ONLY_TYPES = ['ema', 'sma', 'rsi', 'atr'];
+const BB_TYPES = ['bb_upper', 'bb_mid', 'bb_lower'];
+
+let draggedIndex = null;
+let draggedPanel = null;
+
+function defaultCondition() {
+  return {
+    left: { type: 'ema', length: 20 },
+    comparator: 'crosses_above',
+    right: { type: 'ema', length: 50 },
+  };
+}
+
+export let entryConditions = [defaultCondition()];
+export let exitConditions = [defaultCondition()];
+
+function operandToJSON(operand) {
+  if (operand.type === 'value') {
+    return { value: Number(operand.value) };
+  }
+  const json = { indicator: operand.type };
+  if (LENGTH_ONLY_TYPES.includes(operand.type) || BB_TYPES.includes(operand.type)) {
+    json.length = Number(operand.length);
+  }
+  if (BB_TYPES.includes(operand.type)) {
+    json.std = Number(operand.std);
+  }
+  return json;
+}
+
+function ruleToJSON(conditions, combinatorEl) {
+  return {
+    combinator: combinatorEl.value,
+    conditions: conditions.map((c) => ({
+      left: operandToJSON(c.left),
+      comparator: c.comparator,
+      right: operandToJSON(c.right),
+    })),
+  };
+}
+
+export function currentRules() {
+  return {
+    entry: ruleToJSON(entryConditions, document.getElementById('entryCombinator')),
+    exit: ruleToJSON(exitConditions, document.getElementById('exitCombinator')),
+  };
+}
+
+function renderOperandFields(operand, onTypeChange) {
+  const wrap = document.createElement('span');
+  wrap.style.display = 'inline-flex';
+  wrap.style.gap = '6px';
+
+  const typeSelect = document.createElement('select');
+  OPERAND_TYPES.forEach((t) => {
+    const opt = document.createElement('option');
+    opt.value = t.value;
+    opt.textContent = t.label;
+    if (t.value === operand.type) opt.selected = true;
+    typeSelect.appendChild(opt);
+  });
+  typeSelect.addEventListener('change', () => {
+    operand.type = typeSelect.value;
+    if (operand.type === 'value') {
+      operand.value = operand.value ?? 0;
+    } else if (LENGTH_ONLY_TYPES.includes(operand.type) || BB_TYPES.includes(operand.type)) {
+      operand.length = operand.length ?? 20;
+      if (BB_TYPES.includes(operand.type)) operand.std = operand.std ?? 2.0;
+    }
+    onTypeChange();
+  });
+  wrap.appendChild(typeSelect);
+
+  if (operand.type === 'value') {
+    const valueInput = document.createElement('input');
+    valueInput.type = 'number';
+    valueInput.step = 'any';
+    valueInput.value = operand.value ?? 0;
+    valueInput.addEventListener('input', () => { operand.value = valueInput.value; });
+    wrap.appendChild(valueInput);
+  } else if (LENGTH_ONLY_TYPES.includes(operand.type) || BB_TYPES.includes(operand.type)) {
+    const lengthInput = document.createElement('input');
+    lengthInput.type = 'number';
+    lengthInput.placeholder = 'length';
+    lengthInput.value = operand.length ?? 20;
+    lengthInput.addEventListener('input', () => { operand.length = lengthInput.value; });
+    wrap.appendChild(lengthInput);
+
+    if (BB_TYPES.includes(operand.type)) {
+      const stdInput = document.createElement('input');
+      stdInput.type = 'number';
+      stdInput.step = '0.1';
+      stdInput.placeholder = 'std';
+      stdInput.value = operand.std ?? 2.0;
+      stdInput.addEventListener('input', () => { operand.std = stdInput.value; });
+      wrap.appendChild(stdInput);
+    }
+  }
+
+  return wrap;
+}
+
+function renderConditionCard(condition, index, conditions, containerEl, panelName) {
+  const card = document.createElement('div');
+  card.className = 'condition-card';
+  card.dataset.index = index;
+  card.draggable = true;
+
+  card.addEventListener('dragstart', () => {
+    draggedIndex = index;
+    draggedPanel = panelName;
+    card.classList.add('dragging');
+  });
+  card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  card.addEventListener('dragover', (e) => e.preventDefault());
+  card.addEventListener('drop', () => {
+    if (draggedPanel !== panelName || draggedIndex === null) return;
+    const [moved] = conditions.splice(draggedIndex, 1);
+    conditions.splice(index, 0, moved);
+    draggedIndex = null;
+    renderPanel(panelName);
+  });
+
+  const rerender = () => renderPanel(panelName);
+
+  card.appendChild(renderOperandFields(condition.left, rerender));
+
+  const comparatorSelect = document.createElement('select');
+  COMPARATORS.forEach((c) => {
+    const opt = document.createElement('option');
+    opt.value = c.value;
+    opt.textContent = c.label;
+    if (c.value === condition.comparator) opt.selected = true;
+    comparatorSelect.appendChild(opt);
+  });
+  comparatorSelect.addEventListener('change', () => { condition.comparator = comparatorSelect.value; });
+  card.appendChild(comparatorSelect);
+
+  card.appendChild(renderOperandFields(condition.right, rerender));
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'remove-btn';
+  removeBtn.textContent = '✕';
+  removeBtn.addEventListener('click', () => {
+    conditions.splice(index, 1);
+    renderPanel(panelName);
+  });
+  card.appendChild(removeBtn);
+
+  containerEl.appendChild(card);
+}
+
+export function renderPanel(panelName) {
+  const conditions = panelName === 'entry' ? entryConditions : exitConditions;
+  const containerEl = document.getElementById(`${panelName}Conditions`);
+  containerEl.innerHTML = '';
+  conditions.forEach((condition, index) => {
+    renderConditionCard(condition, index, conditions, containerEl, panelName);
+  });
+}
+
+document.getElementById('addEntryCondition').addEventListener('click', () => {
+  entryConditions.push(defaultCondition());
+  renderPanel('entry');
+});
+document.getElementById('addExitCondition').addEventListener('click', () => {
+  exitConditions.push(defaultCondition());
+  renderPanel('exit');
+});
+
+const authStateEl = document.getElementById('authState');
+if (authStateEl) {
+  if (isLoggedIn()) {
+    authStateEl.innerHTML = '<a href="#" id="logoutLink" style="color:var(--accent)">Log out</a>';
+    document.getElementById('logoutLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      clearToken();
+      window.location.reload();
+    });
+  } else {
+    authStateEl.innerHTML = '<a href="/login.html" style="color:var(--accent)">Log in</a>';
+  }
+}
+
+renderPanel('entry');
+renderPanel('exit');
