@@ -1,11 +1,21 @@
 {
   "platform": "dot-charts",
-  "version": "0.1.0",
-  "publishes": ["observation"],
-  "subscribes": [],
-  "default_classification": "restricted",
-  "signing_key": "vault://keys/dot-charts/dkp-signing/v1",
-  "tenancy": {
-    "aggregation_floor": 50
-  }
+  "display_name": "Dot.Charts",
+  "dkp_version": "1.0.0",
+  "endpoints": {
+    "publish_topic": "dkp.dot-charts.publish",
+    "response_topic": "dkp.dot-charts.response",
+    "pr_repository": "git@github.com:sakhilebhayi/ChartSense.git"
+  },
+  "keys": [
+    {
+      "key_id": "dot-charts-dkp-v1",
+      "algorithm": "ed25519",
+      "public_key": "107Vd1L22cjL3XvCuzIOwcFMXV2M3MtWoZ7X3Ofc7qU=",
+      "valid_from": "2026-08-08T18:03:18Z"
+    }
+  ],
+  "advisory_subscriptions": ["all"],
+  "rate_limit_per_minute": 100,
+  "contacts": [{ "role": "Platform Owner", "handle": "@sakhilebhayi" }]
 }
