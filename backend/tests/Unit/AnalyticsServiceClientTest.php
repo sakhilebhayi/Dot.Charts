@@ -70,4 +70,29 @@ class AnalyticsServiceClientTest extends TestCase
             return str_contains($request->body(), '"params":{}');
         });
     }
+
+    public function test_validate_rule_returns_the_decoded_response(): void
+    {
+        Http::fake([
+            '*/validate-rule' => Http::response(['valid' => true], 200),
+        ]);
+
+        $client = new AnalyticsServiceClient('http://localhost:8001');
+        $result = $client->validateRule(['entry' => ['combinator' => 'all', 'conditions' => []]]);
+
+        $this->assertSame(['valid' => true], $result);
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/validate-rule'));
+    }
+
+    public function test_validate_rule_returns_the_invalid_response_with_error(): void
+    {
+        Http::fake([
+            '*/validate-rule' => Http::response(['valid' => false, 'error' => 'Unknown comparator: bogus'], 200),
+        ]);
+
+        $client = new AnalyticsServiceClient('http://localhost:8001');
+        $result = $client->validateRule(['entry' => ['combinator' => 'all', 'conditions' => []]]);
+
+        $this->assertSame(['valid' => false, 'error' => 'Unknown comparator: bogus'], $result);
+    }
 }

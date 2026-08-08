@@ -56,6 +56,23 @@ class AnalyticsServiceClient
     }
 
     /**
+     * @param array $rules matches the Python service's {"entry": {...}, "exit": {...}} rule shape
+     * @return array {"valid": bool, "error"?: string} -- always 200 from the analytics service,
+     *   since "the rule is invalid" is itself a successfully-answered question, not a service error
+     * @throws RuntimeException on a non-2xx response or connection failure (an actual infrastructure problem)
+     */
+    public function validateRule(array $rules): array
+    {
+        $response = Http::timeout(15)->post("{$this->baseUrl}/validate-rule", ['rules' => $rules]);
+
+        if ($response->failed()) {
+            throw new RuntimeException($this->errorMessage($response));
+        }
+
+        return $response->json();
+    }
+
+    /**
      * FastAPI's own validation errors (as opposed to our HTTPException calls,
      * which always set a string detail) return `detail` as an array of
      * per-field error objects, not a string — e.g. {"detail": [{"loc": [...],
