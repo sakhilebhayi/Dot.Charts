@@ -1,0 +1,11 @@
+{
+  "platform": "dot-charts",
+  "version": "0.1.0",
+  "publishes": ["observation"],
+  "subscribes": [],
+  "default_classification": "restricted",
+  "signing_key": "vault://keys/dot-charts/dkp-signing/v1",
+  "tenancy": {
+    "aggregation_floor": 50
+  }
+}
