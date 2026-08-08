@@ -43,12 +43,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         // Only send image and context to backend; backend handles all API calls and signal generation
+        const symbolOverride = document.getElementById('symbolOverride')?.value.trim();
         const response = await fetch('http://localhost:8000/api/chart/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             image: previewSrc,
-            market: 'crypto'
+            market: 'crypto',
+            ...(symbolOverride ? { symbol: symbolOverride } : {}),
           })
         });
         if (!response.ok) throw new Error('Backend analysis failed');
@@ -151,6 +153,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function displayResults(analysis, meta = {}) {
+    // Regression: the real backend response (both the placeholder and the
+    // real chart-analysis path) only ever sends signal/confidence/trend/
+    // patterns/supports/resistances/summary -- it never sent entryZone/
+    // stopLoss/takeProfits/riskReward/timestamp, which this render function
+    // has always required. That made every real upload throw ("Cannot read
+    // properties of undefined (reading 'join')") regardless of which
+    // backend path served it. Backfill sensible defaults derived from the
+    // fields that are actually present, without changing the backend
+    // contract.
+    analysis = {
+      entryZone: analysis.supports?.[0] ?? 'N/A',
+      stopLoss: analysis.supports?.[1] ?? analysis.supports?.[0] ?? 'N/A',
+      takeProfits: analysis.resistances ?? [],
+      riskReward: 'N/A',
+      timestamp: new Date().toLocaleString(),
+      ...analysis,
+    };
     const style = getSignalStyle(analysis.signal);
     const demoBanner = meta.isDemo
       ? `<div class="demo-banner" role="status">
