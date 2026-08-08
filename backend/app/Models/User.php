@@ -18,6 +18,9 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
+    // is_platform_operator is deliberately excluded -- it must never be
+    // settable via any request payload (register, profile update, or
+    // otherwise). Only set via tinker, a seeder, or direct DB access.
     protected $fillable = [
         'name',
         'email',
@@ -44,6 +47,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_platform_operator' => 'boolean',
         ];
     }
 }
