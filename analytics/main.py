@@ -4,6 +4,7 @@ from schemas import BacktestRequest, BacktestResult
 from data.fetch import fetch_ohlcv, DataFetchError
 from strategies import STRATEGY_REGISTRY
 from engines.vectorbt_engine import run_vectorbt
+from engines.backtrader_engine import run_backtrader
 
 app = FastAPI(title="Dot.Charts Analytics Service")
 
@@ -29,8 +30,7 @@ def backtest(request: BacktestRequest):
     if entry["engine"] == "vectorbt":
         result = run_vectorbt(entry["module"], df, params)
     else:
-        # backtrader engine is wired in Task 8
-        raise HTTPException(status_code=422, detail=f"Engine '{entry['engine']}' not yet wired")
+        result = run_backtrader(entry["strategy_cls"], df, params)
 
     return BacktestResult(
         symbol=request.symbol,

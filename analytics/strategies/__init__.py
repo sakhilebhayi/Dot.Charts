@@ -1,6 +1,6 @@
 from . import ma_crossover, rsi_mean_reversion
+from .method_714.strategy import Method714Strategy
 
-# method_714 is added to this registry in Task 8.
 STRATEGY_REGISTRY = {
     "ma_crossover": {
         "engine": "vectorbt",
@@ -11,5 +11,10 @@ STRATEGY_REGISTRY = {
         "engine": "vectorbt",
         "module": rsi_mean_reversion,
         "default_params": rsi_mean_reversion.DEFAULT_PARAMS,
+    },
+    "method_714": {
+        "engine": "backtrader",
+        "strategy_cls": Method714Strategy,
+        "default_params": {},
     },
 }

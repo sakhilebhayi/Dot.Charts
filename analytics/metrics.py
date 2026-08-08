@@ -42,3 +42,31 @@ def compute_metrics_from_portfolio(portfolio) -> dict:
         "equity_curve": equity_curve_records,
         "trades": trades,
     }
+
+
+def compute_metrics_from_backtrader_strategy(strategy) -> dict:
+    trades = strategy.trade_log
+    trade_count = len(trades)
+    losing_trade_count = sum(1 for t in trades if t["pnl"] < 0)
+    win_rate_pct = (sum(1 for t in trades if t["pnl"] > 0) / trade_count * 100) if trade_count else 0.0
+
+    equity_values = [pt["equity"] for pt in strategy.equity_curve]
+    equity_series = pd.Series(equity_values)
+    returns = equity_series.pct_change().dropna()
+
+    total_return_pct = ((equity_values[-1] / equity_values[0]) - 1) * 100 if len(equity_values) > 1 else 0.0
+    max_drawdown_pct = float(qs.stats.max_drawdown(returns) * 100) if len(returns) else 0.0
+    sharpe_ratio = float(qs.stats.sharpe(returns)) if len(returns) > 1 else None
+
+    return {
+        "metrics": {
+            "total_return_pct": total_return_pct,
+            "win_rate_pct": win_rate_pct,
+            "max_drawdown_pct": max_drawdown_pct,
+            "sharpe_ratio": sharpe_ratio,
+            "trade_count": trade_count,
+            "losing_trade_count": losing_trade_count,
+        },
+        "equity_curve": strategy.equity_curve,
+        "trades": trades,
+    }
