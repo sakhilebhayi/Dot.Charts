@@ -16,6 +16,7 @@ class DisclosureFormatter
         'method_714' => '714 Method',
         'breakout' => 'Breakout (Donchian)',
         'bollinger_mean_reversion' => 'Bollinger Mean-Reversion',
+        'custom' => 'Custom Strategy',
     ];
 
     /**
@@ -53,8 +54,13 @@ class DisclosureFormatter
         $strategyKey = $backtestResult['strategy'] ?? 'unknown';
         $label = self::STRATEGY_LABELS[$strategyKey] ?? $strategyKey;
 
+        // Regression: custom strategy params are nested rule objects
+        // (entry/exit condition arrays), not scalars -- "{$k}={$v}" string
+        // interpolation on an array value fatals with "Array to string
+        // conversion". JSON-encode any non-scalar value instead of assuming
+        // every strategy's params are flat key=value pairs.
         $paramsStr = collect($backtestResult['params'] ?? [])
-            ->map(fn ($v, $k) => "{$k}={$v}")
+            ->map(fn ($v, $k) => is_scalar($v) ? "{$k}={$v}" : "{$k}=" . json_encode($v))
             ->implode(', ');
 
         $attribution = sprintf(

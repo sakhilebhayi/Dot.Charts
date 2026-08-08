@@ -81,4 +81,22 @@ class DisclosureFormatterTest extends TestCase
 
         $this->assertStringContainsString('714 Method', $formatted['disclosure']['attribution']);
     }
+
+    public function test_attribution_handles_nested_array_params_without_fataling(): void
+    {
+        // Regression: custom strategy params are nested rule objects
+        // (entry/exit condition arrays), not flat scalars -- attribution()
+        // used to fatal with "Array to string conversion" trying to
+        // interpolate an array value directly into a string.
+        $result = $this->baseResult(40);
+        $result['strategy'] = 'custom';
+        $result['params'] = [
+            'entry' => ['combinator' => 'all', 'conditions' => [['left' => ['indicator' => 'ema', 'length' => 5]]]],
+            'exit' => ['combinator' => 'any', 'conditions' => []],
+        ];
+
+        $formatted = (new DisclosureFormatter())->format($result);
+
+        $this->assertStringContainsString('Custom Strategy', $formatted['disclosure']['attribution']);
+    }
 }
