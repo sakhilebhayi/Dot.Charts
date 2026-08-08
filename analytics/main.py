@@ -4,6 +4,7 @@ from schemas import BacktestRequest, BacktestResult, ChartAnalysisRequest
 from data.cache import fetch_ohlcv_cached
 from data.fetch import DataFetchError
 from strategies import STRATEGY_REGISTRY
+from strategies.custom_rules import InvalidStrategyParamsError
 from engines.vectorbt_engine import run_vectorbt
 from engines.backtrader_engine import run_backtrader
 from analysis.chart_analysis import compute_chart_analysis
@@ -36,7 +37,10 @@ def backtest(request: BacktestRequest):
         raise HTTPException(status_code=422, detail=str(exc))
 
     if entry["engine"] == "vectorbt":
-        result = run_vectorbt(entry["module"], df, params)
+        try:
+            result = run_vectorbt(entry["module"], df, params)
+        except InvalidStrategyParamsError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
     else:
         # method_714's SMC/MTF layer needs the request context (symbol,
         # asset_class, date range) to run its own second fetch_ohlcv call

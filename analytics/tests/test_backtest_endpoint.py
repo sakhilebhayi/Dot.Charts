@@ -181,6 +181,59 @@ def test_backtest_unknown_strategy_returns_422(mocker):
     assert response.status_code == 422
 
 
+def test_backtest_custom_strategy_returns_metrics_and_trades(mocker):
+    mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
+
+    response = client.post(
+        "/backtest",
+        json={
+            "symbol": "AAPL",
+            "asset_class": "equity",
+            "strategy": "custom",
+            "params": {
+                "entry": {
+                    "combinator": "all",
+                    "conditions": [
+                        {"left": {"indicator": "ema", "length": 5}, "comparator": "crosses_above", "right": {"indicator": "ema", "length": 20}},
+                    ],
+                },
+                "exit": {
+                    "combinator": "all",
+                    "conditions": [
+                        {"left": {"indicator": "ema", "length": 5}, "comparator": "crosses_below", "right": {"indicator": "ema", "length": 20}},
+                    ],
+                },
+            },
+            "start_date": "2023-01-01",
+            "end_date": "2023-04-10",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["strategy"] == "custom"
+    assert "metrics" in body
+    assert "trade_count" in body["metrics"]
+
+
+def test_backtest_custom_strategy_returns_422_on_invalid_rule(mocker):
+    mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
+
+    response = client.post(
+        "/backtest",
+        json={
+            "symbol": "AAPL",
+            "asset_class": "equity",
+            "strategy": "custom",
+            "params": {"entry": {"combinator": "all", "conditions": []}, "exit": {"combinator": "all", "conditions": []}},
+            "start_date": "2023-01-01",
+            "end_date": "2023-04-10",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_backtest_data_fetch_error_returns_422(mocker):
     from data.fetch import DataFetchError
 
