@@ -5,17 +5,26 @@ namespace Tests\Feature;
 use App\Models\BacktestRun;
 use App\Models\KnowledgePack;
 use App\Models\User;
+use App\Services\DkpSigner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\UsesDkpTestKey;
 use Tests\TestCase;
 
 class KnowledgePackControllerTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesDkpTestKey;
 
     protected function setUp(): void
     {
         parent::setUp();
-        config(['services.dkp.signing_key' => 'test-signing-key']);
+        $this->setUpDkpTestKey();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->tearDownDkpTestKey();
+        parent::tearDown();
     }
 
     private function operatorToken(): string
@@ -93,7 +102,7 @@ class KnowledgePackControllerTest extends TestCase
         $response->assertStatus(401);
     }
 
-    public function test_operator_can_list_packs_without_full_payload(): void
+    public function test_operator_can_list_packs_without_full_envelope(): void
     {
         $this->seedEligibleMonth();
         $token = $this->operatorToken();
@@ -106,11 +115,12 @@ class KnowledgePackControllerTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonCount(1, 'data');
-        $response->assertJsonMissingPath('data.0.payload');
+        $response->assertJsonMissingPath('data.0.envelope');
         $response->assertJsonPath('data.0.strategy_class', 'ma_crossover');
+        $response->assertJsonPath('data.0.payload_type', 'metric');
     }
 
-    public function test_operator_can_view_a_single_pack_with_full_payload(): void
+    public function test_operator_can_view_a_single_pack_with_the_full_verifiable_envelope(): void
     {
         $this->seedEligibleMonth();
         $token = $this->operatorToken();
@@ -123,7 +133,10 @@ class KnowledgePackControllerTest extends TestCase
         $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson("/api/knowledge-packs/{$packId}");
 
         $response->assertOk();
-        $response->assertJsonPath('data.strategy_class', 'ma_crossover');
-        $response->assertJsonStructure(['data' => ['payload', 'signature']]);
+        $response->assertJsonPath('data.platform', 'dot-charts');
+        $response->assertJsonStructure(['data' => ['payloads', 'signatures', 'provenance', 'confidence']]);
+
+        $envelope = $response->json('data');
+        $this->assertTrue((new DkpSigner())->verify($envelope));
     }
 }

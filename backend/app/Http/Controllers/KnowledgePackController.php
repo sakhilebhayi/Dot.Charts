@@ -38,10 +38,11 @@ class KnowledgePackController extends Controller
             ->through(fn (KnowledgePack $pack) => [
                 'id' => $pack->id,
                 'pack_id' => $pack->pack_id,
+                'title' => $pack->title,
+                'payload_type' => $pack->payload_type,
                 'strategy_class' => $pack->strategy_class,
-                'period_start' => $pack->period_start->toDateString(),
-                'period_end' => $pack->period_end->toDateString(),
                 'account_count' => $pack->account_count,
+                'confidence' => $pack->envelope['confidence'] ?? null,
                 'created_at' => $pack->created_at->toIso8601String(),
             ]);
 
@@ -52,17 +53,6 @@ class KnowledgePackController extends Controller
     {
         $pack = KnowledgePack::findOrFail($id);
 
-        return response()->json(['data' => [
-            'id' => $pack->id,
-            'pack_id' => $pack->pack_id,
-            'strategy_class' => $pack->strategy_class,
-            'period_start' => $pack->period_start->toDateString(),
-            'period_end' => $pack->period_end->toDateString(),
-            'account_count' => $pack->account_count,
-            'payload' => $pack->payload,
-            'signature' => $pack->signature,
-            'signing_key_version' => $pack->signing_key_version,
-            'created_at' => $pack->created_at->toIso8601String(),
-        ]]);
+        return response()->json(['data' => $pack->envelope]);
     }
 }
