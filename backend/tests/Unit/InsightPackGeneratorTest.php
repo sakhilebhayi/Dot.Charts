@@ -28,7 +28,7 @@ class InsightPackGeneratorTest extends TestCase
 
     private function generate(): array
     {
-        return (new InsightPackGenerator())->generate(
+        return (new InsightPackGenerator)->generate(
             slug: 'test-insight-v1',
             statement: 'Test statement.',
             domain: 'test-domain',
@@ -66,11 +66,13 @@ class InsightPackGeneratorTest extends TestCase
         $this->assertSame('Test scope.', $body['scope']);
     }
 
-    public function test_persisted_envelope_independently_verifies(): void
+    public function test_persisted_pack_is_pending_approval_and_unsigned(): void
     {
         $pack = $this->generate()['pack'];
 
-        $this->assertTrue((new DkpSigner())->verify($pack->envelope));
+        $this->assertSame('pending_approval', $pack->status);
+        $this->assertSame([], $pack->envelope['signatures']);
+        $this->assertFalse((new DkpSigner)->verify($pack->envelope));
     }
 
     public function test_regenerating_the_same_slug_does_not_duplicate(): void

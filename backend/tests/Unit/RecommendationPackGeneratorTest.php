@@ -38,7 +38,7 @@ class RecommendationPackGeneratorTest extends TestCase
         }
 
         KnowledgePack::create([
-            'pack_id' => 'dkp:dot-charts:' . \Illuminate\Support\Str::uuid(),
+            'pack_id' => 'dkp:dot-charts:'.\Illuminate\Support\Str::uuid(),
             'payload_type' => 'metric',
             'strategy_class' => 'ma_crossover',
             'account_count' => 50,
@@ -55,7 +55,7 @@ class RecommendationPackGeneratorTest extends TestCase
     {
         $this->createMetricPack(includesLossHonesty: true);
 
-        $result = (new RecommendationPackGenerator())->generate();
+        $result = (new RecommendationPackGenerator)->generate();
 
         $this->assertTrue($result['generated']);
         $pack = $result['pack'];
@@ -66,7 +66,7 @@ class RecommendationPackGeneratorTest extends TestCase
     public function test_recommendation_body_has_every_required_schema_field(): void
     {
         $this->createMetricPack(includesLossHonesty: true);
-        $pack = (new RecommendationPackGenerator())->generate()['pack'];
+        $pack = (new RecommendationPackGenerator)->generate()['pack'];
         $body = $pack->envelope['payloads'][0]['body'];
 
         $this->assertSame('recommendation', $pack->envelope['payloads'][0]['payload_type']);
@@ -85,7 +85,7 @@ class RecommendationPackGeneratorTest extends TestCase
         $this->createMetricPack(includesLossHonesty: true);
         $this->createMetricPack(includesLossHonesty: true);
 
-        $pack = (new RecommendationPackGenerator())->generate()['pack'];
+        $pack = (new RecommendationPackGenerator)->generate()['pack'];
         $body = $pack->envelope['payloads'][0]['body'];
 
         $this->assertEqualsWithDelta(100.0, $body['impact']['business']['target'], 0.01);
@@ -96,7 +96,7 @@ class RecommendationPackGeneratorTest extends TestCase
         $this->createMetricPack(includesLossHonesty: true);
         $this->createMetricPack(includesLossHonesty: false);
 
-        $pack = (new RecommendationPackGenerator())->generate()['pack'];
+        $pack = (new RecommendationPackGenerator)->generate()['pack'];
         $body = $pack->envelope['payloads'][0]['body'];
 
         $this->assertEqualsWithDelta(50.0, $body['impact']['business']['target'], 0.01);
@@ -104,7 +104,7 @@ class RecommendationPackGeneratorTest extends TestCase
 
     public function test_zero_existing_metric_packs_still_reports_the_code_level_guarantee(): void
     {
-        $pack = (new RecommendationPackGenerator())->generate()['pack'];
+        $pack = (new RecommendationPackGenerator)->generate()['pack'];
         $body = $pack->envelope['payloads'][0]['body'];
 
         $this->assertEqualsWithDelta(100.0, $body['impact']['business']['target'], 0.01);
@@ -115,24 +115,26 @@ class RecommendationPackGeneratorTest extends TestCase
         $this->createMetricPack(includesLossHonesty: true);
         $metricPackId = KnowledgePack::where('payload_type', 'metric')->first()->pack_id;
 
-        $pack = (new RecommendationPackGenerator())->generate()['pack'];
+        $pack = (new RecommendationPackGenerator)->generate()['pack'];
         $body = $pack->envelope['payloads'][0]['body'];
 
         $this->assertContains($metricPackId, $body['evidence']);
     }
 
-    public function test_persisted_envelope_independently_verifies(): void
+    public function test_persisted_pack_is_pending_approval_and_unsigned(): void
     {
         $this->createMetricPack(includesLossHonesty: true);
-        $pack = (new RecommendationPackGenerator())->generate()['pack'];
+        $pack = (new RecommendationPackGenerator)->generate()['pack'];
 
-        $this->assertTrue((new DkpSigner())->verify($pack->envelope));
+        $this->assertSame('pending_approval', $pack->status);
+        $this->assertSame([], $pack->envelope['signatures']);
+        $this->assertFalse((new DkpSigner)->verify($pack->envelope));
     }
 
     public function test_regenerating_does_not_duplicate(): void
     {
         $this->createMetricPack(includesLossHonesty: true);
-        $generator = new RecommendationPackGenerator();
+        $generator = new RecommendationPackGenerator;
 
         $first = $generator->generate();
         $second = $generator->generate();

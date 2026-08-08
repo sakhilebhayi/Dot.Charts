@@ -4,20 +4,19 @@ namespace App\Services;
 
 use App\Models\KnowledgePack;
 use Illuminate\Support\Str;
-use RuntimeException;
 
 class RecommendationPackGenerator
 {
     private const KEY_ID = 'dot-charts-dkp-v1';
+
     private const SLUG = 'loss-honesty-structural-invariant-recommendation-v1';
+
     private const REQUIRED_LOSS_HONESTY_METRICS = [
         'trading.strategy_max_drawdown_worst_pct',
         'trading.strategy_losing_period_pct',
     ];
 
-    public function __construct(private readonly DkpSigner $signer = new DkpSigner())
-    {
-    }
+    public function __construct(private readonly DkpSigner $signer = new DkpSigner) {}
 
     public function generate(): array
     {
@@ -33,22 +32,22 @@ class RecommendationPackGenerator
         $coveragePct = $this->computeCoveragePercentage($metricPacks);
         $evidencePackId = $metricPacks->first()?->pack_id;
 
-        $packId = 'dkp:dot-charts:' . (string) Str::uuid();
+        $packId = 'dkp:dot-charts:'.(string) Str::uuid();
         $createdAt = now();
 
         $proposal = 'Treat loss-honesty fields (drawdown, losing-period-rate) as structural, non-omittable '
-            . 'parts of every generated Knowledge Pack -- not optional or summary-only fields -- so '
-            . 'survivorship-filtered performance marketing is prevented at the data-model level rather than '
-            . 'relying on policy alone.';
+            .'parts of every generated Knowledge Pack -- not optional or summary-only fields -- so '
+            .'survivorship-filtered performance marketing is prevented at the data-model level rather than '
+            .'relying on policy alone.';
 
         $body = [
             'proposal' => $proposal,
             'target_platform' => 'dot-charts',
             'rationale' => "The ecosystem's loss-honesty rule states published strategy performance must "
-                . 'always include drawdowns and losing periods -- survivorship-filtered marketing is both '
-                . 'success theater and a regulatory violation. This was implemented structurally, not just as '
-                . "policy: ObservationPackGenerator's code path has no parameter or branch capable of omitting "
-                . 'the max-drawdown or losing-period metrics.',
+                .'always include drawdowns and losing periods -- survivorship-filtered marketing is both '
+                .'success theater and a regulatory violation. This was implemented structurally, not just as '
+                ."policy: ObservationPackGenerator's code path has no parameter or branch capable of omitting "
+                .'the max-drawdown or losing-period metrics.',
             'evidence' => $evidencePackId ? [$evidencePackId] : [],
             'impact' => [
                 'business' => [
@@ -117,12 +116,6 @@ class RecommendationPackGenerator
             'signatures' => [],
         ];
 
-        $envelope['signatures'] = $this->signer->sign($envelope);
-
-        if (! $this->signer->verify($envelope)) {
-            throw new RuntimeException('Generated Knowledge Pack failed self-verification -- refusing to persist an unverifiable artifact.');
-        }
-
         $pack = KnowledgePack::create([
             'pack_id' => $packId,
             'payload_type' => 'recommendation',
@@ -133,10 +126,11 @@ class RecommendationPackGenerator
             'summary' => $summary,
             'period' => self::SLUG,
             'envelope' => $envelope,
+            'status' => 'pending_approval',
             'created_at' => $createdAt,
         ]);
 
-        return ['generated' => true, 'reason' => null, 'pack' => $pack];
+        return ['generated' => true, 'reason' => null, 'pending_approval' => true, 'pack' => $pack];
     }
 
     private function computeCoveragePercentage($metricPacks): float

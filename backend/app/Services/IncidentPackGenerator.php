@@ -4,15 +4,12 @@ namespace App\Services;
 
 use App\Models\KnowledgePack;
 use Illuminate\Support\Str;
-use RuntimeException;
 
 class IncidentPackGenerator
 {
     private const KEY_ID = 'dot-charts-dkp-v1';
 
-    public function __construct(private readonly DkpSigner $signer = new DkpSigner())
-    {
-    }
+    public function __construct(private readonly DkpSigner $signer = new DkpSigner) {}
 
     /**
      * Generates, signs, and persists one incident_report pack. Idempotent
@@ -29,7 +26,7 @@ class IncidentPackGenerator
             return ['generated' => false, 'reason' => 'already_generated', 'pack' => $existing];
         }
 
-        $packId = 'dkp:dot-charts:' . (string) Str::uuid();
+        $packId = 'dkp:dot-charts:'.(string) Str::uuid();
         $createdAt = now();
 
         $title = "Incident report: {$incidentBody['incident_id']}";
@@ -71,12 +68,6 @@ class IncidentPackGenerator
             'signatures' => [],
         ];
 
-        $envelope['signatures'] = $this->signer->sign($envelope);
-
-        if (! $this->signer->verify($envelope)) {
-            throw new RuntimeException('Generated Knowledge Pack failed self-verification -- refusing to persist an unverifiable artifact.');
-        }
-
         $pack = KnowledgePack::create([
             'pack_id' => $packId,
             'payload_type' => 'incident_report',
@@ -87,9 +78,10 @@ class IncidentPackGenerator
             'summary' => $summary,
             'period' => $slug,
             'envelope' => $envelope,
+            'status' => 'pending_approval',
             'created_at' => $createdAt,
         ]);
 
-        return ['generated' => true, 'reason' => null, 'pack' => $pack];
+        return ['generated' => true, 'reason' => null, 'pending_approval' => true, 'pack' => $pack];
     }
 }

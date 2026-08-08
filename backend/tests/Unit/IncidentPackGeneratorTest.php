@@ -59,7 +59,7 @@ class IncidentPackGeneratorTest extends TestCase
 
     private function generate(): array
     {
-        return (new IncidentPackGenerator())->generate('test-incident-v1', $this->testIncidentBody(), 0.95);
+        return (new IncidentPackGenerator)->generate('test-incident-v1', $this->testIncidentBody(), 0.95);
     }
 
     public function test_generates_a_signed_incident_pack(): void
@@ -91,11 +91,13 @@ class IncidentPackGeneratorTest extends TestCase
         $this->assertTrue($body['lessons'][0]['verified']);
     }
 
-    public function test_persisted_envelope_independently_verifies(): void
+    public function test_persisted_pack_is_pending_approval_and_unsigned(): void
     {
         $pack = $this->generate()['pack'];
 
-        $this->assertTrue((new DkpSigner())->verify($pack->envelope));
+        $this->assertSame('pending_approval', $pack->status);
+        $this->assertSame([], $pack->envelope['signatures']);
+        $this->assertFalse((new DkpSigner)->verify($pack->envelope));
     }
 
     public function test_regenerating_the_same_slug_does_not_duplicate(): void
