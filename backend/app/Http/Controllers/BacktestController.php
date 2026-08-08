@@ -93,4 +93,13 @@ class BacktestController extends Controller
 
         return response()->json($runs);
     }
+
+    public function show(Request $request, int $id): JsonResponse
+    {
+        $run = BacktestRun::where('id', $id)
+            ->where('user_id', $request->user('sanctum')->id)
+            ->firstOrFail();
+
+        return response()->json($run);
+    }
 }

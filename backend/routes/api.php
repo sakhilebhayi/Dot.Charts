@@ -12,6 +12,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::get('/backtests', [BacktestController::class, 'index']);
+    Route::get('/backtests/{id}', [BacktestController::class, 'show']);
 });
 
 Route::post('/chart/analyze', [ChartAnalysisController::class, 'analyzeChart'])

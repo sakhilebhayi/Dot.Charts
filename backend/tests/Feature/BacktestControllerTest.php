@@ -267,4 +267,47 @@ class BacktestControllerTest extends TestCase
 
         $response->assertStatus(401);
     }
+
+    public function test_show_returns_full_detail_for_an_owned_run(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $run = \App\Models\BacktestRun::factory()->create(['user_id' => $user->id, 'symbol' => 'AAPL']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson("/api/backtests/{$run->id}");
+
+        $response->assertOk();
+        $response->assertJsonPath('symbol', 'AAPL');
+    }
+
+    public function test_show_returns_404_for_another_users_run(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $otherUser = \App\Models\User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $run = \App\Models\BacktestRun::factory()->create(['user_id' => $otherUser->id]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson("/api/backtests/{$run->id}");
+
+        $response->assertStatus(404);
+    }
+
+    public function test_show_returns_404_for_a_nonexistent_run(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/backtests/999999');
+
+        $response->assertStatus(404);
+    }
+
+    public function test_show_requires_authentication(): void
+    {
+        $run = \App\Models\BacktestRun::factory()->create();
+
+        $response = $this->getJson("/api/backtests/{$run->id}");
+
+        $response->assertStatus(401);
+    }
 }
