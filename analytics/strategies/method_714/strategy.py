@@ -29,6 +29,13 @@ class Method714Strategy(bt.Strategy):
         use_trailing_stop=False,
         trailing_atr_mult=2.0,
         flatten_at_session_start=True,
+        # Fraction of current portfolio value risked as position notional
+        # per entry. backtrader's default order size (no explicit `size`)
+        # is 1 full unit of the instrument — for BTC/USDT that's ~$100k+
+        # against a $10k starting cash, producing nonsensical negative
+        # triple-digit "returns". Position size is computed from this
+        # fraction instead (see `_position_size`).
+        position_fraction=0.10,
     )
 
     def __init__(self):
@@ -56,8 +63,15 @@ class Method714Strategy(bt.Strategy):
             "retest_reject_atr": self.p.retest_reject_atr,
             "retest_invalidate_atr": self.p.retest_invalidate_atr,
         }
-        self._signals = generate_signals(sessions_df, atr_series, retest_params)
-        self._session_starts = sessions_df["session_start"]
+        # backtrader's own clock (self.data.num2date()) always returns
+        # tz-naive datetimes, even when the feed's source DataFrame has a
+        # tz-aware index — so a tz-aware self._signals/_session_starts index
+        # would never match a lookup by current_time in next() (every bar
+        # would silently fall through to "no signal"). Session math needs
+        # the tz-aware index (Africa/Johannesburg conversion); it's dropped
+        # here, after that math is done, to match backtrader's naive clock.
+        self._signals = generate_signals(sessions_df, atr_series, retest_params).tz_localize(None)
+        self._session_starts = sessions_df["session_start"].tz_localize(None)
 
         self.entry_price = None
         self.entry_atr = None
@@ -84,6 +98,10 @@ class Method714Strategy(bt.Strategy):
         if not self.p.use_volume_filter:
             return True
         return self.data.volume[0] > self.volume_sma[0] * self.p.volume_mult
+
+    def _position_size(self, price: float) -> float:
+        notional = self.broker.getvalue() * self.p.position_fraction
+        return notional / price if price > 0 else 0
 
     def next(self):
         current_time = self.data.num2date(self.data.datetime[0])
@@ -112,14 +130,15 @@ class Method714Strategy(bt.Strategy):
         price = self.data.close[0]
         self.entry_price = price
         self.entry_atr = atr_value
+        size = self._position_size(price)
         if signal == 1:
             self.stop_price = price - atr_value * self.p.sl_atr_mult
             self.take_profit_price = price + atr_value * self.p.tp_atr_mult
-            self.buy()
+            self.buy(size=size)
         else:
             self.stop_price = price + atr_value * self.p.sl_atr_mult
             self.take_profit_price = price - atr_value * self.p.tp_atr_mult
-            self.sell()
+            self.sell(size=size)
 
     def _manage_open_position(self):
         price = self.data.close[0]

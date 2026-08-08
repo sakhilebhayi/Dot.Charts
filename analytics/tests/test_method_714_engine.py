@@ -51,3 +51,11 @@ def test_run_backtrader_method_714_returns_metrics_shape():
     assert "equity_curve" in result
     assert "trades" in result
     assert len(result["equity_curve"]) > 0
+    # Regression: backtrader's internal clock (num2date()) is always
+    # tz-naive, even when the source DataFrame's index is tz-aware. A
+    # tz-aware _signals/_session_starts index silently matches nothing in
+    # next()'s lookups — every bar falls through to "no signal" and the
+    # strategy never trades, with no error raised anywhere. The fixture's
+    # daily decisive-up moves guarantee a momentum entry every session, so
+    # a passing test here proves signals are actually reaching orders.
+    assert result["metrics"]["trade_count"] > 0

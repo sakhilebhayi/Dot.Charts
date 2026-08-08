@@ -21,14 +21,50 @@ class AnalyticsServiceClient
      */
     public function runBacktest(array $payload): array
     {
+        // PHP's [] is ambiguous between a JSON array and object; an empty
+        // 'params' array serializes to `[]`, but the analytics service's
+        // Pydantic schema requires an object (`{}`) for that field and
+        // rejects `[]` with a validation error. Force object encoding so an
+        // empty params payload round-trips correctly.
+        if (isset($payload['params']) && is_array($payload['params'])) {
+            $payload['params'] = (object) $payload['params'];
+        }
+
         $response = Http::timeout(60)->post("{$this->baseUrl}/backtest", $payload);
 
         if ($response->failed()) {
-            throw new RuntimeException(
-                $response->json('detail') ?? "Analytics service returned HTTP {$response->status()}"
-            );
+            throw new RuntimeException($this->errorMessage($response));
         }
 
         return $response->json();
+    }
+
+    /**
+     * FastAPI's own validation errors (as opposed to our HTTPException calls,
+     * which always set a string detail) return `detail` as an array of
+     * per-field error objects, not a string — e.g. {"detail": [{"loc": [...],
+     * "msg": "...", ...}]}. Building a RuntimeException straight from that
+     * array crashes (Exception::__construct requires a string), so this
+     * normalizes either shape into one message.
+     */
+    private function errorMessage($response): string
+    {
+        $detail = $response->json('detail');
+
+        if (is_string($detail)) {
+            return $detail;
+        }
+
+        if (is_array($detail)) {
+            $messages = collect($detail)
+                ->map(fn ($item) => is_array($item) ? ($item['msg'] ?? json_encode($item)) : $item)
+                ->implode('; ');
+
+            if ($messages !== '') {
+                return $messages;
+            }
+        }
+
+        return "Analytics service returned HTTP {$response->status()}";
     }
 }

@@ -4,16 +4,20 @@ from data.fetch import fetch_ohlcv, DataFetchError
 
 
 def _fake_yf_download(*args, **kwargs):
+    # Matches real yfinance's current shape for a single-symbol download:
+    # MultiIndex columns of (field, ticker), not flat field names.
     idx = pd.date_range("2023-01-01", periods=5, freq="D")
+    columns = pd.MultiIndex.from_product([["Open", "High", "Low", "Close", "Volume"], ["AAPL"]])
     return pd.DataFrame(
-        {
-            "Open": [100, 101, 102, 103, 104],
-            "High": [101, 102, 103, 104, 105],
-            "Low": [99, 100, 101, 102, 103],
-            "Close": [100.5, 101.5, 102.5, 103.5, 104.5],
-            "Volume": [1000, 1100, 1200, 1300, 1400],
-        },
+        [
+            [100, 101, 99, 100.5, 1000],
+            [101, 102, 100, 101.5, 1100],
+            [102, 103, 101, 102.5, 1200],
+            [103, 104, 102, 103.5, 1300],
+            [104, 105, 103, 104.5, 1400],
+        ],
         index=idx,
+        columns=columns,
     )
 
 
@@ -24,6 +28,12 @@ def test_fetch_ohlcv_equity_returns_normalized_columns(mocker):
 
     assert list(df.columns) == ["open", "high", "low", "close", "volume"]
     assert len(df) == 5
+    # Regression: MultiIndex columns must be flattened, not left in place —
+    # otherwise df["close"] silently returns a DataFrame, not a Series.
+    assert isinstance(df["close"], pd.Series)
+    # Regression: yfinance returns a tz-naive index; strategies doing
+    # timezone-aware session math (method_714) require tz-aware data.
+    assert df.index.tz is not None
 
 
 def test_fetch_ohlcv_equity_raises_on_empty_result(mocker):
@@ -49,6 +59,10 @@ def test_fetch_ohlcv_crypto_returns_normalized_columns(mocker):
 
     assert list(df.columns) == ["open", "high", "low", "close", "volume"]
     assert len(df) == 5
+    # Regression: ccxt's ms-epoch timestamps parse to a tz-naive index;
+    # strategies doing timezone-aware session math (method_714) require
+    # tz-aware data.
+    assert df.index.tz is not None
 
 
 def test_fetch_ohlcv_unsupported_asset_class_raises():

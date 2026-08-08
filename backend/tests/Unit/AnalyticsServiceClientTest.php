@@ -34,4 +34,40 @@ class AnalyticsServiceClientTest extends TestCase
 
         $client->runBacktest(['symbol' => 'X']);
     }
+
+    public function test_run_backtest_handles_array_shaped_validation_detail(): void
+    {
+        // FastAPI's own validation errors (as opposed to our HTTPException
+        // calls) return `detail` as an array of per-field error objects, not
+        // a string — this must not crash building the RuntimeException.
+        Http::fake([
+            '*/backtest' => Http::response([
+                'detail' => [
+                    ['loc' => ['body', 'params'], 'msg' => 'Input should be a valid dictionary', 'type' => 'dict_type'],
+                ],
+            ], 422),
+        ]);
+
+        $client = new AnalyticsServiceClient('http://analytics.test');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Input should be a valid dictionary');
+
+        $client->runBacktest(['symbol' => 'X', 'params' => []]);
+    }
+
+    public function test_run_backtest_sends_empty_params_as_json_object_not_array(): void
+    {
+        Http::fake(['*/backtest' => Http::response(['strategy' => 'ma_crossover'], 200)]);
+
+        $client = new AnalyticsServiceClient('http://analytics.test');
+        $client->runBacktest(['symbol' => 'AAPL', 'params' => []]);
+
+        Http::assertSent(function ($request) {
+            // An empty PHP array cast to object serializes as `{}` in the
+            // raw request body — `[]` would fail the analytics service's
+            // dict-typed params field.
+            return str_contains($request->body(), '"params":{}');
+        });
+    }
 }

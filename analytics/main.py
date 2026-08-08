@@ -23,7 +23,13 @@ def backtest(request: BacktestRequest):
     params = {**entry["default_params"], **request.params}
 
     try:
-        df = fetch_ohlcv(request.symbol, request.asset_class, request.start_date, request.end_date)
+        df = fetch_ohlcv(
+            request.symbol,
+            request.asset_class,
+            request.start_date,
+            request.end_date,
+            interval=entry["interval"],
+        )
     except DataFetchError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
