@@ -102,4 +102,15 @@ class BacktestController extends Controller
 
         return response()->json($run);
     }
+
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $run = BacktestRun::where('id', $id)
+            ->where('user_id', $request->user('sanctum')->id)
+            ->firstOrFail();
+
+        $run->delete();
+
+        return response()->json(['success' => true]);
+    }
 }

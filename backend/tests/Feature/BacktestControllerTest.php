@@ -310,4 +310,39 @@ class BacktestControllerTest extends TestCase
 
         $response->assertStatus(401);
     }
+
+    public function test_destroy_removes_an_owned_run(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $run = \App\Models\BacktestRun::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->deleteJson("/api/backtests/{$run->id}");
+
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $this->assertDatabaseMissing('backtest_runs', ['id' => $run->id]);
+    }
+
+    public function test_destroy_returns_404_for_another_users_run_and_does_not_delete_it(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $otherUser = \App\Models\User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $run = \App\Models\BacktestRun::factory()->create(['user_id' => $otherUser->id]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->deleteJson("/api/backtests/{$run->id}");
+
+        $response->assertStatus(404);
+        $this->assertDatabaseHas('backtest_runs', ['id' => $run->id]);
+    }
+
+    public function test_destroy_requires_authentication(): void
+    {
+        $run = \App\Models\BacktestRun::factory()->create();
+
+        $response = $this->deleteJson("/api/backtests/{$run->id}");
+
+        $response->assertStatus(401);
+    }
 }
