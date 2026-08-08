@@ -17,11 +17,12 @@ def fetch_ohlcv(
     end_date: str,
     interval: str = "1d",
 ) -> pd.DataFrame:
-    if asset_class in ("equity", "commodity"):
-        # Both are "fetch this Yahoo Finance ticker verbatim" — commodities
-        # and indices (GC=F, SI=F, CL=F, ^GDAXI) work through the exact same
-        # yfinance path as stocks; there is no behavioral difference beyond
-        # the label, so no separate fetch function exists for commodities.
+    if asset_class in ("equity", "commodity", "forex"):
+        # All three are "fetch this Yahoo Finance ticker verbatim" —
+        # commodities/indices (GC=F, SI=F, CL=F, ^GDAXI) and forex pairs
+        # (EURUSD=X, USDJPY=X) work through the exact same yfinance path as
+        # stocks; there is no behavioral difference beyond the label, so no
+        # separate fetch function exists for either.
         df = _fetch_equity(symbol, start_date, end_date, interval)
     elif asset_class == "crypto":
         df = _fetch_crypto(symbol, start_date, end_date, interval)
