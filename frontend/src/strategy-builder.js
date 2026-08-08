@@ -261,3 +261,120 @@ document.getElementById('testRunButton').addEventListener('click', async () => {
     button.textContent = 'Test Run';
   }
 });
+
+const saveButton = document.getElementById('saveButton');
+const loginHint = document.getElementById('loginHint');
+const loadSelect = document.getElementById('loadSelect');
+
+if (!isLoggedIn()) {
+  saveButton.disabled = true;
+  loginHint.style.display = 'inline';
+}
+
+async function loadSavedStrategiesList() {
+  if (!isLoggedIn()) return;
+
+  const response = await fetch(`${API_BASE}/strategies`, {
+    headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
+  });
+  if (!response.ok) return;
+  const body = await response.json();
+
+  (body.data || []).forEach((strategy) => {
+    const opt = document.createElement('option');
+    opt.value = strategy.id;
+    opt.textContent = strategy.name;
+    loadSelect.appendChild(opt);
+  });
+}
+
+function operandFromJSON(operand) {
+  if ('value' in operand) return { type: 'value', value: operand.value };
+  const result = { type: operand.indicator };
+  if ('length' in operand) result.length = operand.length;
+  if ('std' in operand) result.std = operand.std;
+  return result;
+}
+
+function conditionsFromRule(rule) {
+  return rule.conditions.map((c) => ({
+    left: operandFromJSON(c.left),
+    comparator: c.comparator,
+    right: operandFromJSON(c.right),
+  }));
+}
+
+loadSelect.addEventListener('change', async () => {
+  if (!loadSelect.value) return;
+
+  const response = await fetch(`${API_BASE}/strategies/${loadSelect.value}`, {
+    headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
+  });
+  if (!response.ok) return;
+  const strategy = await response.json();
+
+  entryConditions.length = 0;
+  entryConditions.push(...conditionsFromRule(strategy.rules.entry));
+  exitConditions.length = 0;
+  exitConditions.push(...conditionsFromRule(strategy.rules.exit));
+  document.getElementById('entryCombinator').value = strategy.rules.entry.combinator;
+  document.getElementById('exitCombinator').value = strategy.rules.exit.combinator;
+  document.getElementById('strategyName').value = strategy.name;
+  document.getElementById('strategyDescription').value = strategy.description || '';
+
+  renderPanel('entry');
+  renderPanel('exit');
+});
+
+saveButton.addEventListener('click', async () => {
+  const saveErrorEl = document.getElementById('saveError');
+  saveErrorEl.style.display = 'none';
+
+  if (entryConditions.length === 0 || exitConditions.length === 0) {
+    saveErrorEl.textContent = 'Both Entry and Exit need at least one condition.';
+    saveErrorEl.style.display = 'block';
+    return;
+  }
+
+  const name = document.getElementById('strategyName').value.trim();
+  if (!name) {
+    saveErrorEl.textContent = 'Name is required.';
+    saveErrorEl.style.display = 'block';
+    return;
+  }
+
+  saveButton.disabled = true;
+  saveButton.textContent = 'Saving…';
+
+  try {
+    const response = await fetch(`${API_BASE}/strategies`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({
+        name,
+        description: document.getElementById('strategyDescription').value.trim() || null,
+        rules: currentRules(),
+      }),
+    });
+    const body = await response.json();
+
+    if (!response.ok) {
+      throw new Error(body.error || 'Save failed');
+    }
+
+    saveErrorEl.style.display = 'none';
+    alert(`Saved "${body.name}"`);
+  } catch (err) {
+    saveErrorEl.textContent = err.message;
+    saveErrorEl.style.display = 'block';
+  } finally {
+    saveButton.disabled = false;
+    saveButton.textContent = 'Save Strategy';
+  }
+});
+
+loadSavedStrategiesList();
