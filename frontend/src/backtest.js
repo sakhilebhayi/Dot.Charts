@@ -9,6 +9,7 @@ const resultsEl = document.getElementById('results');
 const assetClassSelect = document.getElementById('assetClass');
 const symbolInput = document.getElementById('symbol');
 const symbolCommoditySelect = document.getElementById('symbolCommodity');
+const symbolForexSelect = document.getElementById('symbolForex');
 
 const authStateEl = document.getElementById('authState');
 if (authStateEl) {
@@ -26,14 +27,16 @@ if (authStateEl) {
 
 assetClassSelect.addEventListener('change', () => {
   const isCommodity = assetClassSelect.value === 'commodity';
-  symbolInput.style.display = isCommodity ? 'none' : '';
+  const isForex = assetClassSelect.value === 'forex';
+  symbolInput.style.display = (isCommodity || isForex) ? 'none' : '';
   symbolCommoditySelect.style.display = isCommodity ? '' : 'none';
+  symbolForexSelect.style.display = isForex ? '' : 'none';
 });
 
 function currentSymbol() {
-  return assetClassSelect.value === 'commodity'
-    ? symbolCommoditySelect.value
-    : symbolInput.value.trim();
+  if (assetClassSelect.value === 'commodity') return symbolCommoditySelect.value;
+  if (assetClassSelect.value === 'forex') return symbolForexSelect.value;
+  return symbolInput.value.trim();
 }
 
 const rerunData = sessionStorage.getItem('chartsense_rerun');
@@ -45,6 +48,8 @@ if (rerunData) {
     assetClassSelect.dispatchEvent(new Event('change')); // toggles symbol field visibility
     if (prefill.asset_class === 'commodity') {
       symbolCommoditySelect.value = prefill.symbol;
+    } else if (prefill.asset_class === 'forex') {
+      symbolForexSelect.value = prefill.symbol;
     } else {
       symbolInput.value = prefill.symbol;
     }
