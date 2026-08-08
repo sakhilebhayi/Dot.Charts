@@ -85,12 +85,12 @@ return [
         'url' => env('ANALYTICS_SERVICE_URL', 'http://localhost:8001'),
     ],
 
-    // Dot Ecosystem Knowledge Pack signing (Subsystem I1) -- HMAC-SHA256,
-    // not a real secrets vault (none exists in this codebase). Manifest
-    // records this as signing_key_version "v1" for the vault:// naming
-    // convention without requiring real vault infrastructure.
+    // Dot Ecosystem Knowledge Pack signing (Subsystem I2a) -- real
+    // Ed25519 keypair via ext-sodium, generated once with
+    // `php artisan dkp:generate-key`. The secret key file is gitignored;
+    // only its derived public key is committed, inside platform.dkp.json.
     'dkp' => [
-        'signing_key' => env('DKP_SIGNING_KEY'),
+        'key_path' => env('DKP_KEY_PATH', storage_path('app/private/dkp-ed25519.key')),
     ],
 
 ];
