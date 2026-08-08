@@ -8,15 +8,23 @@ use App\Models\User;
 use App\Services\ObservationPackGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Tests\Concerns\UsesDkpTestKey;
 use Tests\TestCase;
 
 class StrategyPerformanceCycleEventTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesDkpTestKey;
+
+    protected function tearDown(): void
+    {
+        $this->tearDownDkpTestKey();
+        parent::tearDown();
+    }
 
     public function test_generating_a_pack_dispatches_the_performance_cycle_event(): void
     {
-        config(['services.dkp.signing_key' => 'test-signing-key']);
+        $this->setUpDkpTestKey();
         Event::fake();
 
         for ($i = 0; $i < 50; $i++) {
@@ -45,7 +53,7 @@ class StrategyPerformanceCycleEventTest extends TestCase
 
     public function test_below_floor_does_not_dispatch_the_event(): void
     {
-        config(['services.dkp.signing_key' => 'test-signing-key']);
+        $this->setUpDkpTestKey();
         Event::fake();
 
         $user = User::factory()->create();
