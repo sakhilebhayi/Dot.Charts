@@ -1,0 +1,34 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class BacktestRun extends Model
+{
+    protected $fillable = [
+        'user_id',
+        'symbol',
+        'asset_class',
+        'strategy',
+        'params',
+        'start_date',
+        'end_date',
+        'status',
+        'results',
+        'error',
+    ];
+
+    protected $casts = [
+        'params' => 'array',
+        'results' => 'array',
+        'start_date' => 'date',
+        'end_date' => 'date',
+    ];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+}
