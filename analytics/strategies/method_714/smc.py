@@ -1,3 +1,6 @@
+from datetime import timedelta
+from zoneinfo import ZoneInfo
+
 import pandas as pd
 
 
@@ -154,3 +157,99 @@ def compute_fair_value_gaps(
             fvgs.append({"type": "bearish", "top": lows[i - 2], "bottom": highs[i], "bar_index": i})
 
     return fvgs[-max_count:] if len(fvgs) > max_count else fvgs
+
+
+def compute_liquidity_sweeps(df_with_pivots: pd.DataFrame, lookback_bars: int = 10) -> pd.DataFrame:
+    """
+    A bearish sweep: a wick trades above the last confirmed swing high but
+    closes back below it (buy-side liquidity taken). A bullish sweep
+    mirrors it at the last swing low. recent_*_sweep stays true for
+    lookback_bars after the sweep bar, matching the Pine source's "recent
+    memory" pattern so a session signal shortly after a sweep still counts
+    it as confluence.
+    """
+    out = df_with_pivots.copy()
+    swing_highs = out["swing_high"].to_numpy()
+    swing_lows = out["swing_low"].to_numpy()
+    highs = out["high"].to_numpy()
+    lows = out["low"].to_numpy()
+    closes = out["close"].to_numpy()
+    n = len(out)
+
+    sweep_bull = [False] * n
+    sweep_bear = [False] * n
+    recent_bull = [False] * n
+    recent_bear = [False] * n
+
+    last_ph = float("nan")
+    last_pl = float("nan")
+    last_bull_pos = None
+    last_bear_pos = None
+
+    for i in range(n):
+        if not pd.isna(swing_highs[i]):
+            last_ph = swing_highs[i]
+        if not pd.isna(swing_lows[i]):
+            last_pl = swing_lows[i]
+
+        sb = not pd.isna(last_pl) and lows[i] < last_pl and closes[i] > last_pl
+        se = not pd.isna(last_ph) and highs[i] > last_ph and closes[i] < last_ph
+
+        if sb:
+            last_bull_pos = i
+        if se:
+            last_bear_pos = i
+
+        sweep_bull[i] = sb
+        sweep_bear[i] = se
+        recent_bull[i] = last_bull_pos is not None and (i - last_bull_pos) <= lookback_bars
+        recent_bear[i] = last_bear_pos is not None and (i - last_bear_pos) <= lookback_bars
+
+    out["sweep_bull"] = sweep_bull
+    out["sweep_bear"] = sweep_bear
+    out["recent_bull_sweep"] = recent_bull
+    out["recent_bear_sweep"] = recent_bear
+    return out
+
+
+def compute_prev_day_sweeps(df: pd.DataFrame, tz: str, lookback_bars: int = 10) -> pd.DataFrame:
+    """
+    A sweep-and-reclaim of the previous calendar day's high/low — the
+    liquidity levels most watched at daily scale. recent_pd_*_sweep uses
+    the same lookback-window pattern as compute_liquidity_sweeps.
+    """
+    out = df.copy()
+    local_index = out.index.tz_convert(ZoneInfo(tz))
+    bar_dates = pd.Series([t.date() for t in local_index], index=out.index)
+
+    daily_high = out["high"].groupby(bar_dates).max()
+    daily_low = out["low"].groupby(bar_dates).min()
+
+    prev_day_high = bar_dates.map(lambda d: daily_high.get(d - timedelta(days=1)))
+    prev_day_low = bar_dates.map(lambda d: daily_low.get(d - timedelta(days=1)))
+
+    out["prev_day_high"] = prev_day_high.to_numpy()
+    out["prev_day_low"] = prev_day_low.to_numpy()
+
+    pd_sweep_bull = (out["low"] < out["prev_day_low"]) & (out["close"] > out["prev_day_low"])
+    pd_sweep_bear = (out["high"] > out["prev_day_high"]) & (out["close"] < out["prev_day_high"])
+
+    bull_arr = pd_sweep_bull.fillna(False).to_numpy()
+    bear_arr = pd_sweep_bear.fillna(False).to_numpy()
+    n = len(out)
+    recent_bull = [False] * n
+    recent_bear = [False] * n
+    last_bull_pos = None
+    last_bear_pos = None
+
+    for i in range(n):
+        if bull_arr[i]:
+            last_bull_pos = i
+        if bear_arr[i]:
+            last_bear_pos = i
+        recent_bull[i] = last_bull_pos is not None and (i - last_bull_pos) <= lookback_bars
+        recent_bear[i] = last_bear_pos is not None and (i - last_bear_pos) <= lookback_bars
+
+    out["recent_pd_bull_sweep"] = recent_bull
+    out["recent_pd_bear_sweep"] = recent_bear
+    return out

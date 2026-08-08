@@ -123,3 +123,49 @@ def test_compute_fair_value_gaps_detects_a_bullish_gap_above_min_size():
     assert len(fvgs) == 1
     assert fvgs[0]["type"] == "bullish"
     assert fvgs[0]["bar_index"] == 2
+
+
+def test_compute_liquidity_sweeps_detects_a_bullish_sweep_and_marks_it_recent():
+    from strategies.method_714.smc import compute_liquidity_sweeps
+
+    n = 15
+    idx = pd.date_range("2023-01-01", periods=n, freq="1h", tz="UTC")
+    highs = [10.0] * n
+    lows = [9.0] * n
+    closes = [9.5] * n
+
+    lows[4] = 3.0  # confirmed swing low at bar 6 (piv_len=2)
+
+    # Bar 8: wick trades below the swing low (3.0) but closes back above it
+    lows[8] = 2.5
+    closes[8] = 9.5
+
+    df = pd.DataFrame({"open": closes, "high": highs, "low": lows, "close": closes, "volume": 1}, index=idx)
+    pivots_df = compute_swing_pivots(df, piv_len=2)
+
+    out = compute_liquidity_sweeps(pivots_df, lookback_bars=3)
+
+    assert out.loc[idx[8], "sweep_bull"] == True  # noqa: E712
+    assert out.loc[idx[8], "recent_bull_sweep"] == True  # noqa: E712
+    assert out.loc[idx[8 + 3], "recent_bull_sweep"] == True  # noqa: E712
+    assert out.loc[idx[8 + 4], "recent_bull_sweep"] == False  # noqa: E712  (outside lookback)
+
+
+def test_compute_prev_day_sweeps_detects_a_sweep_of_yesterdays_low():
+    from strategies.method_714.smc import compute_prev_day_sweeps
+
+    # Day 1: 24 hourly bars, low stays at 9.0. Day 2: bar 3 wicks below 9.0
+    # but closes back above it -> a previous-day-low sweep.
+    idx = pd.date_range("2023-06-01 00:00", periods=48, freq="1h", tz="UTC")
+    highs = [10.0] * 48
+    lows = [9.0] * 48
+    closes = [9.5] * 48
+
+    lows[27] = 8.0  # day 2, hour 3: wicks below day 1's low (9.0)
+    closes[27] = 9.5
+
+    df = pd.DataFrame({"open": closes, "high": highs, "low": lows, "close": closes, "volume": 1}, index=idx)
+
+    out = compute_prev_day_sweeps(df, tz="UTC", lookback_bars=3)
+
+    assert out.loc[idx[27], "recent_pd_bull_sweep"] == True  # noqa: E712
