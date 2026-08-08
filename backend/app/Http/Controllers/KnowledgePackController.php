@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\KnowledgePack;
+use App\Services\InboundMnpiGate;
 use App\Services\ObservationPackGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,7 @@ class KnowledgePackController extends Controller
 {
     public function __construct(
         private readonly ObservationPackGenerator $generator,
+        private readonly InboundMnpiGate $gate,
     ) {
     }
 
@@ -54,5 +56,18 @@ class KnowledgePackController extends Controller
         $pack = KnowledgePack::findOrFail($id);
 
         return response()->json(['data' => $pack->envelope]);
+    }
+
+    public function ingestCheck(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'title' => 'required|string',
+            'summary' => 'required|string',
+            'payloads' => 'nullable|array',
+        ]);
+
+        $result = $this->gate->screen($validated);
+
+        return response()->json($result);
     }
 }

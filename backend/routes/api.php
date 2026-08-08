@@ -25,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/knowledge-packs/generate', [KnowledgePackController::class, 'generate']);
         Route::get('/knowledge-packs', [KnowledgePackController::class, 'index']);
         Route::get('/knowledge-packs/{id}', [KnowledgePackController::class, 'show']);
+        Route::post('/knowledge-packs/ingest-check', [KnowledgePackController::class, 'ingestCheck']);
     });
 });
 
