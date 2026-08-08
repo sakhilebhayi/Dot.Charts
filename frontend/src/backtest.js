@@ -75,7 +75,22 @@ if (rerunData) {
     } else {
       symbolInput.value = prefill.symbol;
     }
-    document.getElementById('strategy').value = prefill.strategy;
+    if (prefill.strategy === 'custom') {
+      // The exact rules that produced the original result -- not
+      // necessarily any currently-saved strategy (it may have been
+      // edited-and-saved-as-new, or deleted, since this run happened).
+      // A synthetic option carrying those exact rules keeps re-run
+      // working the same way it already does for every built-in
+      // strategy: reproducing precisely what was actually run.
+      savedStrategyRules['rerun'] = prefill.params;
+      const rerunOpt = document.createElement('option');
+      rerunOpt.value = 'custom:rerun';
+      rerunOpt.textContent = 'Custom (from history)';
+      strategySelect.appendChild(rerunOpt);
+      strategySelect.value = 'custom:rerun';
+    } else {
+      strategySelect.value = prefill.strategy;
+    }
     // BacktestRun casts start_date/end_date as Eloquent 'date' fields, which
     // serialize to full ISO datetimes ("2023-01-01T00:00:00.000000Z") in
     // JSON — but <input type="date"> requires exactly "YYYY-MM-DD" and
