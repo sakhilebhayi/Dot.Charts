@@ -102,6 +102,48 @@ def test_backtest_commodity_returns_metrics_and_trades(mocker):
     assert body["symbol"] == "GC=F"
 
 
+def test_backtest_breakout_returns_metrics_and_trades(mocker):
+    mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
+
+    response = client.post(
+        "/backtest",
+        json={
+            "symbol": "AAPL",
+            "asset_class": "equity",
+            "strategy": "breakout",
+            "start_date": "2023-01-01",
+            "end_date": "2023-04-10",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["strategy"] == "breakout"
+    assert "metrics" in body
+    assert "trade_count" in body["metrics"]
+
+
+def test_backtest_bollinger_mean_reversion_returns_metrics_and_trades(mocker):
+    mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
+
+    response = client.post(
+        "/backtest",
+        json={
+            "symbol": "AAPL",
+            "asset_class": "equity",
+            "strategy": "bollinger_mean_reversion",
+            "start_date": "2023-01-01",
+            "end_date": "2023-04-10",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["strategy"] == "bollinger_mean_reversion"
+    assert "metrics" in body
+    assert "trade_count" in body["metrics"]
+
+
 def test_backtest_unknown_strategy_returns_422(mocker):
     mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
 

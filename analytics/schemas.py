@@ -2,7 +2,9 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 AssetClass = Literal["equity", "crypto", "commodity"]
-StrategyName = Literal["ma_crossover", "rsi_mean_reversion", "method_714"]
+StrategyName = Literal[
+    "ma_crossover", "rsi_mean_reversion", "breakout", "bollinger_mean_reversion", "method_714",
+]
 
 
 class BacktestRequest(BaseModel):
