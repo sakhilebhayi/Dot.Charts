@@ -18,11 +18,16 @@ class KnowledgePack extends Model
         'summary',
         'period',
         'envelope',
+        'status',
+        'rejected_reason',
+        'reviewed_by',
+        'reviewed_at',
         'created_at',
     ];
 
     protected $casts = [
         'envelope' => 'array',
         'created_at' => 'datetime',
+        'reviewed_at' => 'datetime',
     ];
 }
