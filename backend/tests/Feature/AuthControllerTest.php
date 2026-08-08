@@ -50,4 +50,47 @@ class AuthControllerTest extends TestCase
 
         $response->assertStatus(422);
     }
+
+    public function test_login_returns_a_token_for_valid_credentials(): void
+    {
+        User::factory()->create([
+            'email' => 'ada@example.com',
+            'password' => bcrypt('correct-horse-battery-staple'),
+        ]);
+
+        $response = $this->postJson('/api/login', [
+            'email' => 'ada@example.com',
+            'password' => 'correct-horse-battery-staple',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $response->assertJsonStructure(['token', 'user' => ['id', 'name', 'email']]);
+    }
+
+    public function test_login_rejects_wrong_password_with_401(): void
+    {
+        User::factory()->create([
+            'email' => 'ada@example.com',
+            'password' => bcrypt('correct-horse-battery-staple'),
+        ]);
+
+        $response = $this->postJson('/api/login', [
+            'email' => 'ada@example.com',
+            'password' => 'wrong-password',
+        ]);
+
+        $response->assertStatus(401);
+        $response->assertJsonPath('success', false);
+    }
+
+    public function test_login_rejects_unknown_email_with_401(): void
+    {
+        $response = $this->postJson('/api/login', [
+            'email' => 'nobody@example.com',
+            'password' => 'whatever-it-is',
+        ]);
+
+        $response->assertStatus(401);
+    }
 }
