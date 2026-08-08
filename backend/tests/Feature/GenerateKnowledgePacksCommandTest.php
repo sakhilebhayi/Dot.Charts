@@ -6,16 +6,24 @@ use App\Models\BacktestRun;
 use App\Models\KnowledgePack;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\UsesDkpTestKey;
 use Tests\TestCase;
 
 class GenerateKnowledgePacksCommandTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesDkpTestKey;
 
     protected function setUp(): void
     {
         parent::setUp();
-        config(['services.dkp.signing_key' => 'test-signing-key']);
+        $this->setUpDkpTestKey();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->tearDownDkpTestKey();
+        parent::tearDown();
     }
 
     public function test_command_generates_a_pack_for_an_eligible_strategy_and_period(): void
