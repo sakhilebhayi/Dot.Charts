@@ -33,6 +33,9 @@ yarn-error.log*
 .cache/
 *.cache
 
+# Superpowers brainstorming companion
+.superpowers/
+
 # Old/Backup files
 *.old.md
 *.bak
