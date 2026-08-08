@@ -62,6 +62,14 @@
       background:rgba(148,163,184,.1);border:1px solid var(--border);
       color:var(--muted);transition:all .2s ease}
     .pill:hover{background:rgba(148,163,184,.18);transform:translateY(-1px)}
+    .symbol-field{margin-top:26px;padding-top:22px;border-top:1px solid var(--border);text-align:left}
+    .symbol-field label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px}
+    .symbol-field input{width:100%;padding:11px 14px;border-radius:10px;
+      background:rgba(2,6,23,.5);border:1px solid var(--border);color:var(--text);
+      font-size:15px;transition:border-color .2s ease,box-shadow .2s ease}
+    .symbol-field input::placeholder{color:var(--muted)}
+    .symbol-field input:focus{outline:none;border-color:var(--accent);
+      box-shadow:0 0 0 3px rgba(34,211,238,.15)}
     .analysis{display:flex;flex-direction:column;align-items:center;
       justify-content:center;text-align:center;min-height:340px}
     .analysis-icon{font-size:36px;margin-bottom:18px}
@@ -175,12 +183,11 @@
       <div class="pill">📉 Line Charts</div>
     </div>
     <input type="file" id="fileInput" accept="image/*" hidden>
+    <div class="symbol-field" onclick="event.stopPropagation()">
+      <label for="symbolOverride">Symbol (optional — improves accuracy over OCR)</label>
+      <input id="symbolOverride" placeholder="e.g. AAPL, BTC/USDT" autocomplete="off" />
+    </div>
   </section>
-
-  <div style="margin-top:12px;text-align:center">
-    <label for="symbolOverride" style="font-size:14px;color:var(--muted)">Symbol (optional, improves accuracy over OCR)</label><br>
-    <input id="symbolOverride" placeholder="AAPL" style="margin-top:6px" />
-  </div>
 
   <section class="card analysis" id="analysisPanel">
     <div class="analysis-icon">
