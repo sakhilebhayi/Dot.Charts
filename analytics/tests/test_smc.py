@@ -70,3 +70,56 @@ def test_compute_structure_detects_bullish_bos_then_bearish_choch():
     assert first_bos_pos < first_choch_pos
     # After the bearish CHoCH, structure_dir is -1
     assert out.loc[out[out["choch"]].index[0], "structure_dir"] == -1
+
+
+def test_compute_order_blocks_places_bullish_ob_on_last_down_candle_before_break():
+    from strategies.method_714.smc import compute_order_blocks
+
+    n = 10
+    idx = pd.date_range("2023-01-01", periods=n, freq="1h", tz="UTC")
+    opens = [10.0] * n
+    closes = [10.0] * n
+    highs = [10.5] * n
+    lows = [9.5] * n
+
+    # Bar 3: a down candle (close < open) — the expected order block.
+    opens[3], closes[3] = 10.0, 9.0
+    highs[3], lows[3] = 10.2, 8.8
+
+    df = pd.DataFrame({"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1}, index=idx)
+    df["structure_dir"] = 0
+    df["bull_break"] = False
+    df["bear_break"] = False
+    df.iloc[6, df.columns.get_loc("bull_break")] = True  # a bullish break fires at bar 6
+
+    order_blocks = compute_order_blocks(df, max_count=6)
+
+    assert len(order_blocks) == 1
+    assert order_blocks[0]["type"] == "bullish"
+    assert order_blocks[0]["bar_index"] == 3
+
+
+def test_compute_fair_value_gaps_detects_a_bullish_gap_above_min_size():
+    from strategies.method_714.smc import compute_fair_value_gaps
+
+    # A clean gap-up at bar 2 (low=12 vs bar 0's high=10), then bars 3-4
+    # stay within ranges that don't gap relative to 2 bars prior either
+    # direction — isolates exactly one FVG event.
+    idx = pd.date_range("2023-01-01", periods=5, freq="1h", tz="UTC")
+    df = pd.DataFrame(
+        {
+            "open": [9.5, 9.5, 12.5, 10.0, 12.5],
+            "close": [9.5, 9.5, 12.5, 10.0, 12.5],
+            "high": [10, 10, 13, 10.5, 13],
+            "low": [9, 9, 12, 9.5, 12],
+            "volume": [1, 1, 1, 1, 1],
+        },
+        index=idx,
+    )
+    atr = pd.Series(1.0, index=idx)  # min gap size = 0.25 * 1.0 = 0.25; gap here is 2.0
+
+    fvgs = compute_fair_value_gaps(df, atr, min_atr_mult=0.25)
+
+    assert len(fvgs) == 1
+    assert fvgs[0]["type"] == "bullish"
+    assert fvgs[0]["bar_index"] == 2

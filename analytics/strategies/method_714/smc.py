@@ -96,3 +96,61 @@ def compute_structure(df_with_pivots: pd.DataFrame) -> pd.DataFrame:
     out["bull_break"] = bull_breaks
     out["bear_break"] = bear_breaks
     return out
+
+
+def compute_order_blocks(df_with_structure: pd.DataFrame, max_count: int = 6) -> list[dict]:
+    """
+    A bullish order block is the last down-candle (close < open) before a
+    bullish structure break; a bearish order block is the last up-candle
+    before a bearish break. Returns at most the most recent `max_count`,
+    matching the Pine source's bounded rolling list.
+    """
+    order_blocks = []
+    last_down = None
+    last_up = None
+
+    opens = df_with_structure["open"].to_numpy()
+    closes = df_with_structure["close"].to_numpy()
+    highs = df_with_structure["high"].to_numpy()
+    lows = df_with_structure["low"].to_numpy()
+    bull_breaks = df_with_structure["bull_break"].to_numpy()
+    bear_breaks = df_with_structure["bear_break"].to_numpy()
+
+    for i in range(len(df_with_structure)):
+        if closes[i] < opens[i]:
+            last_down = {"high": highs[i], "low": lows[i], "bar_index": i}
+        if closes[i] > opens[i]:
+            last_up = {"high": highs[i], "low": lows[i], "bar_index": i}
+
+        if bull_breaks[i] and last_down is not None:
+            order_blocks.append({"type": "bullish", **last_down})
+        if bear_breaks[i] and last_up is not None:
+            order_blocks.append({"type": "bearish", **last_up})
+
+    return order_blocks[-max_count:] if len(order_blocks) > max_count else order_blocks
+
+
+def compute_fair_value_gaps(
+    df: pd.DataFrame, atr: pd.Series, min_atr_mult: float = 0.25, max_count: int = 8
+) -> list[dict]:
+    """
+    A bullish FVG is a 3-bar gap where the current bar's low is above the
+    high two bars ago; a bearish FVG mirrors it. Only gaps at least
+    min_atr_mult * ATR wide count, matching the Pine source's fvgMinAtr.
+    """
+    fvgs = []
+    highs = df["high"].to_numpy()
+    lows = df["low"].to_numpy()
+    atr_values = atr.to_numpy()
+
+    for i in range(2, len(df)):
+        if pd.isna(atr_values[i]):
+            continue
+        min_size = atr_values[i] * min_atr_mult
+
+        if lows[i] > highs[i - 2] and (lows[i] - highs[i - 2]) >= min_size:
+            fvgs.append({"type": "bullish", "top": lows[i], "bottom": highs[i - 2], "bar_index": i})
+        if highs[i] < lows[i - 2] and (lows[i - 2] - highs[i]) >= min_size:
+            fvgs.append({"type": "bearish", "top": lows[i - 2], "bottom": highs[i], "bar_index": i})
+
+    return fvgs[-max_count:] if len(fvgs) > max_count else fvgs
