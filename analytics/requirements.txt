@@ -9,5 +9,6 @@ pandas-ta>=0.3.14b0
 vectorbt>=0.26
 backtrader>=1.9.78.123
 quantstats>=0.0.62
+statsmodels>=0.14
 pytest>=8.0
 pytest-mock>=3.14
