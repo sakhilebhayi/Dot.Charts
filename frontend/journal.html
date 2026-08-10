@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dot.Charts — Journal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <style>
+    :root {
+      --bg:#020617;--panel:rgba(15,23,42,.7);--border:rgba(148,163,184,.15);
+      --text:#e5e7eb;--muted:#94a3b8;--accent:#22d3ee;
+      --green:#22c55e;--red:#ef4444;--warn-bg:rgba(250,204,21,.1);--warn-border:rgba(250,204,21,.3)
+    }
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
+    body{margin:0;min-height:100vh;color:var(--text);background:var(--bg)}
+    .container{max-width:920px;margin:0 auto;padding:48px 24px}
+    h1{font-size:32px;margin-bottom:8px}
+    .back-link{color:var(--accent);text-decoration:none;font-size:14px}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px;margin-top:24px}
+    label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+    input,select,textarea{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
+      background:#0f172a;color:var(--text);font-size:15px;font-family:inherit}
+    textarea{resize:vertical;min-height:100px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    button{padding:10px 16px;background:var(--accent);color:var(--bg);border:none;
+      border-radius:10px;font-weight:700;cursor:pointer;font-size:14px}
+    button.secondary{background:transparent;border:1px solid var(--border);color:var(--text)}
+    button.danger{background:transparent;border:1px solid var(--red);color:var(--red)}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    #entriesList{margin-top:20px;display:flex;flex-direction:column;gap:10px}
+    .entry-card{background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+    .entry-card .entry-title{font-weight:700;font-size:16px}
+    .entry-card .entry-meta{font-size:13px;color:var(--muted);margin-top:4px}
+    .entry-card .entry-body{margin-top:10px;font-size:14px;line-height:1.6;white-space:pre-wrap}
+    .badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;
+      background:rgba(34,211,238,.12);color:var(--accent);margin-right:6px}
+    .entry-actions{display:flex;gap:8px;margin-top:12px}
+    #loadMore{margin-top:16px;width:100%}
+    #empty{color:var(--muted);margin-top:20px;display:none}
+    #error{color:var(--red);margin-top:14px;display:none}
+    #loginNotice{color:var(--muted);margin-top:20px;display:none}
+  </style>
+</head>
+<body>
+<div class="container">
+  <a class="back-link" href="/">← Back</a>
+  <span id="authState" style="float:right;font-size:14px;color:var(--muted)"></span>
+  <a href="/history.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">History</a>
+  <a href="/backtest.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">Backtest</a>
+  <a href="/strategy-builder.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">Strategy Builder</a>
+  <h1>Journal</h1>
+  <p style="color:var(--muted)">Reflections on your backtests and strategies — not a trade log. Dot.Charts never stores real positions or orders.</p>
+
+  <div id="loginNotice">Log in to view and write journal entries.</div>
+
+  <div class="card" id="formCard">
+    <h3 id="formTitle" style="margin-top:0">New entry</h3>
+    <label for="entryTitle">Title</label>
+    <input id="entryTitle" placeholder="What are you reflecting on?" />
+    <label for="entryBody">Notes</label>
+    <textarea id="entryBody" placeholder="Freeform notes..."></textarea>
+    <div class="row">
+      <div>
+        <label for="entrySymbol">Symbol (optional)</label>
+        <input id="entrySymbol" placeholder="e.g. AAPL, BTC/USDT" />
+      </div>
+      <div></div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="entryStrategy">Link to a saved strategy (optional)</label>
+        <select id="entryStrategy"><option value="">— none —</option></select>
+      </div>
+      <div>
+        <label for="entryBacktest">Link to a past backtest (optional)</label>
+        <select id="entryBacktest"><option value="">— none —</option></select>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button id="saveButton">Save entry</button>
+      <button id="cancelEditButton" class="secondary" style="display:none">Cancel edit</button>
+    </div>
+    <div id="formError" style="color:var(--red);margin-top:10px;display:none"></div>
+  </div>
+
+  <div id="error"></div>
+  <div id="empty">No journal entries yet.</div>
+  <div id="entriesList"></div>
+  <button id="loadMore" class="secondary" style="display:none">Load more</button>
+</div>
+<script type="module" src="/src/journal.js"></script>
+</body>
+</html>
