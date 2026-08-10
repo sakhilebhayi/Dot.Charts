@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from fastapi.testclient import TestClient
 from main import app
@@ -315,3 +316,34 @@ def test_backtest_pairs_trading_without_symbol_b_returns_422(mocker):
 
     assert response.status_code == 422
     assert "symbol_b" in response.json()["detail"]
+
+
+def test_backtest_ml_signal_returns_metrics_and_model_diagnostics(mocker):
+    # ml_signal needs enough bars for at least one walk-forward training
+    # block -- the shared 100-bar _synthetic_uptrend_df fixture is too
+    # short for even a small train_window, so this test uses its own
+    # longer fixture (same shape/columns, just more bars).
+    idx = pd.date_range("2023-01-01", periods=180, freq="D", tz="UTC")
+    close = pd.Series(100 + np.cumsum(np.sin(np.arange(180) / 5.0) + 0.01), index=idx)
+    df = pd.DataFrame({"open": close, "high": close, "low": close, "close": close, "volume": 1000})
+    mocker.patch("main.fetch_ohlcv_cached", return_value=df)
+
+    response = client.post(
+        "/backtest",
+        json={
+            "symbol": "AAPL",
+            "asset_class": "equity",
+            "strategy": "ml_signal",
+            "params": {"train_window": 60, "retrain_every": 20},
+            "start_date": "2023-01-01",
+            "end_date": "2023-06-30",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["strategy"] == "ml_signal"
+    assert "metrics" in body
+    assert "trade_count" in body["metrics"]
+    assert body["params"]["model_diagnostics"]["model_type"] == "GradientBoostingClassifier"
+    assert 1 <= len(body["params"]["model_diagnostics"]["top_features"]) <= 3

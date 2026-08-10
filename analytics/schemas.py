@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 AssetClass = Literal["equity", "crypto", "commodity", "forex"]
 StrategyName = Literal[
     "ma_crossover", "rsi_mean_reversion", "breakout", "bollinger_mean_reversion", "momentum",
-    "pairs_trading", "custom", "method_714",
+    "pairs_trading", "ml_signal", "custom", "method_714",
 ]
 
 
