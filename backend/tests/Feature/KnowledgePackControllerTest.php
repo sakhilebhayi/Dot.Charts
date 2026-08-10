@@ -197,18 +197,7 @@ class KnowledgePackControllerTest extends TestCase
         $this->assertSame('approved', $pack->fresh()->status);
     }
 
-    /**
-     * Documents real, current behavior rather than assuming it: approve()
-     * throws a plain RuntimeException when the outbound compliance gate
-     * rejects (see KnowledgePackApprovalServiceTest for the service-level
-     * coverage), and nothing in KnowledgePackController or the exception
-     * handler catches that into a friendly 4xx today -- same pre-existing
-     * gap as the "pack not pending" RuntimeException path had before this
-     * change. Not fixed here (separate, broader concern: no RuntimeException
-     * from this service maps to a clean HTTP response); this test exists so
-     * that gap is asserted and visible rather than silently assumed away.
-     */
-    public function test_approve_blocked_by_outbound_gate_surfaces_as_a_server_error_today(): void
+    public function test_approve_blocked_by_outbound_gate_returns_422_not_a_server_error(): void
     {
         $token = $this->operatorToken();
         $pack = \App\Models\KnowledgePack::create([
@@ -225,7 +214,63 @@ class KnowledgePackControllerTest extends TestCase
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")->postJson("/api/knowledge-packs/{$pack->id}/approve");
 
-        $response->assertStatus(500);
+        $response->assertStatus(422);
+        $response->assertJsonPath('success', false);
+        $this->assertStringContainsString('outbound compliance gate rejected', $response->json('error'));
+        $this->assertSame('pending_approval', $pack->fresh()->status);
+    }
+
+    public function test_approve_of_an_already_approved_pack_returns_422_not_a_server_error(): void
+    {
+        $token = $this->operatorToken();
+        $pack = \App\Models\KnowledgePack::create([
+            'pack_id' => 'dkp:dot-charts:'.\Illuminate\Support\Str::uuid(),
+            'payload_type' => 'insight',
+            'pack_version' => '1.0.0',
+            'title' => 'Already approved',
+            'summary' => 'Test',
+            'period' => 'approve-conflict-slug',
+            'envelope' => ['payloads' => [], 'confidence' => 0.9, 'signatures' => ['sig']],
+            'status' => 'approved',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->postJson("/api/knowledge-packs/{$pack->id}/approve");
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('success', false);
+    }
+
+    /**
+     * Turns out the service's own trim($reason) === '' guard is dead code
+     * from the HTTP path specifically: Laravel's global TrimStrings
+     * middleware trims "   " down to "" before validation runs, so
+     * 'required|string' already rejects it -- this request never reaches
+     * KnowledgePackApprovalService::reject() at all. Verified rather than
+     * assumed (an earlier draft of this test wrongly expected the new
+     * try/catch to be what caught this). The service-level guard still has
+     * value for any future non-HTTP caller (a command, a job), so it's
+     * left in place; this test documents why it doesn't need HTTP coverage.
+     */
+    public function test_reject_with_a_whitespace_only_reason_is_caught_by_request_validation(): void
+    {
+        $token = $this->operatorToken();
+        $pack = \App\Models\KnowledgePack::create([
+            'pack_id' => 'dkp:dot-charts:'.\Illuminate\Support\Str::uuid(),
+            'payload_type' => 'insight',
+            'pack_version' => '1.0.0',
+            'title' => 'Pending pack',
+            'summary' => 'Test',
+            'period' => 'reject-whitespace-slug',
+            'envelope' => ['payloads' => [], 'confidence' => 0.9, 'signatures' => []],
+            'status' => 'pending_approval',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->postJson("/api/knowledge-packs/{$pack->id}/reject", ['reason' => '   ']);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('reason');
         $this->assertSame('pending_approval', $pack->fresh()->status);
     }
 

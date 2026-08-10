@@ -8,6 +8,7 @@ use App\Services\KnowledgePackApprovalService;
 use App\Services\ObservationPackGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use RuntimeException;
 
 class KnowledgePackController extends Controller
 {
@@ -94,7 +95,17 @@ class KnowledgePackController extends Controller
     public function approve(int $id, Request $request): JsonResponse
     {
         $pack = KnowledgePack::findOrFail($id);
-        $pack = $this->approvalService->approve($pack, $request->user());
+
+        // KnowledgePackApprovalService throws a plain RuntimeException for
+        // both an invalid state transition (pack not pending_approval) and
+        // an outbound-gate rejection -- neither is a server fault, so
+        // neither should surface as a bare 500. Matches the existing
+        // RuntimeException -> JSON pattern in BacktestController::store().
+        try {
+            $pack = $this->approvalService->approve($pack, $request->user());
+        } catch (RuntimeException $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
+        }
 
         return response()->json(['pack_id' => $pack->pack_id, 'status' => $pack->status]);
     }
@@ -103,7 +114,18 @@ class KnowledgePackController extends Controller
     {
         $validated = $request->validate(['reason' => 'required|string']);
         $pack = KnowledgePack::findOrFail($id);
-        $pack = $this->approvalService->reject($pack, $request->user(), $validated['reason']);
+
+        // The service also guards against an empty/whitespace-only reason
+        // itself (defensive for non-HTTP callers); in practice the global
+        // TrimStrings middleware already reduces "   " to "" before the
+        // 'required' rule above runs, so that branch isn't reachable from
+        // here -- this try/catch exists for the state-conflict case
+        // (pack not pending_approval), matching approve() above.
+        try {
+            $pack = $this->approvalService->reject($pack, $request->user(), $validated['reason']);
+        } catch (RuntimeException $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
+        }
 
         return response()->json(['pack_id' => $pack->pack_id, 'status' => $pack->status, 'rejected_reason' => $pack->rejected_reason]);
     }
