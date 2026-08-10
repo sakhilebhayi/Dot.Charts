@@ -6,7 +6,7 @@ from data.cache import fetch_ohlcv_cached
 from data.fetch import DataFetchError
 from strategies import STRATEGY_REGISTRY
 from strategies.custom_rules import evaluate_rule, InvalidStrategyParamsError
-from engines.vectorbt_engine import run_vectorbt
+from engines.vectorbt_engine import run_vectorbt, run_vectorbt_pairs
 from engines.backtrader_engine import run_backtrader
 from analysis.chart_analysis import compute_chart_analysis
 
@@ -50,7 +50,22 @@ def backtest(request: BacktestRequest):
     except DataFetchError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
-    if entry["engine"] == "vectorbt":
+    if entry.get("requires_symbol_b"):
+        symbol_b = params.get("symbol_b")
+        if not symbol_b:
+            raise HTTPException(status_code=422, detail="pairs_trading requires params.symbol_b")
+        try:
+            df_b = fetch_ohlcv_cached(
+                symbol_b,
+                request.asset_class,
+                request.start_date,
+                request.end_date,
+                interval=entry["interval"],
+            )
+        except DataFetchError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        result = run_vectorbt_pairs(entry["module"], df, df_b, params)
+    elif entry["engine"] == "vectorbt":
         try:
             result = run_vectorbt(entry["module"], df, params)
         except InvalidStrategyParamsError as exc:

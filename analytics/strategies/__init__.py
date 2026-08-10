@@ -1,4 +1,4 @@
-from . import ma_crossover, rsi_mean_reversion, breakout, bollinger_mean_reversion, momentum, custom
+from . import ma_crossover, rsi_mean_reversion, breakout, bollinger_mean_reversion, momentum, pairs_trading, custom
 from .method_714.strategy import Method714Strategy
 
 STRATEGY_REGISTRY = {
@@ -31,6 +31,15 @@ STRATEGY_REGISTRY = {
         "module": momentum,
         "default_params": momentum.DEFAULT_PARAMS,
         "interval": "1d",
+    },
+    "pairs_trading": {
+        "engine": "vectorbt",
+        "module": pairs_trading,
+        "default_params": pairs_trading.DEFAULT_PARAMS,
+        "interval": "1d",
+        # Handled by a separate two-symbol dispatch path in main.py --
+        # every other vectorbt strategy consumes a single df.
+        "requires_symbol_b": True,
     },
     "custom": {
         "engine": "vectorbt",

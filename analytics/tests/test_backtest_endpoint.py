@@ -274,3 +274,44 @@ def test_backtest_momentum_returns_metrics_and_trades(mocker):
     assert body["strategy"] == "momentum"
     assert "metrics" in body
     assert "trade_count" in body["metrics"]
+
+
+def test_backtest_pairs_trading_returns_metrics_and_trades(mocker):
+    mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
+
+    response = client.post(
+        "/backtest",
+        json={
+            "symbol": "AAPL",
+            "asset_class": "equity",
+            "strategy": "pairs_trading",
+            "params": {"symbol_b": "MSFT"},
+            "start_date": "2023-01-01",
+            "end_date": "2023-04-10",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["strategy"] == "pairs_trading"
+    assert body["params"]["symbol_b"] == "MSFT"
+    assert "metrics" in body
+    assert "trade_count" in body["metrics"]
+
+
+def test_backtest_pairs_trading_without_symbol_b_returns_422(mocker):
+    mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
+
+    response = client.post(
+        "/backtest",
+        json={
+            "symbol": "AAPL",
+            "asset_class": "equity",
+            "strategy": "pairs_trading",
+            "start_date": "2023-01-01",
+            "end_date": "2023-04-10",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "symbol_b" in response.json()["detail"]
