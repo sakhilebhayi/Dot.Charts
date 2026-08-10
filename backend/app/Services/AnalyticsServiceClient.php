@@ -56,6 +56,26 @@ class AnalyticsServiceClient
     }
 
     /**
+     * @return array the decoded JSON response (OptionsVolSignalResponse shape:
+     *   symbol, asset_class, spot, expiry_used, realized_vol, skew, vol_regime,
+     *   skew_regime, as_of)
+     * @throws RuntimeException on a non-2xx response or connection failure
+     */
+    public function optionsVolSignal(string $symbol, string $assetClass): array
+    {
+        $response = Http::timeout(30)->get(
+            "{$this->baseUrl}/options/vol-signal/".rawurlencode($symbol),
+            ['asset_class' => $assetClass],
+        );
+
+        if ($response->failed()) {
+            throw new RuntimeException($this->errorMessage($response));
+        }
+
+        return $response->json();
+    }
+
+    /**
      * @param array $rules matches the Python service's {"entry": {...}, "exit": {...}} rule shape
      * @return array {"valid": bool, "error"?: string} -- always 200 from the analytics service,
      *   since "the rule is invalid" is itself a successfully-answered question, not a service error

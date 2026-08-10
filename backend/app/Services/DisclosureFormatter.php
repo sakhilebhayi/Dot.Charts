@@ -118,4 +118,34 @@ class DisclosureFormatter
 
         return $attribution;
     }
+
+    /**
+     * @param array $volSignal the Python service's OptionsVolSignalResponse shape
+     * @return array the same array plus a 'disclosure' key
+     *
+     * A current-state read, not a backtest -- no metrics/trade_count to
+     * derive a confidence_band from, so this is a deliberately smaller
+     * disclosure shape than format() rather than forcing this response
+     * into that method's backtest-shaped assumptions.
+     */
+    public function formatVolSignal(array $volSignal): array
+    {
+        $attribution = sprintf(
+            'Realized-volatility rank (%s-day window) is a proxy for true IV rank — yfinance has no '
+            . 'historical implied-volatility data, so this reflects the underlying\'s own historical price '
+            . 'movement, not the options market\'s forward-looking expectation. Put-call skew is read from '
+            . 'the %s expiry chain for %s, spot %s.',
+            $volSignal['realized_vol']['window_days'] ?? '?',
+            $volSignal['expiry_used'] ?? '?',
+            $volSignal['symbol'] ?? '?',
+            $volSignal['spot'] ?? '?'
+        );
+
+        return array_merge($volSignal, [
+            'disclosure' => [
+                'attribution' => $attribution,
+                'risk_disclosure' => self::RISK_DISCLOSURE,
+            ],
+        ]);
+    }
 }

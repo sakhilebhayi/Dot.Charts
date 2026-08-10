@@ -63,6 +63,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perHour(10)->by('chart-analysis:ip:'.$request->ip());
         });
 
+        // Same reasoning as chart-analysis: unauthenticated, but a real
+        // live yfinance options-chain call (plus a second OHLCV call for
+        // the realized-vol proxy) every time, so it needs its own cost
+        // ceiling rather than relying on the global 'api' backstop alone.
+        RateLimiter::for('options-vol', function (Request $request) {
+            return Limit::perHour(20)->by('options-vol:ip:'.$request->ip());
+        });
+
         // Keyed by email+IP, not IP alone: a per-IP-only limit would let one
         // slow attacker rotate the target email and keep guessing forever,
         // while a per-email-only limit would let a botnet lock a victim out

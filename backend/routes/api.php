@@ -6,6 +6,7 @@ use App\Http\Controllers\ChartAnalysisController;
 use App\Http\Controllers\CustomStrategyController;
 use App\Http\Controllers\JournalEntryController;
 use App\Http\Controllers\KnowledgePackController;
+use App\Http\Controllers\OptionsVolController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register'])
@@ -45,3 +46,5 @@ Route::post('/chart/analyze', [ChartAnalysisController::class, 'analyzeChart'])
     ->middleware('throttle:chart-analysis');
 Route::post('/backtests', [BacktestController::class, 'store'])
     ->middleware('throttle:backtests');
+Route::get('/options/vol-signal/{symbol}', [OptionsVolController::class, 'show'])
+    ->middleware('throttle:options-vol');
