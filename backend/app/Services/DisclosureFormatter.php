@@ -16,6 +16,7 @@ class DisclosureFormatter
         'method_714' => '714 Method',
         'breakout' => 'Breakout (Donchian)',
         'bollinger_mean_reversion' => 'Bollinger Mean-Reversion',
+        'momentum' => 'Momentum',
         'custom' => 'Custom Strategy',
     ];
 

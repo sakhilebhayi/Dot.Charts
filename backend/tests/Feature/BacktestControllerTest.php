@@ -550,4 +550,41 @@ class BacktestControllerTest extends TestCase
 
         $response->assertStatus(401);
     }
+
+    public function test_store_accepts_momentum_strategy(): void
+    {
+        Http::fake([
+            '*/backtest' => Http::response([
+                'symbol' => 'AAPL',
+                'asset_class' => 'equity',
+                'strategy' => 'momentum',
+                'params' => ['lookback' => 252, 'skip' => 21, 'roc_window' => 10, 'roc_threshold' => 0.0],
+                'start_date' => '2023-01-01',
+                'end_date' => '2026-01-01',
+                'metrics' => [
+                    'total_return_pct' => 3.0,
+                    'win_rate_pct' => 40.0,
+                    'max_drawdown_pct' => -2.0,
+                    'sharpe_ratio' => 0.5,
+                    'trade_count' => 8,
+                    'losing_trade_count' => 5,
+                ],
+                'equity_curve' => [['time' => '2023-01-01T00:00:00', 'equity' => 10000.0]],
+                'trades' => [],
+            ], 200),
+        ]);
+
+        $response = $this->postJson('/api/backtests', [
+            'symbol' => 'AAPL',
+            'asset_class' => 'equity',
+            'strategy' => 'momentum',
+            'start_date' => '2023-01-01',
+            'end_date' => '2026-01-01',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('result.disclosure.attribution', function ($attribution) {
+            return str_contains($attribution, 'Momentum');
+        });
+    }
 }
