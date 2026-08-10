@@ -42,6 +42,27 @@ class JournalEntryController extends Controller
         return response()->json($entry, 201);
     }
 
+    public function index(Request $request): JsonResponse
+    {
+        $userId = $request->user('sanctum')->id;
+
+        $query = JournalEntry::where('user_id', $userId)->orderByDesc('created_at');
+
+        if ($request->filled('symbol')) {
+            $query->where('symbol', $request->query('symbol'));
+        }
+        if ($request->filled('backtest_run_id')) {
+            $query->where('backtest_run_id', $request->query('backtest_run_id'));
+        }
+        if ($request->filled('custom_strategy_id')) {
+            $query->where('custom_strategy_id', $request->query('custom_strategy_id'));
+        }
+
+        $entries = $query->paginate(20)->appends($request->query());
+
+        return response()->json($entries);
+    }
+
     /**
      * A bare 'exists:table,id' Laravel validation rule would accept ANY
      * user's row, not just the caller's -- this checks ownership

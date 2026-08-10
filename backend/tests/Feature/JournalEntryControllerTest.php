@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\BacktestRun;
 use App\Models\CustomStrategy;
+use App\Models\JournalEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -100,5 +101,85 @@ class JournalEntryControllerTest extends TestCase
 
         $response->assertStatus(422);
         $this->assertDatabaseMissing('journal_entries', ['title' => 'Sneaky entry']);
+    }
+
+    public function test_index_returns_only_the_authenticated_users_entries(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        JournalEntry::factory()->create(['user_id' => $user->id, 'title' => 'Mine']);
+        JournalEntry::factory()->create(['user_id' => $otherUser->id, 'title' => 'Not Mine']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/journal-entries');
+
+        $response->assertOk();
+        $titles = collect($response->json('data'))->pluck('title');
+        $this->assertTrue($titles->contains('Mine'));
+        $this->assertFalse($titles->contains('Not Mine'));
+    }
+
+    public function test_index_requires_authentication(): void
+    {
+        $response = $this->getJson('/api/journal-entries');
+
+        $response->assertStatus(401);
+    }
+
+    public function test_index_paginates_at_twenty(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        JournalEntry::factory()->count(21)->create(['user_id' => $user->id]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/journal-entries');
+
+        $response->assertOk();
+        $this->assertCount(20, $response->json('data'));
+        $this->assertNotNull($response->json('next_page_url'));
+    }
+
+    public function test_index_filters_by_symbol(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        JournalEntry::factory()->create(['user_id' => $user->id, 'title' => 'AAPL note', 'symbol' => 'AAPL']);
+        JournalEntry::factory()->create(['user_id' => $user->id, 'title' => 'BTC note', 'symbol' => 'BTC/USDT']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/journal-entries?symbol=AAPL');
+
+        $titles = collect($response->json('data'))->pluck('title');
+        $this->assertTrue($titles->contains('AAPL note'));
+        $this->assertFalse($titles->contains('BTC note'));
+    }
+
+    public function test_index_filters_by_backtest_run_id(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $run = BacktestRun::factory()->create(['user_id' => $user->id]);
+        JournalEntry::factory()->create(['user_id' => $user->id, 'title' => 'Linked', 'backtest_run_id' => $run->id]);
+        JournalEntry::factory()->create(['user_id' => $user->id, 'title' => 'Unlinked']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson("/api/journal-entries?backtest_run_id={$run->id}");
+
+        $titles = collect($response->json('data'))->pluck('title');
+        $this->assertTrue($titles->contains('Linked'));
+        $this->assertFalse($titles->contains('Unlinked'));
+    }
+
+    public function test_index_filters_by_custom_strategy_id(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $strategy = CustomStrategy::factory()->create(['user_id' => $user->id]);
+        JournalEntry::factory()->create(['user_id' => $user->id, 'title' => 'Linked', 'custom_strategy_id' => $strategy->id]);
+        JournalEntry::factory()->create(['user_id' => $user->id, 'title' => 'Unlinked']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson("/api/journal-entries?custom_strategy_id={$strategy->id}");
+
+        $titles = collect($response->json('data'))->pluck('title');
+        $this->assertTrue($titles->contains('Linked'));
+        $this->assertFalse($titles->contains('Unlinked'));
     }
 }

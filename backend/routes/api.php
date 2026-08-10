@@ -25,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/strategies/{id}', [CustomStrategyController::class, 'destroy']);
 
     Route::post('/journal-entries', [JournalEntryController::class, 'store']);
+    Route::get('/journal-entries', [JournalEntryController::class, 'index']);
 
     Route::middleware('operator')->group(function () {
         Route::post('/knowledge-packs/generate', [KnowledgePackController::class, 'generate']);
