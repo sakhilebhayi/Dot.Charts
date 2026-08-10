@@ -10,5 +10,6 @@ vectorbt>=0.26
 backtrader>=1.9.78.123
 quantstats>=0.0.62
 statsmodels>=0.14
+scikit-learn>=1.4
 pytest>=8.0
 pytest-mock>=3.14
