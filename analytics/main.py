@@ -1,7 +1,10 @@
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 
-from schemas import BacktestRequest, BacktestResult, ChartAnalysisRequest, ValidateRuleRequest
+from schemas import (
+    AssetClass, BacktestRequest, BacktestResult, ChartAnalysisRequest, OptionsVolSignalResponse,
+    ValidateRuleRequest,
+)
 from data.cache import fetch_ohlcv_cached
 from data.fetch import DataFetchError
 from strategies import STRATEGY_REGISTRY
@@ -9,6 +12,7 @@ from strategies.custom_rules import evaluate_rule, InvalidStrategyParamsError
 from engines.vectorbt_engine import run_vectorbt, run_vectorbt_pairs
 from engines.backtrader_engine import run_backtrader
 from analysis.chart_analysis import compute_chart_analysis
+from analysis.options_vol import compute_vol_signal, OptionsDataError
 
 
 # This service has no authentication of its own -- deliberately, per a
@@ -102,6 +106,19 @@ def chart_analysis(request: ChartAnalysisRequest):
     try:
         return compute_chart_analysis(request.symbol, request.asset_class, request.interval)
     except DataFetchError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.get("/options/vol-signal/{symbol}", response_model=OptionsVolSignalResponse)
+def options_vol_signal(symbol: str, asset_class: AssetClass = "equity"):
+    # A current-state read, not a backtest -- no entries/exits/a portfolio,
+    # so it deliberately lives outside the /backtest family (same category
+    # as /chart-analysis) rather than being forced into that request/
+    # response shape. See docs/superpowers/specs/
+    # 2026-08-10-options-vol-strategy-design.md for the scope decision.
+    try:
+        return compute_vol_signal(symbol, asset_class, {})
+    except OptionsDataError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
 

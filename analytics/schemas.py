@@ -62,3 +62,29 @@ class ChartAnalysisRequest(BaseModel):
 
 class ValidateRuleRequest(BaseModel):
     rules: dict
+
+
+class RealizedVolInfo(BaseModel):
+    current_annualized_pct: float
+    rank_pct: float
+    window_days: int
+
+
+class SkewInfo(BaseModel):
+    call_strike: float
+    call_iv: float
+    put_strike: float
+    put_iv: float
+    skew: float
+
+
+class OptionsVolSignalResponse(BaseModel):
+    symbol: str
+    asset_class: AssetClass
+    spot: float
+    expiry_used: str
+    realized_vol: RealizedVolInfo
+    skew: SkewInfo
+    vol_regime: Literal["elevated", "normal", "low"]
+    skew_regime: Literal["put_skew_elevated", "balanced", "call_skew_elevated"]
+    as_of: str
