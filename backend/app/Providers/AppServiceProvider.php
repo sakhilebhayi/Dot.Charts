@@ -47,6 +47,24 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perHour(10)->by('chart-analysis:ip:'.$request->ip());
         });
 
+        // Keyed by email+IP, not IP alone: a per-IP-only limit would let one
+        // slow attacker rotate the target email and keep guessing forever,
+        // while a per-email-only limit would let a botnet lock a victim out
+        // of their own account by deliberately tripping it from many IPs.
+        // Tight (5/min) because this is the platform's primary credential-
+        // stuffing / brute-force surface and a real login has no other cost
+        // gate in front of it.
+        RateLimiter::for('auth-login', function (Request $request) {
+            return Limit::perMinute(5)->by('auth-login:'.strtolower((string) $request->input('email')).':'.$request->ip());
+        });
+
+        // Per-IP only: registration has no existing-account identity to key
+        // against, so this exists purely to slow down mass fake-account
+        // creation from a single source, not to protect any one victim.
+        RateLimiter::for('auth-register', function (Request $request) {
+            return Limit::perHour(5)->by('auth-register:ip:'.$request->ip());
+        });
+
         \Illuminate\Support\Facades\Event::listen(
             \App\Events\StrategyPerformanceCycleCompleted::class,
             \App\Listeners\LogStrategyPerformanceCycle::class,

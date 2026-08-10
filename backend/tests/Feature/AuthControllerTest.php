@@ -130,4 +130,66 @@ class AuthControllerTest extends TestCase
         $meResponse = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/me');
         $meResponse->assertStatus(401);
     }
+
+    public function test_login_is_rate_limited_at_five_per_minute(): void
+    {
+        User::factory()->create([
+            'email' => 'ada@example.com',
+            'password' => bcrypt('correct-horse-battery-staple'),
+        ]);
+
+        $payload = ['email' => 'ada@example.com', 'password' => 'wrong-password'];
+
+        for ($i = 0; $i < 5; $i++) {
+            $response = $this->postJson('/api/login', $payload);
+            $this->assertNotEquals(429, $response->status());
+        }
+
+        $this->postJson('/api/login', $payload)->assertStatus(429);
+    }
+
+    public function test_login_rate_limit_is_keyed_by_email_so_other_accounts_are_unaffected(): void
+    {
+        User::factory()->create([
+            'email' => 'ada@example.com',
+            'password' => bcrypt('correct-horse-battery-staple'),
+        ]);
+        User::factory()->create([
+            'email' => 'grace@example.com',
+            'password' => bcrypt('correct-horse-battery-staple'),
+        ]);
+
+        // Exhaust ada@example.com's limit (same IP, TestCase default).
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/login', ['email' => 'ada@example.com', 'password' => 'wrong-password']);
+        }
+        $this->postJson('/api/login', ['email' => 'ada@example.com', 'password' => 'wrong-password'])
+            ->assertStatus(429);
+
+        // A different email from the same IP must still be able to log in —
+        // proves the limiter is keyed by email+IP, not IP alone.
+        $response = $this->postJson('/api/login', [
+            'email' => 'grace@example.com',
+            'password' => 'correct-horse-battery-staple',
+        ]);
+        $response->assertOk();
+    }
+
+    public function test_register_is_rate_limited_at_five_per_hour(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $response = $this->postJson('/api/register', [
+                'name' => 'Test User',
+                'email' => "user{$i}@example.com",
+                'password' => 'correct-horse-battery-staple',
+            ]);
+            $this->assertNotEquals(429, $response->status());
+        }
+
+        $this->postJson('/api/register', [
+            'name' => 'Test User',
+            'email' => 'user-over-limit@example.com',
+            'password' => 'correct-horse-battery-staple',
+        ])->assertStatus(429);
+    }
 }

@@ -1,6 +1,6 @@
 ---
 title: Dot.Charts — Platform Wiki
-version: 0.2.0
+version: 0.2.1
 status: draft
 owners: [Charts Platform Lead]
 platform-id: dot-charts
@@ -131,7 +131,7 @@ Per Dot.Brain's framing, Dot.Charts is the ecosystem's only regulated-market pla
 - **Signal disclosure — now built.** Every backtest response served by `POST /api/backtests` carries a `disclosure` object (confidence band, strategy/params attribution, fixed risk-disclosure text, max drawdown, losing-trade count) via `DisclosureFormatter`. Chart-analysis responses carry an equivalent `disclaimer` field, distinguishing real (`is_demo: false`) from placeholder results. Neither response type presents a number as real when it isn't.
 - **User positions/orders — still never persisted, by design.** No schema exists for it. This has now been true across a full backtesting/journal-adjacent feature build-out (backtest runs, custom strategies, Knowledge Packs), not just by omission on a mostly-empty schema — meaningfully stronger evidence of the invariant holding than at 0.1.1, though still not enforced by any automated schema-level guard (e.g. a test that fails CI if a `position`/`order` table appears).
 
-New, honest gap found during this review, not present in the 0.1.1 posture: **`/register` and `/login` have no rate limiting.** `backtests` and `chart-analysis` both have dedicated `RateLimiter::for()` rules (§2); the auth endpoints that create sessions and API tokens do not. This isn't a regulated-market-content issue specifically, but it's a real gap worth closing before this platform takes real user credentials at scale.
+**`/register` and `/login` rate limiting — now built (closed 2026-08-10).** `login` is capped at 5/min keyed by email+IP (not IP alone, so one attacker can't dodge the limit by rotating the target email, and not email alone, so a botnet can't lock a real user out of their own account); `register` is capped at 5/hour per IP. Verified against the live dev server, not just the test suite: 6 rapid real HTTP requests to a running `php artisan serve` returned five real responses then a `429` on the sixth, for both endpoints.
 
 ## 8. Roadmap / Open Questions
 
@@ -143,7 +143,7 @@ New, honest gap found during this review, not present in the 0.1.1 posture: **`/
 - [ ] Build the outbound half of the compliance/MNPI gate (§5) — inbound-only today
 - [ ] Wire an actual transport path to Dot.Brain (push or documented pull) — the signing key and manifest exist, the pipe does not
 - [ ] Reconcile `payload_type` naming (`metric`/`incident_report`/`recommendation`) against Brain's spec vocabulary (`observation`/`incident`/`outcome`) (§5)
-- [ ] Add rate limiting to `/register` and `/login` (§7 — new finding this review)
+- [x] ~~Add rate limiting to `/register` and `/login`~~ — built (§7): 5/min by email+IP on login, 5/hour by IP on register
 - [ ] Resolve the `ChartSense` vs. `dot-charts` repo-naming discrepancy (§6)
 - [ ] Decide on a real market-data SLA (`yfinance`/`ccxt` are free-tier, best-effort, no uptime guarantee — unchanged from 0.1.1)
 - [ ] Retire or migrate `SignalBacktestingService`, the pre-analytics-service backtester left in place but no longer on the active `/api/backtests` path (§2)
@@ -155,6 +155,7 @@ New, honest gap found during this review, not present in the 0.1.1 posture: **`/
 | 0.1.0 | 2026-08-01 | Charts Platform Lead | Initial wiki: derived from the actual ChartSense codebase (Laravel backend + Vite frontend, market-data aggregation, chart-analysis and backtesting prototypes) and cross-referenced against Dot.Brain's `platforms/dot-charts.md` for ecosystem framing |
 | 0.1.1 | 2026-08-01 | Charts Platform Lead | Engineering-quality pass: fixed `routes/api.php` never being registered (missing `api:` entry in `bootstrap/app.php` — the endpoint didn't exist at all in a real request cycle); removed a stray duplicate-class file (`DetectSymbolTrait.php`) that redeclared `EnhancedMarketDataController`; labeled the hardcoded chart-analysis response as a demo (`is_demo`/`disclaimer` fields, matching UI banner) rather than fixing the "hardcoded results" bug by fabricating real analysis; added the first PHPUnit tests in the repo (`tests/Unit`, `tests/Feature` — previously didn't exist despite `phpunit.xml` referencing them); rewrote root and backend README to drop aspirational/fictional claims (Gemini/GPT-4 Vision, `AIAgentService`) that didn't match the code; removed `downloads/` (stale doc referencing a build archive that isn't in the repo); added real logo/favicons; fixed `composer.json`'s leftover `laravel/laravel` template name |
 | 0.2.0 | 2026-08-10 | Charts Platform Lead | Full refresh against ~130 commits of real feature work since 0.1.1 that this wiki had not yet caught up to: added the Python analytics/backtesting service (§2) with 6 real strategies including the 714 Method (SMC + MTF + weighted confidence), Sanctum auth, persisted/owner-scoped backtests and custom strategies (§3), a real (non-placeholder) chart-analysis path with disclosure formatting (§2/§7), and the full Knowledge Pack generate/sign/approve/retrieve pipeline with an inbound-only compliance gate (§5). Corrected Laravel version (12, not 11) and the "no strategy builder / no Knowledge Pack / no event bus" framing, all of which are now built. Verified rather than assumed: ran the full backend (147) and analytics (83) test suites (all green) and confirmed the pending-strategies pagination fix live via browser before writing this refresh. Added new, previously-undocumented honest gaps found during the audit: compliance gate is inbound-only despite Brain's "bidirectional" framing (§5), no push transport to Brain exists yet (§5), `payload_type` naming drift vs. Brain's spec vocabulary (§5), and no rate limiting on `/register`/`/login` (§7) |
+| 0.2.1 | 2026-08-10 | Charts Platform Lead | Closed the `/register`/`/login` rate-limiting gap found in 0.2.0: `RateLimiter::for('auth-login', ...)` keyed by email+IP (5/min) and `RateLimiter::for('auth-register', ...)` keyed by IP (5/hour), mirroring the existing `backtests`/`chart-analysis` pattern in `AppServiceProvider`. 3 new regression tests (rate-limit trip, email-keying isolation, register cap) plus a live check against the running dev server (real HTTP requests, not just the test suite) confirming the 6th attempt returns 429 in both cases. Full suite: 150 backend tests passing (was 147) |
 
 ## Open Questions
 
