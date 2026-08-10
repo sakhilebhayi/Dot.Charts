@@ -587,4 +587,56 @@ class BacktestControllerTest extends TestCase
             return str_contains($attribution, 'Momentum');
         });
     }
+
+    public function test_store_accepts_pairs_trading_strategy_with_symbol_b(): void
+    {
+        Http::fake([
+            '*/backtest' => Http::response([
+                'symbol' => 'AAPL',
+                'asset_class' => 'equity',
+                'strategy' => 'pairs_trading',
+                'params' => ['symbol_b' => 'MSFT', 'lookback' => 20, 'entry_z' => 2.0, 'exit_z' => 0.5, 'stop_z' => 4.0, 'coint_pvalue_max' => 0.05],
+                'start_date' => '2023-01-01',
+                'end_date' => '2026-01-01',
+                'metrics' => [
+                    'total_return_pct' => 5.0,
+                    'win_rate_pct' => 100.0,
+                    'max_drawdown_pct' => -1.5,
+                    'sharpe_ratio' => 0.8,
+                    'trade_count' => 1,
+                    'losing_trade_count' => 0,
+                ],
+                'equity_curve' => [['time' => '2023-01-01T00:00:00', 'equity' => 10000.0]],
+                'trades' => [],
+            ], 200),
+        ]);
+
+        $response = $this->postJson('/api/backtests', [
+            'symbol' => 'AAPL',
+            'asset_class' => 'equity',
+            'strategy' => 'pairs_trading',
+            'params' => ['symbol_b' => 'MSFT'],
+            'start_date' => '2023-01-01',
+            'end_date' => '2026-01-01',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('result.disclosure.attribution', function ($attribution) {
+            return str_contains($attribution, 'Pairs Trading (Stat-Arb)') && str_contains($attribution, 'vs. MSFT');
+        });
+    }
+
+    public function test_store_rejects_pairs_trading_strategy_without_symbol_b(): void
+    {
+        $response = $this->postJson('/api/backtests', [
+            'symbol' => 'AAPL',
+            'asset_class' => 'equity',
+            'strategy' => 'pairs_trading',
+            'start_date' => '2023-01-01',
+            'end_date' => '2026-01-01',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['params.symbol_b']);
+    }
 }

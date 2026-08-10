@@ -17,6 +17,7 @@ class DisclosureFormatter
         'breakout' => 'Breakout (Donchian)',
         'bollinger_mean_reversion' => 'Bollinger Mean-Reversion',
         'momentum' => 'Momentum',
+        'pairs_trading' => 'Pairs Trading (Stat-Arb)',
         'custom' => 'Custom Strategy',
     ];
 
@@ -77,6 +78,16 @@ class DisclosureFormatter
             $attribution .= '. Original session-based implementation (Blupin/Infodot ORD Session '
                 . 'Strategy) — not a verified reproduction of Mashaya A. Mthethwa\'s proprietary '
                 . '714 course material.';
+        }
+
+        if ($strategyKey === 'pairs_trading') {
+            $symbolB = $backtestResult['params']['symbol_b'] ?? '?';
+            $attribution .= sprintf(
+                ' vs. %s. Metrics describe the cointegrated spread traded as a single synthetic '
+                . 'instrument, not two separately filled and financed legs — this is a backtest of '
+                . 'the signal, not broker-accurate two-leg execution accounting.',
+                $symbolB
+            );
         }
 
         return $attribution;

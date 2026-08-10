@@ -8,6 +8,7 @@ use App\Services\DisclosureFormatter;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class BacktestController extends Controller
@@ -32,7 +33,7 @@ class BacktestController extends Controller
         $validated = $request->validate([
             'symbol' => 'required|string|max:20',
             'asset_class' => 'required|in:equity,crypto,commodity,forex',
-            'strategy' => 'required|in:ma_crossover,rsi_mean_reversion,method_714,breakout,bollinger_mean_reversion,momentum,custom',
+            'strategy' => 'required|in:ma_crossover,rsi_mean_reversion,method_714,breakout,bollinger_mean_reversion,momentum,pairs_trading,custom',
             'params' => 'nullable|array',
             'start_date' => 'required|date',
             'end_date' => [
@@ -58,6 +59,21 @@ class BacktestController extends Controller
                 },
             ],
         ]);
+
+        // pairs_trading is the one strategy that needs a second instrument
+        // -- stored inside params (already a persisted JSON column) rather
+        // than adding a dedicated symbol_b column, since nothing else
+        // needs to query on it independently. This is a manual check, not
+        // a 'params.symbol_b' => '...' validation rule: adding a
+        // dot-notation rule for one params sub-key makes Laravel's
+        // validate() strip every *other* params sub-key not covered by an
+        // explicit rule -- which would silently break the custom
+        // strategy's arbitrary rule-object params.
+        if ($validated['strategy'] === 'pairs_trading' && empty($validated['params']['symbol_b'] ?? null)) {
+            throw ValidationException::withMessages([
+                'params.symbol_b' => 'The params.symbol_b field is required when strategy is pairs_trading.',
+            ]);
+        }
 
         $run = BacktestRun::create([
             // $request->user() resolves via the default guard ('web',
