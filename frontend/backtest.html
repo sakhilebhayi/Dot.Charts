@@ -94,8 +94,14 @@
       <option value="breakout">Breakout (Donchian)</option>
       <option value="bollinger_mean_reversion">Bollinger Mean-Reversion</option>
       <option value="momentum">Momentum</option>
+      <option value="pairs_trading">Pairs Trading (Stat-Arb)</option>
       <option value="method_714">714 Method</option>
     </select>
+
+    <div id="symbolBRow" style="display:none">
+      <label for="symbolB">Symbol B (paired against Symbol above)</label>
+      <input id="symbolB" placeholder="MSFT" />
+    </div>
 
     <button id="runButton">Run backtest</button>
     <div id="error"></div>

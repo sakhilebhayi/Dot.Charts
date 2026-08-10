@@ -81,7 +81,7 @@ function renderRunRow(run) {
   // server-enum-constrained and safe to interpolate as-is.
   row.innerHTML = `
     <div>
-      <div class="symbol"><span class="symbol-text"></span> <span class="status ${run.status}">${run.status}</span></div>
+      <div class="symbol"><span class="symbol-text"></span><span class="symbol-b-text"></span> <span class="status ${run.status}">${run.status}</span></div>
       <div class="meta">${run.strategy} · ${run.asset_class} · ${new Date(run.created_at).toLocaleString()} · ${returnText}</div>
     </div>
     <div class="run-actions">
@@ -91,6 +91,12 @@ function renderRunRow(run) {
     </div>
   `;
   row.querySelector('.symbol-text').textContent = run.symbol;
+  // pairs_trading is the one strategy with a second instrument -- it
+  // lives in run.params.symbol_b (freeform user text, same as run.symbol),
+  // so this goes through textContent too, not the innerHTML template above.
+  if (run.strategy === 'pairs_trading' && run.params?.symbol_b) {
+    row.querySelector('.symbol-b-text').textContent = ` vs. ${run.params.symbol_b}`;
+  }
 
   row.addEventListener('click', (e) => {
     if (e.target.closest('.run-actions')) return;

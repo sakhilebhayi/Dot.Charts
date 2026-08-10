@@ -11,7 +11,13 @@ const symbolInput = document.getElementById('symbol');
 const symbolCommoditySelect = document.getElementById('symbolCommodity');
 const symbolForexSelect = document.getElementById('symbolForex');
 const strategySelect = document.getElementById('strategy');
+const symbolBRow = document.getElementById('symbolBRow');
+const symbolBInput = document.getElementById('symbolB');
 const savedStrategyRules = {};
+
+strategySelect.addEventListener('change', () => {
+  symbolBRow.style.display = strategySelect.value === 'pairs_trading' ? '' : 'none';
+});
 
 async function loadSavedStrategyOptions() {
   if (!isLoggedIn()) return;
@@ -146,7 +152,11 @@ runButton.addEventListener('click', async () => {
     strategy: isCustom ? 'custom' : selectedStrategy,
     start_date: document.getElementById('startDate').value,
     end_date: document.getElementById('endDate').value,
-    params: isCustom ? savedStrategyRules[customId] : {},
+    params: isCustom
+      ? savedStrategyRules[customId]
+      : selectedStrategy === 'pairs_trading'
+        ? { symbol_b: symbolBInput.value.trim() }
+        : {},
   };
 
   try {
