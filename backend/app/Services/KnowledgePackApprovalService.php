@@ -8,12 +8,31 @@ use RuntimeException;
 
 class KnowledgePackApprovalService
 {
-    public function __construct(private readonly DkpSigner $signer = new DkpSigner) {}
+    public function __construct(
+        private readonly DkpSigner $signer = new DkpSigner,
+        private readonly OutboundMnpiGate $outboundGate = new OutboundMnpiGate,
+    ) {}
 
     public function approve(KnowledgePack $pack, User $reviewer): KnowledgePack
     {
         if ($pack->status !== 'pending_approval') {
             throw new RuntimeException("Cannot approve a pack with status \"{$pack->status}\" -- only pending_approval packs may be approved.");
+        }
+
+        // Approval is the moment this pack's content becomes a real, signed,
+        // eventually cross-platform artifact -- screen it here, before
+        // signing, rather than trusting that whatever generated it already
+        // avoided MNPI content. Fail-closed: a match blocks approval outright
+        // rather than signing first and flagging after.
+        $outboundResult = $this->outboundGate->screen([
+            'title' => $pack->title,
+            'summary' => $pack->summary,
+            'payloads' => $pack->envelope['payloads'] ?? [],
+        ]);
+
+        if ($outboundResult['decision'] === 'reject') {
+            $keywords = implode(', ', $outboundResult['matched_keywords']);
+            throw new RuntimeException("Cannot approve pack \"{$pack->pack_id}\" -- outbound compliance gate rejected it (matched keywords: {$keywords}).");
         }
 
         $envelope = $pack->envelope;

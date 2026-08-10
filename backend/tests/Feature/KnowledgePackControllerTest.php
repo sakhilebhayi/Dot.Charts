@@ -197,6 +197,38 @@ class KnowledgePackControllerTest extends TestCase
         $this->assertSame('approved', $pack->fresh()->status);
     }
 
+    /**
+     * Documents real, current behavior rather than assuming it: approve()
+     * throws a plain RuntimeException when the outbound compliance gate
+     * rejects (see KnowledgePackApprovalServiceTest for the service-level
+     * coverage), and nothing in KnowledgePackController or the exception
+     * handler catches that into a friendly 4xx today -- same pre-existing
+     * gap as the "pack not pending" RuntimeException path had before this
+     * change. Not fixed here (separate, broader concern: no RuntimeException
+     * from this service maps to a clean HTTP response); this test exists so
+     * that gap is asserted and visible rather than silently assumed away.
+     */
+    public function test_approve_blocked_by_outbound_gate_surfaces_as_a_server_error_today(): void
+    {
+        $token = $this->operatorToken();
+        $pack = \App\Models\KnowledgePack::create([
+            'pack_id' => 'dkp:dot-charts:'.\Illuminate\Support\Str::uuid(),
+            'payload_type' => 'insight',
+            'pack_version' => '1.0.0',
+            'title' => 'Kolomela production forecast',
+            'summary' => 'Kolomela output expected to rise this quarter.',
+            'period' => 'approve-mnpi-slug',
+            'envelope' => ['payloads' => [], 'confidence' => 0.9, 'signatures' => []],
+            'status' => 'pending_approval',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->postJson("/api/knowledge-packs/{$pack->id}/approve");
+
+        $response->assertStatus(500);
+        $this->assertSame('pending_approval', $pack->fresh()->status);
+    }
+
     public function test_reject_requires_a_reason(): void
     {
         $token = $this->operatorToken();
