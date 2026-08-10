@@ -35,51 +35,6 @@ return [
         ],
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | ChartSense FREE Public APIs (NO API KEYS REQUIRED)
-    |--------------------------------------------------------------------------
-    | These APIs work without authentication and provide comprehensive data
-    */
-
-    // Cryptocurrency Data (100% FREE)
-    'coingecko' => [
-        'url' => 'https://api.coingecko.com/api/v3',
-        'description' => 'CoinGecko - Comprehensive crypto data (100% FREE)',
-    ],
-
-    'binance' => [
-        'url' => 'https://api.binance.com/api/v3',
-        'description' => 'Binance - Real-time crypto prices (100% FREE Public API)',
-    ],
-
-    'coinpaprika' => [
-        'url' => 'https://api.coinpaprika.com/v1',
-        'description' => 'Coinpaprika - Crypto prices & market data (100% FREE)',
-    ],
-
-    'coincap' => [
-        'url' => 'https://api.coincap.io/v2',
-        'description' => 'CoinCap - Real-time crypto prices (100% FREE)',
-    ],
-
-    // Currency Exchange (100% FREE)
-    'exchangerate' => [
-        'url' => 'https://api.exchangerate.host',
-        'description' => 'ExchangeRate.host - Free forex rates (100% FREE)',
-    ],
-
-    'frankfurter' => [
-        'url' => 'https://api.frankfurter.app',
-        'description' => 'Frankfurter - Exchange rates & currency conversion (100% FREE)',
-    ],
-
-    // Social Sentiment (100% FREE)
-    'wallstreetbets' => [
-        'url' => 'https://dashboard.nbshare.io/apps/reddit/api/',
-        'description' => 'WallStreetBets - Stock sentiment from Reddit (100% FREE)',
-    ],
-
     // Dot.Charts Python analytics microservice (backtesting engine)
     'analytics' => [
         'url' => env('ANALYTICS_SERVICE_URL', 'http://localhost:8001'),
@@ -91,6 +46,17 @@ return [
     // only its derived public key is committed, inside platform.dkp.json.
     'dkp' => [
         'key_path' => env('DKP_KEY_PATH', storage_path('app/private/dkp-ed25519.key')),
+    ],
+
+    // Dot.Brain's DKP Ingestion Gateway (brain.api.md: POST /v1/dkp). No
+    // real endpoint exists anywhere in the ecosystem as of 2026-08-10 --
+    // Dot.Brain (~/Dot/Dot.Brain) is entirely design/architecture
+    // documentation, not a deployed service (see wiki.md §5). This stays
+    // null until one is deployed and configured here; DkpBrainClient
+    // refuses to attempt a call while it's null rather than pointing at
+    // nothing (see DkpBrainClient::publish()).
+    'brain' => [
+        'dkp_endpoint' => env('BRAIN_DKP_ENDPOINT'),
     ],
 
 ];

@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dot.brain/schemas/knowledge-pack.schema.json",
+  "title": "DKP Knowledge Pack Envelope",
+  "type": "object",
+  "required": ["dkp_version", "pack_id", "pack_version", "platform", "title", "summary", "created_at", "contributors", "payloads", "provenance", "confidence", "signatures"],
+  "additionalProperties": false,
+  "patternProperties": { "^x-": {} },
+  "properties": {
+    "dkp_version": { "$ref": "#/$defs/semver" },
+    "pack_id": { "type": "string", "pattern": "^dkp:[a-z0-9-]+:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "pack_version": { "$ref": "#/$defs/semver" },
+    "platform": { "type": "string", "pattern": "^dot-[a-z0-9-]+$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "supersedes": { "type": "string", "pattern": "^dkp:[a-z0-9-]+:[0-9a-f-]{36}$" },
+    "contributors": {
+      "type": "array", "minItems": 1,
+      "items": { "$ref": "#/$defs/contributor" }
+    },
+    "payloads": {
+      "type": "array", "minItems": 1,
+      "items": { "$ref": "#/$defs/payload" }
+    },
+    "relationships": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/relationship" }
+    },
+    "provenance": { "$ref": "#/$defs/provenance" },
+    "confidence": { "$ref": "#/$defs/confidence" },
+    "signatures": {
+      "type": "array", "minItems": 1,
+      "items": { "$ref": "#/$defs/signature" }
+    }
+  },
+  "$defs": {
+    "semver": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "nodeId": { "type": "string", "pattern": "^(dot:node:[a-z0-9-]+:[0-9a-f-]{36}|dkp:[a-z0-9-]+:[0-9a-f-]{36})$" },
+    "contributor": {
+      "type": "object",
+      "required": ["id", "kind", "display_name", "key_id"],
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["human", "ai"] },
+        "display_name": { "type": "string", "minLength": 1 },
+        "key_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "required": ["payload_type", "body"],
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "payload_type": {
+          "enum": ["entity_model", "event_model", "workflow_model", "metric", "insight", "recommendation", "document", "discussion", "learning_history", "incident_report"]
+        },
+        "body": { "type": "object" }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "required": ["type", "target"],
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "type": { "enum": ["relates-to", "supersedes", "contradicts", "depends-on", "derived-from"] },
+        "target": { "$ref": "#/$defs/nodeId" },
+        "note": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["sources", "transformations", "published_by"],
+      "additionalProperties": false,
+      "patternProperties": { "^x-": {} },
+      "properties": {
+        "sources": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["kind", "uri", "observed_at"],
+            "properties": {
+              "kind": { "enum": ["system", "dataset", "sensor", "discussion", "model_run", "document", "human_observation"] },
+              "uri": { "type": "string" },
+              "observed_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "transformations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["step", "tool", "tool_version", "actor"],
+            "properties": {
+              "step": { "type": "string" },
+              "tool": { "type": "string" },
+              "tool_version": { "type": "string" },
+              "parameters": { "type": "object" },
+              "actor": { "type": "string" }
+            }
+          }
+        },
+        "published_by": { "type": "string" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "required": ["key_id", "algorithm", "signed_at", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "key_id": { "type": "string" },
+        "algorithm": { "const": "ed25519-jcs" },
+        "signed_at": { "type": "string", "format": "date-time" },
+        "value": { "type": "string", "contentEncoding": "base64" }
+      }
+    }
+  }
+}
