@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Dot.Charts — Backtest</title>
+  <title>Dot.Charts — Options Vol</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
   <style>
@@ -30,43 +30,28 @@
     .metric-box{background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:14px}
     .metric-box label{margin:0 0 4px}
     .metric-box .value{font-size:20px;font-weight:700}
-    .metric-box .value.negative{color:var(--red)}
-    .metric-box .value.positive{color:var(--green)}
-    #equityCurve{width:100%;height:160px;margin-top:20px;background:#0f172a;border-radius:10px;border:1px solid var(--border)}
+    .metric-box .value.regime-elevated,.metric-box .value.regime-put_skew_elevated{color:var(--red)}
+    .metric-box .value.regime-low,.metric-box .value.regime-call_skew_elevated{color:var(--green)}
     .disclosure{margin-top:20px;padding:16px 18px;border-radius:10px;background:var(--warn-bg);
       border:1px solid var(--warn-border);color:#fde68a;font-size:14px;line-height:1.6}
     .disclosure strong{display:block;margin-bottom:6px;color:#fcd34d}
-    #methodParams{display:none}
   </style>
 </head>
 <body>
 <div class="container">
   <a class="back-link" href="/">← Back</a>
-  <span id="authState" style="float:right;font-size:14px;color:var(--muted)"></span>
+  <a href="/backtest.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">Run a backtest</a>
   <a href="/journal.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">Journal</a>
   <a href="/history.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">History</a>
   <a href="/strategy-builder.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">Strategy Builder</a>
-  <a href="/options.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">Options Vol</a>
-  <h1>Run a Backtest</h1>
-  <p style="color:var(--muted)">Real historical data, real metrics — MA crossover, RSI mean-reversion, or the 714 Method.</p>
+  <h1>Options Vol</h1>
+  <p style="color:var(--muted)">A current-state volatility-regime read — realized-vol rank and put-call skew. Not a backtest, not a trade recommendation.</p>
 
   <div class="card">
     <div class="row">
       <div>
         <label for="symbol">Symbol</label>
-        <input id="symbol" placeholder="AAPL or BTC/USDT" value="AAPL" />
-        <select id="symbolCommodity" style="display:none">
-          <option value="GC=F">Gold</option>
-          <option value="SI=F">Silver</option>
-          <option value="CL=F">Oil (WTI)</option>
-          <option value="^GDAXI">GER30 / GER40 (DAX)</option>
-        </select>
-        <select id="symbolForex" style="display:none">
-          <option value="EURUSD=X">EUR/USD</option>
-          <option value="GBPUSD=X">GBP/USD</option>
-          <option value="USDJPY=X">USD/JPY</option>
-          <option value="USDZAR=X">USD/ZAR</option>
-        </select>
+        <input id="symbol" placeholder="AAPL" value="AAPL" />
       </div>
       <div>
         <label for="assetClass">Asset class</label>
@@ -78,55 +63,28 @@
         </select>
       </div>
     </div>
-    <div class="row">
-      <div>
-        <label for="startDate">Start date</label>
-        <input id="startDate" type="date" value="2023-01-01" />
-      </div>
-      <div>
-        <label for="endDate">End date</label>
-        <input id="endDate" type="date" value="2026-01-01" />
-      </div>
-    </div>
-    <label for="strategy">Strategy</label>
-    <select id="strategy">
-      <option value="ma_crossover">MA Crossover</option>
-      <option value="rsi_mean_reversion">RSI Mean-Reversion</option>
-      <option value="breakout">Breakout (Donchian)</option>
-      <option value="bollinger_mean_reversion">Bollinger Mean-Reversion</option>
-      <option value="momentum">Momentum</option>
-      <option value="pairs_trading">Pairs Trading (Stat-Arb)</option>
-      <option value="ml_signal">ML Signal (Explainable)</option>
-      <option value="method_714">714 Method</option>
-    </select>
 
-    <div id="symbolBRow" style="display:none">
-      <label for="symbolB">Symbol B (paired against Symbol above)</label>
-      <input id="symbolB" placeholder="MSFT" />
-    </div>
-
-    <button id="runButton">Run backtest</button>
+    <button id="checkButton">Check vol signal</button>
     <div id="error"></div>
   </div>
 
   <div id="results" class="card">
     <h2 id="resultTitle"></h2>
     <div class="metrics-grid">
-      <div class="metric-box"><label>Total return</label><div class="value" id="mTotalReturn"></div></div>
-      <div class="metric-box"><label>Win rate</label><div class="value" id="mWinRate"></div></div>
-      <div class="metric-box"><label>Max drawdown</label><div class="value negative" id="mDrawdown"></div></div>
-      <div class="metric-box"><label>Sharpe</label><div class="value" id="mSharpe"></div></div>
-      <div class="metric-box"><label>Trades</label><div class="value" id="mTrades"></div></div>
-      <div class="metric-box"><label>Losing trades</label><div class="value" id="mLosingTrades"></div></div>
+      <div class="metric-box"><label>Spot</label><div class="value" id="mSpot"></div></div>
+      <div class="metric-box"><label>Realized vol (annualized)</label><div class="value" id="mRealizedVol"></div></div>
+      <div class="metric-box"><label>Realized-vol rank</label><div class="value" id="mVolRank"></div></div>
+      <div class="metric-box"><label>Vol regime</label><div class="value" id="mVolRegime"></div></div>
+      <div class="metric-box"><label>Put-call skew</label><div class="value" id="mSkew"></div></div>
+      <div class="metric-box"><label>Skew regime</label><div class="value" id="mSkewRegime"></div></div>
     </div>
-    <svg id="equityCurve"></svg>
     <div class="disclosure">
-      <strong id="dConfidence"></strong>
+      <strong>Disclosure</strong>
       <div id="dAttribution"></div>
       <div id="dRisk" style="margin-top:8px"></div>
     </div>
   </div>
 </div>
-<script type="module" src="/src/backtest.js"></script>
+<script type="module" src="/src/options.js"></script>
 </body>
 </html>
