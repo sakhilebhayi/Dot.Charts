@@ -10,6 +10,19 @@ from engines.vectorbt_engine import run_vectorbt
 from engines.backtrader_engine import run_backtrader
 from analysis.chart_analysis import compute_chart_analysis
 
+
+# This service has no authentication of its own -- deliberately, per a
+# 2026-08-10 decision (wiki.md §8), not an oversight. It's an internal
+# backend-for-backend service with no browser-facing consumers, so the
+# accepted mitigation is network isolation: never bind this to a public
+# interface (never run with --host 0.0.0.0), and in any real deployment
+# put it behind a firewall/private network reachable only by the Laravel
+# backend. This is weaker than an app-level check (it depends on correct
+# deployment config, not on anything this code can enforce or test), which
+# is why README.md and wiki.md both call it out explicitly rather than
+# leaving it implicit. /backtest's date-range cap (data/cache.py) still
+# applies regardless of who calls this directly -- that one IS enforced
+# here, independent of network config.
 app = FastAPI(title="Dot.Charts Analytics Service")
 
 

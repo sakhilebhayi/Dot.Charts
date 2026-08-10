@@ -64,6 +64,8 @@ uvicorn main:app --reload --port 8001
 ```
 Runs at `http://localhost:8001`. The backend expects it at `ANALYTICS_SERVICE_URL` (defaults to `http://localhost:8001` — see `backend/.env.example`); backtests and real chart analysis won't work without it running.
 
+**This service has no authentication of its own — deliberately, see wiki.md §8.** Anyone who can reach its port can call it directly, bypassing every Laravel-layer auth and rate limit. It must never be bound to a public interface: keep it on `127.0.0.1` in dev (the default — do not add `--host 0.0.0.0`), and in any real deployment put it behind a firewall or private network reachable only by the Laravel backend, never exposed to the internet directly.
+
 ### Frontend (Vite)
 ```bash
 cd frontend
@@ -74,8 +76,8 @@ Runs at `http://localhost:3000` and calls the backend directly (no dev proxy con
 
 ### Tests
 ```bash
-cd backend && php artisan test    # 198 tests
-cd analytics && pytest            # 83 tests
+cd backend && php artisan test    # 202 tests
+cd analytics && pytest            # 85 tests
 ```
 
 ---
