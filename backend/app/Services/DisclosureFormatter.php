@@ -18,6 +18,7 @@ class DisclosureFormatter
         'bollinger_mean_reversion' => 'Bollinger Mean-Reversion',
         'momentum' => 'Momentum',
         'pairs_trading' => 'Pairs Trading (Stat-Arb)',
+        'ml_signal' => 'ML Signal (Explainable)',
         'custom' => 'Custom Strategy',
     ];
 
@@ -61,7 +62,14 @@ class DisclosureFormatter
         // interpolation on an array value fatals with "Array to string
         // conversion". JSON-encode any non-scalar value instead of assuming
         // every strategy's params are flat key=value pairs.
+        //
+        // model_diagnostics (ml_signal only) is excluded here -- it's an
+        // internal explainability annotation the analytics service writes
+        // into params as a side channel, not a strategy hyperparameter a
+        // caller set, and it gets its own formatted sentence below instead
+        // of dumping as a raw JSON blob alongside lookback/threshold params.
         $paramsStr = collect($backtestResult['params'] ?? [])
+            ->except('model_diagnostics')
             ->map(fn ($v, $k) => is_scalar($v) ? "{$k}={$v}" : "{$k}=" . json_encode($v))
             ->implode(', ');
 
@@ -88,6 +96,24 @@ class DisclosureFormatter
                 . 'the signal, not broker-accurate two-leg execution accounting.',
                 $symbolB
             );
+        }
+
+        if ($strategyKey === 'ml_signal') {
+            $diagnostics = $backtestResult['params']['model_diagnostics'] ?? null;
+            if ($diagnostics) {
+                $featureList = collect($diagnostics['top_features'] ?? [])
+                    ->map(fn ($f) => $f['feature'])
+                    ->implode(', ');
+                $attribution .= sprintf(
+                    ' Signal from a %s retrained every %s bars on a trailing walk-forward window '
+                    . '(%s retrain cycles this run); top features by importance: %s. A prediction, '
+                    . 'not a rule — treat it with the same skepticism as any other model output.',
+                    $diagnostics['model_type'] ?? 'model',
+                    $backtestResult['params']['retrain_every'] ?? '?',
+                    $diagnostics['retrain_blocks'] ?? '?',
+                    $featureList ?: 'none available'
+                );
+            }
         }
 
         return $attribution;

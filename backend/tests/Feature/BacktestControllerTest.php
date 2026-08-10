@@ -639,4 +639,58 @@ class BacktestControllerTest extends TestCase
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['params.symbol_b']);
     }
+
+    public function test_store_accepts_ml_signal_strategy_and_surfaces_model_diagnostics(): void
+    {
+        Http::fake([
+            '*/backtest' => Http::response([
+                'symbol' => 'AAPL',
+                'asset_class' => 'equity',
+                'strategy' => 'ml_signal',
+                'params' => [
+                    'train_window' => 500,
+                    'retrain_every' => 20,
+                    'n_estimators' => 100,
+                    'max_depth' => 3,
+                    'min_confidence' => 0.55,
+                    'model_diagnostics' => [
+                        'model_type' => 'GradientBoostingClassifier',
+                        'top_features' => [
+                            ['feature' => 'return_1d', 'importance' => 0.74],
+                            ['feature' => 'macd_hist', 'importance' => 0.17],
+                        ],
+                        'retrain_blocks' => 8,
+                    ],
+                ],
+                'start_date' => '2023-01-01',
+                'end_date' => '2026-01-01',
+                'metrics' => [
+                    'total_return_pct' => 6.0,
+                    'win_rate_pct' => 60.0,
+                    'max_drawdown_pct' => -3.0,
+                    'sharpe_ratio' => 0.9,
+                    'trade_count' => 15,
+                    'losing_trade_count' => 6,
+                ],
+                'equity_curve' => [['time' => '2023-01-01T00:00:00', 'equity' => 10000.0]],
+                'trades' => [],
+            ], 200),
+        ]);
+
+        $response = $this->postJson('/api/backtests', [
+            'symbol' => 'AAPL',
+            'asset_class' => 'equity',
+            'strategy' => 'ml_signal',
+            'start_date' => '2023-01-01',
+            'end_date' => '2026-01-01',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('result.disclosure.attribution', function ($attribution) {
+            return str_contains($attribution, 'ML Signal (Explainable)')
+                && str_contains($attribution, 'GradientBoostingClassifier')
+                && str_contains($attribution, 'return_1d, macd_hist')
+                && ! str_contains($attribution, 'model_diagnostics=');
+        });
+    }
 }
