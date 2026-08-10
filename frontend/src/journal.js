@@ -226,5 +226,16 @@ loadMoreButton.addEventListener('click', () => {
 });
 
 loadDropdownOptions('/strategies', strategySelect, 'name');
-loadDropdownOptions('/backtests', backtestSelect, 'symbol');
+loadDropdownOptions('/backtests', backtestSelect, 'symbol').then(() => {
+  const params = new URLSearchParams(window.location.search);
+  const prefilledBacktestId = params.get('backtest_run_id');
+  const prefilledSymbol = params.get('symbol');
+
+  if (prefilledBacktestId && backtestSelect.querySelector(`option[value="${prefilledBacktestId}"]`)) {
+    backtestSelect.value = prefilledBacktestId;
+  }
+  if (prefilledSymbol) {
+    symbolInput.value = prefilledSymbol;
+  }
+});
 loadEntries(`${API_BASE}/journal-entries`, { reset: true });

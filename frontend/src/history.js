@@ -80,6 +80,7 @@ function renderRunRow(run) {
       <div class="meta">${run.strategy} · ${run.asset_class} · ${new Date(run.created_at).toLocaleString()} · ${returnText}</div>
     </div>
     <div class="run-actions">
+      <button class="secondary journal-btn">+ Journal</button>
       <button class="secondary rerun-btn">Re-run</button>
       <button class="danger delete-btn">Delete</button>
     </div>
@@ -88,6 +89,12 @@ function renderRunRow(run) {
   row.addEventListener('click', (e) => {
     if (e.target.closest('.run-actions')) return;
     showDetail(run.id);
+  });
+
+  row.querySelector('.journal-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const params = new URLSearchParams({ backtest_run_id: run.id, symbol: run.symbol });
+    window.location.href = `/journal.html?${params.toString()}`;
   });
 
   row.querySelector('.rerun-btn').addEventListener('click', (e) => {
