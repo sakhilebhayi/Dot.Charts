@@ -5,7 +5,7 @@
   "endpoints": {
     "publish_topic": "dkp.dot-charts.publish",
     "response_topic": "dkp.dot-charts.response",
-    "pr_repository": "git@github.com:sakhilebhayi/ChartSense.git"
+    "pr_repository": "git@github.com:sakhilebhayi/Dot.Charts.git"
   },
   "keys": [
     {

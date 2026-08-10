@@ -2,11 +2,11 @@
 
 <img src="frontend/public/images/logo.png" alt="Dot.Charts" width="200" />
 
-# Dot.Charts (repo: ChartSense) 📊
+# Dot.Charts 📊
 
 </div>
 
-**AI-assisted chart analysis platform — early-stage build.** Part of the Dot Ecosystem; registered there as `dot-charts` (see [wiki.md](wiki.md) §6 for the repo/registry naming discrepancy).
+**AI-assisted chart analysis platform.** Part of the Dot Ecosystem; registered there as `dot-charts` — as of 2026-08-10 the GitHub repo is named `Dot.Charts` too, matching the registry ID (see [wiki.md](wiki.md) §6, previously `ChartSense`).
 
 > This README describes what is actually implemented today. For the full gap analysis and roadmap, see [wiki.md](wiki.md).
 
