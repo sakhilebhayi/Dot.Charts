@@ -1,6 +1,6 @@
 ---
 title: Dot.Charts — Platform Wiki
-version: 0.2.3
+version: 0.2.4
 status: draft
 owners: [Charts Platform Lead]
 platform-id: dot-charts
@@ -33,8 +33,7 @@ ChartSense/
 │   │   ├── BacktestController.php            # POST/GET/GET-one/DELETE /api/backtests
 │   │   ├── CustomStrategyController.php      # POST/GET/GET-one/DELETE /api/strategies
 │   │   ├── ChartAnalysisController.php       # chart image -> symbol + real-or-placeholder analysis
-│   │   ├── KnowledgePackController.php       # operator-gated generate/list/pending/show/approve/reject/ingest-check
-│   │   └── EnhancedMarketDataController.php  # multi-source market data endpoints
+│   │   └── KnowledgePackController.php       # operator-gated generate/list/pending/show/approve/reject/ingest-check
 │   ├── app/Services/
 │   │   ├── AnalyticsServiceClient.php        # HTTP client to the Python analytics service
 │   │   ├── DisclosureFormatter.php           # confidence band + attribution + risk disclosure on every backtest result
@@ -44,13 +43,7 @@ ChartSense/
 │   │   ├── InsightPackGenerator.php          # 'insight' payload
 │   │   ├── IncidentPackGenerator.php         # 'incident_report' payload
 │   │   ├── RecommendationPackGenerator.php   # 'recommendation' payload (loss-honesty structural-invariant proposal)
-│   │   ├── InboundMnpiGate.php               # inbound-only content-materiality screen, fail-closed on keyword match
-│   │   ├── EnhancedMarketDataService.php / MarketDataService.php       # CoinGecko/Binance/Coinpaprika/CoinCap/exchange-rate aggregation
-│   │   ├── EnhancedNewsDataService.php / NewsDataService.php           # news + Reddit sentiment
-│   │   ├── EnhancedStatisticalAnalysisService.php / StatisticalAnalysisService.php
-│   │   ├── SignalBacktestingService.php      # legacy long-only backtester, superseded for new work by the analytics service
-│   │   ├── SignalFeedbackService.php         # user feedback on signal accuracy (JSON-file store)
-│   │   └── SignalErrorMetricsService.php
+│   │   └── InboundMnpiGate.php / OutboundMnpiGate.php  # bidirectional content-materiality screen, sharing logic via Concerns/ScreensMnpiContent
 │   ├── app/Models/                   # User, BacktestRun, CustomStrategy, KnowledgePack, DkpGateDecision
 │   ├── app/Events/ + app/Listeners/  # StrategyPerformanceCycleCompleted, ComplianceGateRejected — local log listeners only, see §4
 │   ├── app/Console/Commands/         # GenerateDkpKey, GenerateKnowledgePacks (scheduled), GenerateInsightPack/IncidentPack/RecommendationPack (manual)
@@ -76,8 +69,7 @@ Notable implementation details worth flagging honestly:
 - The Python analytics service does real backtests: vectorbt for the vectorized strategies (MA crossover, RSI mean-reversion, breakout, Bollinger), backtrader for the 714 Method (which needs bar-by-bar state for its SMC structure/session/confidence logic). Market data comes from `yfinance` (equity/commodity/forex) and `ccxt` (crypto), cached in SQLite with gap-fill and a fail-closed error on fetch failure — no silent fallback to stale or fabricated bars.
 - The strategy builder's rule engine (`analytics/strategies/custom_rules.py`) is shared between backtesting (`/backtest` with `strategy: custom`) and validation (`/validate-rule`, called synchronously when a user saves a strategy) — the same evaluator that runs a saved strategy is the one that validated it at save time.
 - Knowledge Pack generation, Ed25519 signing, and an operator approval workflow are real and tested — but see §5 for what "publishing" concretely means today versus what it doesn't yet do.
-- `SignalFeedbackService` still writes feedback to `storage/signal_feedback.json` on disk, not a database table — unchanged from 0.1.1, still fine for prototyping, still not multi-tenant-safe.
-- `SignalBacktestingService` (the original in-Laravel backtester) still exists but is no longer the active path for new backtest requests — `POST /api/backtests` routes through the Python analytics service instead. It has not been removed or migrated to it; flagging this as leftover surface rather than silently dropping it from the map.
+- **Removed (2026-08-10): a 10-file legacy cluster** — `EnhancedMarketDataController` and 9 services (`EnhancedMarketDataService`, `MarketDataService`, `EnhancedNewsDataService`, `NewsDataService`, `StatisticalAnalysisService`, `EnhancedStatisticalAnalysisService`, `SignalBacktestingService`, `SignalErrorMetricsService`, `SignalFeedbackService`) plus their 3 test files. This was the pre-Python-analytics-service prototype the 0.1.0 wiki already described as "usable building blocks, not a connected pipeline" — `git log` showed it untouched since the repo's first two commits, before any of the ~135 commits of real feature work. Confirmed unreachable from any route (`EnhancedMarketDataController` was never registered in `routes/api.php` at all) before deleting. `StatisticalAnalysisService` in particular was mostly fabricated placeholder values (`beta = 1.0`, hardcoded `'success_rate' => '65%'`), not real logic. One prior wiki claim this corrects: 0.1.1/0.2.0 said `SignalFeedbackService` "still writes feedback to `storage/signal_feedback.json`" — that was carried forward without re-verification; the investigation that led to this removal found it had zero live callers even before deletion, so that file was never actually being written in the current app.
 
 ## 3. Domain Entities
 
@@ -87,8 +79,7 @@ Notable implementation details worth flagging honestly:
 | Backtest run | **built** | `App\Models\BacktestRun` — persisted, owner-scoped, paginated/filterable list (`GET /api/backtests`), detail, delete, re-run |
 | Custom strategy | **built** | `App\Models\CustomStrategy` — persisted rule-JSON, owner-scoped CRUD, validated server-side before save |
 | Knowledge Pack | **built** | `App\Models\KnowledgePack` — real Ed25519-signed envelope (signed at approval time, not generation time), `status`: `pending_approval` / `approved` / `rejected` |
-| DKP gate decision | **built** | `App\Models\DkpGateDecision` — audit row for every inbound compliance-gate screen (pass or reject), see §7 |
-| Signal feedback | **built** (file-backed, unchanged since 0.1.1) | symbol, signal, accuracy vote, comment — `storage/signal_feedback.json`, still not a DB table |
+| DKP gate decision | **built** | `App\Models\DkpGateDecision` — audit row for every compliance-gate screen, inbound or outbound (pass or reject), see §5/§7 |
 | Watchlist instrument | **planned** | instrument identity (symbol + market) — no model yet |
 | Trading journal entry | **planned** | not started |
 | Position / order | **out of scope, always** | Dot.Charts does not and will not hold user positions or execute trades — no such table exists; compliant by design now that the schema is large enough for the omission to be a deliberate statement rather than an accident |
@@ -148,7 +139,7 @@ Per Dot.Brain's framing, Dot.Charts is the ecosystem's only regulated-market pla
 - [x] ~~Add rate limiting to `/register` and `/login`~~ — built (§7): 5/min by email+IP on login, 5/hour by IP on register
 - [ ] Resolve the `ChartSense` vs. `dot-charts` repo-naming discrepancy (§6)
 - [ ] Decide on a real market-data SLA (`yfinance`/`ccxt` are free-tier, best-effort, no uptime guarantee — unchanged from 0.1.1)
-- [ ] Retire or migrate `SignalBacktestingService`, the pre-analytics-service backtester left in place but no longer on the active `/api/backtests` path (§2)
+- [x] ~~Retire or migrate `SignalBacktestingService`~~ — retired (§2): investigating its one caller (`StatisticalAnalysisService`) surfaced a 10-file orphaned cluster with zero live callers anywhere; all of it removed rather than migrated, since none of it was reachable from any route to begin with
 
 ## Change Log
 
@@ -160,6 +151,7 @@ Per Dot.Brain's framing, Dot.Charts is the ecosystem's only regulated-market pla
 | 0.2.1 | 2026-08-10 | Charts Platform Lead | Closed the `/register`/`/login` rate-limiting gap found in 0.2.0: `RateLimiter::for('auth-login', ...)` keyed by email+IP (5/min) and `RateLimiter::for('auth-register', ...)` keyed by IP (5/hour), mirroring the existing `backtests`/`chart-analysis` pattern in `AppServiceProvider`. 3 new regression tests (rate-limit trip, email-keying isolation, register cap) plus a live check against the running dev server (real HTTP requests, not just the test suite) confirming the 6th attempt returns 429 in both cases. Full suite: 150 backend tests passing (was 147) |
 | 0.2.2 | 2026-08-10 | Charts Platform Lead | Closed the compliance-gate gap found in 0.2.0: built `OutboundMnpiGate`, screening a pack's own content against the instrument map at approval time and blocking approval outright on a match. Extracted the shared matching logic (previously only in `InboundMnpiGate`) into a `ScreensMnpiContent` trait so both directions can't quietly drift apart — refactor verified behavior-preserving by running `InboundMnpiGateTest` unmodified before and after. 10 new tests (outbound gate unit tests mirroring the inbound suite, approval-service blocking + audit-row coverage, one HTTP-level test). Found and honestly documented, not fixed, a further gap while building this: the block surfaces as a bare `500` today (`KnowledgePackApprovalService`'s `RuntimeException`s were never mapped to a clean 4xx anywhere, including the pre-existing "already approved" case) — added to the roadmap rather than silently expanding this change's scope to fix it. Full suite: 160 backend tests passing (was 150) |
 | 0.2.3 | 2026-08-10 | Charts Platform Lead | Closed the `KnowledgePackApprovalService` exception-mapping gap found in 0.2.2: `KnowledgePackController::approve()`/`reject()` now catch `RuntimeException` and return `422` with an `error` message, mirroring the existing `BacktestController::store()` pattern rather than inventing new architecture. Caught and corrected my own wrong assumption mid-task: expected a whitespace-only reject reason to reach the service's `trim()` guard via HTTP, but Laravel's global `TrimStrings` middleware already reduces it to an empty string before `required|string` validation runs, so that guard is unreachable from HTTP (still valid defensively for a future non-HTTP caller) — the test was corrected to assert the real behavior instead of the wrong assumption. 3 tests updated/added (outbound-gate-blocked now expects 422, new already-approved-via-HTTP coverage, whitespace-reason coverage), verified against the live dev server as well: a real blocked-approval request now returns `422` with a clear message instead of a bare `500`. Full suite: 162 backend tests passing (was 160) |
+| 0.2.4 | 2026-08-10 | Charts Platform Lead | Investigating the "retire or migrate `SignalBacktestingService`" roadmap item (§8, open since 0.2.0) surfaced a 10-file orphaned cluster, not a single file: `EnhancedMarketDataController` (never registered in `routes/api.php`) and 9 services, none reachable from any route, `git log`-confirmed untouched since the repo's first two commits — before any of the ~135 commits of real feature work. Removed all of it (controller + 9 services + 3 test files) rather than migrating, per explicit confirmation, since none of it was live to begin with. Corrected a wiki claim carried forward without re-verification since 0.1.1: `SignalFeedbackService` was said to still write `storage/signal_feedback.json`, but the investigation found zero live callers even before deletion — that claim was already stale. Verified: full suite green post-deletion (154 passing, down from 162 by exactly the 8 tests the 3 deleted test files contained — as a side effect, the 3 pre-existing `SignalFeedbackServiceTest` teardown warnings are also gone), `composer dump-autoload` clean, `php artisan route:list` unchanged (24 routes, confirming the deleted controller was truly never registered), and a live check against the running dev server (`/up` 200, `/api/register` still validates and returns 422) |
 
 ## Open Questions
 
