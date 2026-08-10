@@ -182,4 +182,121 @@ class JournalEntryControllerTest extends TestCase
         $this->assertTrue($titles->contains('Linked'));
         $this->assertFalse($titles->contains('Unlinked'));
     }
+
+    public function test_show_returns_an_owned_entry(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $entry = JournalEntry::factory()->create(['user_id' => $user->id, 'title' => 'Mine']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson("/api/journal-entries/{$entry->id}");
+
+        $response->assertOk();
+        $response->assertJsonPath('title', 'Mine');
+    }
+
+    public function test_show_returns_404_for_another_users_entry(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $entry = JournalEntry::factory()->create(['user_id' => $otherUser->id]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson("/api/journal-entries/{$entry->id}");
+
+        $response->assertStatus(404);
+    }
+
+    public function test_update_changes_title_and_body_on_an_owned_entry(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $entry = JournalEntry::factory()->create(['user_id' => $user->id, 'title' => 'Old title']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->patchJson("/api/journal-entries/{$entry->id}", [
+            'title' => 'New title',
+            'body' => 'Updated body.',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('title', 'New title');
+        $this->assertDatabaseHas('journal_entries', ['id' => $entry->id, 'title' => 'New title']);
+    }
+
+    public function test_update_allows_partial_updates(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $entry = JournalEntry::factory()->create(['user_id' => $user->id, 'title' => 'Keep me', 'body' => 'Keep this too']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->patchJson("/api/journal-entries/{$entry->id}", [
+            'symbol' => 'AAPL',
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('journal_entries', ['id' => $entry->id, 'title' => 'Keep me', 'body' => 'Keep this too', 'symbol' => 'AAPL']);
+    }
+
+    public function test_update_returns_404_for_another_users_entry(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $entry = JournalEntry::factory()->create(['user_id' => $otherUser->id, 'title' => 'Not yours']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->patchJson("/api/journal-entries/{$entry->id}", ['title' => 'Hijacked']);
+
+        $response->assertStatus(404);
+        $this->assertDatabaseHas('journal_entries', ['id' => $entry->id, 'title' => 'Not yours']);
+    }
+
+    public function test_update_rejects_relinking_to_another_users_backtest_run(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $entry = JournalEntry::factory()->create(['user_id' => $user->id]);
+        $othersRun = BacktestRun::factory()->create(['user_id' => $otherUser->id]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->patchJson("/api/journal-entries/{$entry->id}", [
+            'backtest_run_id' => $othersRun->id,
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseHas('journal_entries', ['id' => $entry->id, 'backtest_run_id' => null]);
+    }
+
+    public function test_destroy_removes_an_owned_entry(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $entry = JournalEntry::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->deleteJson("/api/journal-entries/{$entry->id}");
+
+        $response->assertOk();
+        $this->assertDatabaseMissing('journal_entries', ['id' => $entry->id]);
+    }
+
+    public function test_destroy_returns_404_for_another_users_entry_and_does_not_delete_it(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+        $entry = JournalEntry::factory()->create(['user_id' => $otherUser->id]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->deleteJson("/api/journal-entries/{$entry->id}");
+
+        $response->assertStatus(404);
+        $this->assertDatabaseHas('journal_entries', ['id' => $entry->id]);
+    }
+
+    public function test_show_update_destroy_require_authentication(): void
+    {
+        $entry = JournalEntry::factory()->create();
+
+        $this->getJson("/api/journal-entries/{$entry->id}")->assertStatus(401);
+        $this->patchJson("/api/journal-entries/{$entry->id}", ['title' => 'X'])->assertStatus(401);
+        $this->deleteJson("/api/journal-entries/{$entry->id}")->assertStatus(401);
+    }
 }

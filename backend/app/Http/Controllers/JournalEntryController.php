@@ -63,6 +63,57 @@ class JournalEntryController extends Controller
         return response()->json($entries);
     }
 
+    public function show(Request $request, int $id): JsonResponse
+    {
+        $entry = JournalEntry::where('id', $id)
+            ->where('user_id', $request->user('sanctum')->id)
+            ->firstOrFail();
+
+        return response()->json($entry);
+    }
+
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $entry = JournalEntry::where('id', $id)
+            ->where('user_id', $request->user('sanctum')->id)
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'title' => 'sometimes|required|string|max:200',
+            'body' => 'sometimes|required|string',
+            'symbol' => 'nullable|string|max:20',
+            'backtest_run_id' => 'nullable|integer',
+            'custom_strategy_id' => 'nullable|integer',
+        ]);
+
+        $userId = $request->user('sanctum')->id;
+
+        if (array_key_exists('backtest_run_id', $validated)
+            && ! $this->ownedLinkIsValid($validated['backtest_run_id'], BacktestRun::class, $userId)) {
+            return response()->json(['error' => 'The selected backtest run does not exist or does not belong to you.'], 422);
+        }
+
+        if (array_key_exists('custom_strategy_id', $validated)
+            && ! $this->ownedLinkIsValid($validated['custom_strategy_id'], CustomStrategy::class, $userId)) {
+            return response()->json(['error' => 'The selected strategy does not exist or does not belong to you.'], 422);
+        }
+
+        $entry->update($validated);
+
+        return response()->json($entry->fresh());
+    }
+
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $entry = JournalEntry::where('id', $id)
+            ->where('user_id', $request->user('sanctum')->id)
+            ->firstOrFail();
+
+        $entry->delete();
+
+        return response()->json(['success' => true]);
+    }
+
     /**
      * A bare 'exists:table,id' Laravel validation rule would accept ANY
      * user's row, not just the caller's -- this checks ownership

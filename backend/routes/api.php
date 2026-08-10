@@ -26,6 +26,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/journal-entries', [JournalEntryController::class, 'store']);
     Route::get('/journal-entries', [JournalEntryController::class, 'index']);
+    Route::get('/journal-entries/{id}', [JournalEntryController::class, 'show']);
+    Route::patch('/journal-entries/{id}', [JournalEntryController::class, 'update']);
+    Route::delete('/journal-entries/{id}', [JournalEntryController::class, 'destroy']);
 
     Route::middleware('operator')->group(function () {
         Route::post('/knowledge-packs/generate', [KnowledgePackController::class, 'generate']);
