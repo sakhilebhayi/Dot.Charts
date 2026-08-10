@@ -5,17 +5,27 @@ namespace App\Http\Controllers;
 use App\Models\BacktestRun;
 use App\Services\AnalyticsServiceClient;
 use App\Services\DisclosureFormatter;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
 
 class BacktestController extends Controller
 {
+    /**
+     * Matches the analytics service's own MAX_RANGE_DAYS
+     * (analytics/data/cache.py) -- validated here too so a caller gets a
+     * fast 422 without waiting on a round trip to the analytics service,
+     * but the analytics-side check is the one that actually closes the
+     * gap: that service has no auth of its own, so anyone who reaches it
+     * directly bypasses this validation entirely.
+     */
+    private const MAX_RANGE_DAYS = 1825;
+
     public function __construct(
         private readonly AnalyticsServiceClient $analyticsClient,
         private readonly DisclosureFormatter $disclosureFormatter,
-    ) {
-    }
+    ) {}
 
     public function store(Request $request): JsonResponse
     {
@@ -25,7 +35,28 @@ class BacktestController extends Controller
             'strategy' => 'required|in:ma_crossover,rsi_mean_reversion,method_714,breakout,bollinger_mean_reversion,custom',
             'params' => 'nullable|array',
             'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
+            'end_date' => [
+                'required',
+                'date',
+                'after:start_date',
+                function (string $attribute, mixed $value, \Closure $fail) use ($request) {
+                    // Both dates already individually passed the 'date' rule
+                    // by the time a multi-field closure rule runs, but guard
+                    // the parse anyway rather than assume rule-execution
+                    // order -- a malformed start_date should surface as
+                    // *its own* validation error, not an uncaught Carbon
+                    // exception here.
+                    try {
+                        $days = Carbon::parse($request->input('start_date'))->diffInDays(Carbon::parse($value));
+                    } catch (\Throwable) {
+                        return;
+                    }
+
+                    if ($days > self::MAX_RANGE_DAYS) {
+                        $fail('The date range cannot exceed '.self::MAX_RANGE_DAYS.' days.');
+                    }
+                },
+            ],
         ]);
 
         $run = BacktestRun::create([

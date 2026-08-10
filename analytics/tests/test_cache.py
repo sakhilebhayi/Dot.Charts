@@ -209,6 +209,42 @@ def test_fetch_ohlcv_cached_cold_cache_failure_leaves_cache_empty(tmp_path, mock
     conn.close()
 
 
+def test_fetch_ohlcv_cached_rejects_a_range_wider_than_the_max_before_any_fetch(
+    tmp_path, mocker,
+):
+    # Found during an audit: /backtest's date range was otherwise unbounded,
+    # and crypto's manual since-loop pagination turns a wide range into an
+    # unbounded number of real upstream calls held open on one request --
+    # this must fail fast, before touching the network or the cache DB at
+    # all, for every asset class (not just crypto).
+    db_path = tmp_path / "test_cache.db"
+    mock_fetch = mocker.patch("data.cache.fetch_ohlcv")
+
+    with pytest.raises(cache.DataFetchError, match="more than 1825 days"):
+        cache.fetch_ohlcv_cached(
+            "AAPL", "equity", "2010-01-01", "2023-01-03", interval="1d", db_path=db_path,
+        )
+
+    mock_fetch.assert_not_called()
+    assert not db_path.exists()  # never even opened a connection
+
+
+def test_fetch_ohlcv_cached_allows_a_range_exactly_at_the_max(tmp_path, mocker):
+    db_path = tmp_path / "test_cache.db"
+    live_df = _sample_df()
+    mocker.patch("data.cache.fetch_ohlcv", return_value=live_df)
+
+    start = pd.Timestamp("2023-01-01", tz="UTC")
+    end = start + pd.Timedelta(days=cache.MAX_RANGE_DAYS)
+
+    result = cache.fetch_ohlcv_cached(
+        "AAPL", "equity", start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"),
+        interval="1d", db_path=db_path,
+    )
+
+    assert len(result) == 3  # the mocked fetch response, not a rejection
+
+
 def test_fetch_ohlcv_cached_gap_fill_failure_is_best_effort_and_still_serves_cached_data(
     tmp_path, mocker,
 ):

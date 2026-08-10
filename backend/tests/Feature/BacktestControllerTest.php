@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -101,6 +102,49 @@ class BacktestControllerTest extends TestCase
         ]);
 
         $response->assertStatus(422);
+    }
+
+    public function test_store_rejects_a_date_range_wider_than_the_max(): void
+    {
+        // Found during an audit: unbounded, and the analytics service's
+        // crypto path pagination-loops per 1000 bars, so a wide range there
+        // is unbounded upstream calls held open on one request. Validated
+        // here for a fast 422 (no round trip to the analytics service),
+        // matching analytics/data/cache.py's own MAX_RANGE_DAYS. Derived
+        // from the same boundary via addDays rather than hand-picked
+        // calendar dates, so the test can't be thrown off by leap-year
+        // arithmetic not matching Carbon's own diffInDays.
+        $start = Carbon::parse('2018-06-01');
+        $end = (clone $start)->addDays(1826);
+
+        $response = $this->postJson('/api/backtests', [
+            'symbol' => 'AAPL',
+            'asset_class' => 'equity',
+            'strategy' => 'ma_crossover',
+            'start_date' => $start->toDateString(),
+            'end_date' => $end->toDateString(),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('end_date');
+    }
+
+    public function test_store_accepts_a_date_range_at_exactly_the_max(): void
+    {
+        Http::fake(['*/backtest' => Http::response(['metrics' => ['trade_count' => 0]], 200)]);
+
+        $start = Carbon::parse('2018-06-01');
+        $end = (clone $start)->addDays(1825);
+
+        $response = $this->postJson('/api/backtests', [
+            'symbol' => 'AAPL',
+            'asset_class' => 'equity',
+            'strategy' => 'ma_crossover',
+            'start_date' => $start->toDateString(),
+            'end_date' => $end->toDateString(),
+        ]);
+
+        $this->assertNotEquals(422, $response->status());
     }
 
     public function test_store_accepts_commodity_asset_class(): void

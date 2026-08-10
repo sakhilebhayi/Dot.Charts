@@ -10,6 +10,22 @@ DB_PATH = Path(__file__).parent / "ohlcv_cache.db"
 
 _OHLCV_COLUMNS = ["open", "high", "low", "close", "volume"]
 
+# Found during an audit: this service has no request-count rate limiting of
+# its own (Laravel's limiters don't apply to callers who reach this service
+# directly), and /backtest's start_date/end_date are otherwise unbounded.
+# For crypto, _fetch_crypto paginates the live exchange in a manual
+# since-loop (1000 bars/call) rather than one request covering the whole
+# range like yfinance -- so an unbounded range there is an unbounded number
+# of real upstream calls held open on a single request, not just a big
+# response. 1825 days (5 years) is generous for backtesting purposes (no
+# strategy here reasons about anything longer) while keeping the worst case
+# (method_714's 1h interval, the widest bar-per-day multiplier in
+# STRATEGY_REGISTRY) at a few thousand calls rather than unbounded. Enforced
+# once here rather than in _fetch_crypto specifically, so it also fails fast
+# -- before any network call -- for every asset class and every caller of
+# this function, not just the one path that happens to amplify worst.
+MAX_RANGE_DAYS = 1825
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS ohlcv_bars (
     symbol TEXT NOT NULL,
@@ -130,10 +146,18 @@ def fetch_ohlcv_cached(
     interval: str = "1d",
     db_path: Path = DB_PATH,
 ) -> pd.DataFrame:
+    start_ts = pd.Timestamp(start_date, tz="UTC")
+    end_ts = pd.Timestamp(end_date, tz="UTC")
+    if (end_ts - start_ts).days > MAX_RANGE_DAYS:
+        raise DataFetchError(
+            f"Requested range spans more than {MAX_RANGE_DAYS} days "
+            f"({start_date} to {end_date}); narrow the date range and retry"
+        )
+
     conn = _connect(db_path)
     try:
-        start_ms = int(pd.Timestamp(start_date, tz="UTC").value // 1_000_000)
-        end_ms = int(pd.Timestamp(end_date, tz="UTC").value // 1_000_000)
+        start_ms = int(start_ts.value // 1_000_000)
+        end_ms = int(end_ts.value // 1_000_000)
 
         coverage = _get_coverage(conn, symbol, asset_class, interval)
 
