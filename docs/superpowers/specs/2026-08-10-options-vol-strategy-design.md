@@ -132,9 +132,11 @@ DEFAULT_PARAMS = {
 
 ## Open Questions
 
-| Question | Owner → Approver |
-|---|---|
-| **IV-rank history source**: yfinance has no historical-IV endpoint. Options: (a) approximate using trailing realized volatility of the underlying as an IV proxy (available today, imperfect), (b) have the platform start accumulating its own daily IV snapshots going forward and only offer IV rank once enough history exists, (c) source a paid historical-IV data provider. This blocks a real implementation of the IV-rank feature and needs a decision before building. | You → — |
-| **Where does this surface in the frontend?** New page vs. a panel on an existing page — product/UX decision, not covered by this spec. | You → — |
-| **Full options-position backtesting** (buying/selling actual contracts, P&L over time) is explicitly out of scope for this slice per the Scope Decision — confirm that's acceptable as a v1, with position-level backtesting deferred to its own future spec once historical chain data is solved. | You → — |
-| Confirm the new-endpoint approach (`/options/vol-signal`, outside the `/backtest` family) rather than force-fitting this into the existing backtest contract — recommended given the signal shape genuinely doesn't have entries/exits/a portfolio. | You → — |
+All four resolved 2026-08-10, in a brainstorming session immediately preceding implementation — see `docs/superpowers/plans/2026-08-10-options-vol-strategy.md` for the resulting build.
+
+| Question | Owner → Approver | Resolution |
+|---|---|---|
+| ~~**IV-rank history source**: yfinance has no historical-IV endpoint...~~ | You → — | **Resolved:** realized-vol proxy (option (a)). Implemented in `_realized_vol_rank()`, explicitly labeled a proxy in the field name (`realized_vol`, not `iv_rank`) and in every disclosure sentence — never presented as true IV rank. |
+| ~~**Where does this surface in the frontend?**~~ | You → — | **Resolved:** new standalone page, `frontend/options.html`, linked from every other page's nav. |
+| ~~**Full options-position backtesting**... confirm that's acceptable as a v1...~~ | You → — | **Resolved, after a second round:** the owner initially asked for full position backtesting; surfaced that yfinance has zero historical options-chain data (not a design preference, a hard wall — `option_chain()` only returns the live current chain), then re-confirmed scoping down to a signal read for this round, with position backtesting deferred to its own future spec explicitly blocked on sourcing real historical options data. |
+| ~~Confirm the new-endpoint approach (`/options/vol-signal`, outside the `/backtest` family)...~~ | You → — | **Resolved:** confirmed. Implemented as `GET /options/vol-signal/{symbol}` (analytics) / `GET /api/options/vol-signal/{symbol}` (Laravel). |
