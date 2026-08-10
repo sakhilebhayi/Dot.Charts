@@ -82,7 +82,7 @@ cd analytics && pytest            # 83 tests
 
 ## Known gaps (see wiki.md for the full, current list)
 
-- Market data is free-tier, best-effort (`yfinance`/`ccxt`) — no paid vendor, no uptime SLA.
+- Market data is free-tier, best-effort (`yfinance`/`ccxt.binance()`) — a deliberate decision not to spend before there are paying users or live-money signals, not an unresolved gap (see wiki.md §8). No paid vendor, no uptime SLA; a live outage can silently serve stale (never fabricated) cached bars for anything already fetched once.
 - Knowledge Pack publishing stops at this platform's own API — Dot.Brain has no deployed endpoint to send to yet (ecosystem-level blocker, not Dot.Charts's).
 - No watchlist/instrument-identity model yet.
 - Position/order tracking is out of scope, always — by design, per the ecosystem compliance posture (see [wiki.md §7](wiki.md#7-compliance-posture)).
