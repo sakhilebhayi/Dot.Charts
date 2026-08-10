@@ -252,3 +252,25 @@ def test_backtest_data_fetch_error_returns_422(mocker):
 
     assert response.status_code == 422
     assert "BADSYMBOL" in response.json()["detail"]
+
+
+def test_backtest_momentum_returns_metrics_and_trades(mocker):
+    mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
+
+    response = client.post(
+        "/backtest",
+        json={
+            "symbol": "AAPL",
+            "asset_class": "equity",
+            "strategy": "momentum",
+            "params": {"lookback": 20, "skip": 5, "roc_window": 5, "roc_threshold": 0.0},
+            "start_date": "2023-01-01",
+            "end_date": "2023-04-10",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["strategy"] == "momentum"
+    assert "metrics" in body
+    assert "trade_count" in body["metrics"]

@@ -1,4 +1,4 @@
-from . import ma_crossover, rsi_mean_reversion, breakout, bollinger_mean_reversion, custom
+from . import ma_crossover, rsi_mean_reversion, breakout, bollinger_mean_reversion, momentum, custom
 from .method_714.strategy import Method714Strategy
 
 STRATEGY_REGISTRY = {
@@ -24,6 +24,12 @@ STRATEGY_REGISTRY = {
         "engine": "vectorbt",
         "module": bollinger_mean_reversion,
         "default_params": bollinger_mean_reversion.DEFAULT_PARAMS,
+        "interval": "1d",
+    },
+    "momentum": {
+        "engine": "vectorbt",
+        "module": momentum,
+        "default_params": momentum.DEFAULT_PARAMS,
         "interval": "1d",
     },
     "custom": {
