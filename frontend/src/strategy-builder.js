@@ -274,18 +274,52 @@ if (!isLoggedIn()) {
 async function loadSavedStrategiesList() {
   if (!isLoggedIn()) return;
 
-  const response = await fetch(`${API_BASE}/strategies`, {
-    headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
-  });
-  if (!response.ok) return;
-  const body = await response.json();
+  const errorEl = document.getElementById('error');
 
-  (body.data || []).forEach((strategy) => {
-    const opt = document.createElement('option');
-    opt.value = strategy.id;
-    opt.textContent = strategy.name;
-    loadSelect.appendChild(opt);
-  });
+  try {
+    let url = `${API_BASE}/strategies`;
+    const strategies = [];
+
+    while (url) {
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
+      });
+
+      if (response.status === 401) {
+        // Stale token: clear it and reflect the logged-out state instead of
+        // silently leaving the header showing "Log out" with no explanation.
+        clearToken();
+        const authStateEl = document.getElementById('authState');
+        if (authStateEl) {
+          authStateEl.innerHTML = '<a href="/login.html" style="color:var(--accent)">Log in</a>';
+        }
+        saveButton.disabled = true;
+        loginHint.style.display = 'inline';
+        if (errorEl) {
+          errorEl.textContent = 'Your session has expired. Log in again to see your saved strategies.';
+          errorEl.style.display = 'block';
+        }
+        return;
+      }
+
+      if (!response.ok) return;
+      const body = await response.json();
+      strategies.push(...(body.data || []));
+      url = body.next_page_url || null;
+    }
+
+    strategies.forEach((strategy) => {
+      const opt = document.createElement('option');
+      opt.value = strategy.id;
+      opt.textContent = strategy.name;
+      loadSelect.appendChild(opt);
+    });
+  } catch (err) {
+    if (errorEl) {
+      errorEl.textContent = 'Could not load your saved strategies.';
+      errorEl.style.display = 'block';
+    }
+  }
 }
 
 function operandFromJSON(operand) {

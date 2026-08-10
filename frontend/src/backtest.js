@@ -16,19 +16,45 @@ const savedStrategyRules = {};
 async function loadSavedStrategyOptions() {
   if (!isLoggedIn()) return;
 
-  const response = await fetch(`${API_BASE}/strategies`, {
-    headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
-  });
-  if (!response.ok) return;
-  const body = await response.json();
+  try {
+    let url = `${API_BASE}/strategies`;
+    const strategies = [];
 
-  (body.data || []).forEach((strategy) => {
-    savedStrategyRules[strategy.id] = strategy.rules;
-    const opt = document.createElement('option');
-    opt.value = `custom:${strategy.id}`;
-    opt.textContent = `${strategy.name} (custom)`;
-    strategySelect.appendChild(opt);
-  });
+    while (url) {
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
+      });
+
+      if (response.status === 401) {
+        // Stale token: clear it and reflect the logged-out state instead of
+        // silently leaving the header showing "Log out" with no explanation.
+        clearToken();
+        const authStateEl = document.getElementById('authState');
+        if (authStateEl) {
+          authStateEl.innerHTML = '<a href="/login.html" style="color:var(--accent)">Log in</a>';
+        }
+        errorEl.textContent = 'Your session has expired. Log in again to see your saved strategies.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      if (!response.ok) return;
+      const body = await response.json();
+      strategies.push(...(body.data || []));
+      url = body.next_page_url || null;
+    }
+
+    strategies.forEach((strategy) => {
+      savedStrategyRules[strategy.id] = strategy.rules;
+      const opt = document.createElement('option');
+      opt.value = `custom:${strategy.id}`;
+      opt.textContent = `${strategy.name} (custom)`;
+      strategySelect.appendChild(opt);
+    });
+  } catch (err) {
+    errorEl.textContent = 'Could not load your saved strategies.';
+    errorEl.style.display = 'block';
+  }
 }
 
 loadSavedStrategyOptions();
