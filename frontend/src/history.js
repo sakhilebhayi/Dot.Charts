@@ -74,9 +74,14 @@ function renderRunRow(run) {
   const totalReturn = run.results?.metrics?.total_return_pct;
   const returnText = totalReturn == null ? '—' : `${totalReturn.toFixed(2)}%`;
 
+  // run.symbol is freeform user text (validated server-side only for
+  // length/presence, not content) -- interpolating it into innerHTML would
+  // be stored XSS, and the auth token lives in localStorage where any
+  // injected script could read it. run.strategy/asset_class/status are all
+  // server-enum-constrained and safe to interpolate as-is.
   row.innerHTML = `
     <div>
-      <div class="symbol">${run.symbol} <span class="status ${run.status}">${run.status}</span></div>
+      <div class="symbol"><span class="symbol-text"></span> <span class="status ${run.status}">${run.status}</span></div>
       <div class="meta">${run.strategy} · ${run.asset_class} · ${new Date(run.created_at).toLocaleString()} · ${returnText}</div>
     </div>
     <div class="run-actions">
@@ -85,6 +90,7 @@ function renderRunRow(run) {
       <button class="danger delete-btn">Delete</button>
     </div>
   `;
+  row.querySelector('.symbol-text').textContent = run.symbol;
 
   row.addEventListener('click', (e) => {
     if (e.target.closest('.run-actions')) return;

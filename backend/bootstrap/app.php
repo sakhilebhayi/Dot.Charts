@@ -15,6 +15,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'operator' => \App\Http\Middleware\EnsurePlatformOperator::class,
         ]);
+        // Laravel 11/12's minimal skeleton doesn't apply throttling to the
+        // 'api' middleware group by default, unlike older Laravel versions
+        // -- found during an audit that every route without its own
+        // explicit throttle:X (/me, /logout, /strategies CRUD,
+        // /journal-entries CRUD) had zero rate limiting at all. This is a
+        // backstop, not a replacement for the tighter per-endpoint limits
+        // already in place (backtests, chart-analysis, auth-login,
+        // auth-register) -- Laravel enforces all matching throttle
+        // middleware on a route, so those keep their own, stricter limits.
+        $middleware->throttleApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

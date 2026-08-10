@@ -22,6 +22,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Global backstop for every /api/* route Laravel's minimal skeleton
+        // doesn't throttle by default (bootstrap/app.php enables it via
+        // throttleApi()) -- found during an audit that /me, /logout, and
+        // the full /strategies and /journal-entries CRUD surfaces had zero
+        // rate limiting at all. Keyed by IP only, not by resolved user:
+        // this runs as part of the 'api' middleware group, before any
+        // route-specific auth:sanctum middleware has resolved a user, so
+        // $request->user() is unreliable here regardless of guard --
+        // matches Laravel's own historical default limit (60/min). The
+        // tighter, purpose-specific limiters below (backtests, auth-login,
+        // etc.) still apply on top of this and remain the binding
+        // constraint for the routes they cover.
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(60)->by($request->ip());
+        });
+
         // Anonymous callers get a much tighter cap than authenticated users
         // on this endpoint specifically — it triggers a real, live
         // yfinance/ccxt call every time, so it's the platform's main

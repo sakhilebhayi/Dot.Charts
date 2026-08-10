@@ -83,20 +83,37 @@ function renderEntry(entry) {
   card.className = 'entry-card';
   card.dataset.id = entry.id;
 
-  const badges = [];
-  if (entry.symbol) badges.push(`<span class="badge">${entry.symbol}</span>`);
-  if (entry.backtest_run_id) badges.push(`<span class="badge">Backtest #${entry.backtest_run_id}</span>`);
-  if (entry.custom_strategy_id) badges.push(`<span class="badge">Strategy #${entry.custom_strategy_id}</span>`);
-
+  // title, body, and symbol are freeform user text (server only validates
+  // length/presence, not content) -- interpolating them into innerHTML would
+  // be stored XSS, and the auth token lives in localStorage where any
+  // injected script could read it. Structural markup goes through innerHTML
+  // (nothing user-controlled in it); every user-controlled value is set via
+  // textContent afterward, which never executes as markup.
   card.innerHTML = `
-    <div class="entry-title">${entry.title}</div>
-    <div class="entry-meta">${badges.join('')}${new Date(entry.created_at).toLocaleString()}</div>
-    <div class="entry-body">${entry.body}</div>
+    <div class="entry-title"></div>
+    <div class="entry-meta"><span class="entry-badges"></span><span class="entry-date"></span></div>
+    <div class="entry-body"></div>
     <div class="entry-actions">
       <button class="secondary edit-btn">Edit</button>
       <button class="danger delete-btn">Delete</button>
     </div>
   `;
+
+  card.querySelector('.entry-title').textContent = entry.title;
+  card.querySelector('.entry-body').textContent = entry.body;
+  card.querySelector('.entry-date').textContent = new Date(entry.created_at).toLocaleString();
+
+  const badgesEl = card.querySelector('.entry-badges');
+  const badgeTexts = [];
+  if (entry.symbol) badgeTexts.push(entry.symbol);
+  if (entry.backtest_run_id) badgeTexts.push(`Backtest #${entry.backtest_run_id}`);
+  if (entry.custom_strategy_id) badgeTexts.push(`Strategy #${entry.custom_strategy_id}`);
+  badgeTexts.forEach((text) => {
+    const badge = document.createElement('span');
+    badge.className = 'badge';
+    badge.textContent = text;
+    badgesEl.appendChild(badge);
+  });
 
   card.querySelector('.delete-btn').addEventListener('click', () => deleteEntry(entry.id, card));
   card.querySelector('.edit-btn').addEventListener('click', () => startEdit(entry));
