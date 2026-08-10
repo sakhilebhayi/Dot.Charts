@@ -99,6 +99,7 @@ function renderEntry(entry) {
   `;
 
   card.querySelector('.delete-btn').addEventListener('click', () => deleteEntry(entry.id, card));
+  card.querySelector('.edit-btn').addEventListener('click', () => startEdit(entry));
 
   listEl.appendChild(card);
 }
@@ -154,6 +155,35 @@ async function deleteEntry(id, cardEl) {
   }
 }
 
+const cancelEditButton = document.getElementById('cancelEditButton');
+
+function startEdit(entry) {
+  editingId = entry.id;
+  titleInput.value = entry.title;
+  bodyInput.value = entry.body;
+  symbolInput.value = entry.symbol || '';
+  strategySelect.value = entry.custom_strategy_id || '';
+  backtestSelect.value = entry.backtest_run_id || '';
+  formTitleEl.textContent = 'Edit entry';
+  saveButton.textContent = 'Update entry';
+  cancelEditButton.style.display = 'inline-block';
+  formCardEl.scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetForm() {
+  editingId = null;
+  titleInput.value = '';
+  bodyInput.value = '';
+  symbolInput.value = '';
+  strategySelect.value = '';
+  backtestSelect.value = '';
+  formTitleEl.textContent = 'New entry';
+  saveButton.textContent = 'Save entry';
+  cancelEditButton.style.display = 'none';
+}
+
+cancelEditButton.addEventListener('click', resetForm);
+
 saveButton.addEventListener('click', async () => {
   formErrorEl.style.display = 'none';
 
@@ -166,8 +196,10 @@ saveButton.addEventListener('click', async () => {
   };
 
   try {
-    const response = await fetch(`${API_BASE}/journal-entries`, {
-      method: 'POST',
+    const url = editingId ? `${API_BASE}/journal-entries/${editingId}` : `${API_BASE}/journal-entries`;
+    const method = editingId ? 'PATCH' : 'POST';
+    const response = await fetch(url, {
+      method,
       headers: authHeaders(),
       body: JSON.stringify(payload),
     });
@@ -180,12 +212,7 @@ saveButton.addEventListener('click', async () => {
       throw new Error(body.error || Object.values(body.errors || {}).flat().join(' ') || 'Failed to save entry');
     }
 
-    titleInput.value = '';
-    bodyInput.value = '';
-    symbolInput.value = '';
-    strategySelect.value = '';
-    backtestSelect.value = '';
-
+    resetForm();
     listEl.innerHTML = '';
     loadEntries(`${API_BASE}/journal-entries`, { reset: true });
   } catch (err) {
