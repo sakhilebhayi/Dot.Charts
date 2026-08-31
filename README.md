@@ -38,3 +38,22 @@ Created by [BluPin Capital](https://capital.blupininc.com/)
 <!-- You don't have to include all sections - just the one's relevant to your project -->
 
 
+
+---
+
+## BluPin ORD v3 + Ultimate (2026)
+
+`pine/BluPin_ORD_Ultimate_Combined.pine` — the current production system for
+TVC:GOLD (Africa/Johannesburg): the frozen ORD session engine plus the
+Ultimate Signal of the Day (20:00–00:00 body range, 00:00–03:00 latest-sweep
+fade, contrarian fallback) hardened into the **Survivor configuration**: four
+backtested day-filters (NFP Friday, prior-day bias, noise floor, thin-level)
+and a 05:00 proof checkpoint — only signals that survive uninvalidated show
+and trade. Tested on 2y of hourly data: 42.8% win +103.1 ATR (2026 window
+65.4% win in 1h-sim terms). Full research record in `docs/research/`.
+
+`tools/blupin_daily.py` + the `blupin-daily` workflow reproduce the engine
+headlessly every weekday at 05:20 SAST: today's signal is journaled to
+`signals/journal.jsonl` and emitted to Dot.Memory's intelligence loop
+(observation → decision → outcome), where Dot.Brain studies the patterns.
+The v1 indicator files above are preserved unchanged.
