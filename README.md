@@ -97,3 +97,12 @@ cd analytics && pytest            # 111 tests
 ## License
 
 MIT License — see [LICENSE](LICENSE).
+
+## BluPin — the signal engine
+
+[`blupin/`](blupin/) is Dot.Charts' production trading-signal system (merged
+from the former BluPinJS-EA repo with full history): the BluPin ORD+ULT
+Pine strategy for TVC:GOLD, its complete backtest research record, and a
+daily headless pipeline (`.github/workflows/blupin-daily.yml`) that journals
+each day's signal and emits it to Dot.Memory's intelligence loop, watched
+by the Dot.Brain guardian.

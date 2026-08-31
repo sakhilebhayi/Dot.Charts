@@ -1,6 +1,6 @@
 name: blupin-daily
-# Daily signal + grading run: weekdays at 03:20 UTC (05:20 SAST) — just after
-# the survivor checkpoint. Journals to signals/journal.jsonl and emits
+# Daily BluPin signal + grading run: weekdays at 03:20 UTC (05:20 SAST) —
+# just after the survivor checkpoint. Journals to blupin/signals/ and emits
 # intelligence-loop envelopes to Dot.Memory.
 on:
   schedule:
@@ -20,11 +20,11 @@ jobs:
         env:
           DOT_MEMORY_URL: ${{ secrets.DOT_MEMORY_URL }}
           DOT_MEMORY_TOKEN: ${{ secrets.DOT_MEMORY_TOKEN }}
-        run: python3 tools/blupin_daily.py
+        run: python3 blupin/tools/blupin_daily.py
       - name: Commit journal
         run: |
           git config user.name "blupin-daily"
           git config user.email "actions@github.com"
-          git add signals/journal.jsonl
+          git add blupin/signals/journal.jsonl
           git diff --cached --quiet || git commit -m "journal: $(date -u +%F) signal + grading"
           git push
