@@ -1,0 +1,1553 @@
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Dot.Charts / Quant / Infodot
+//
+// ============================================================================
+//  BLUPIN CAPITAL — ORD v3 + ULTIMATE COMBINED — v5.1 (Institutional)
+// ============================================================================
+//
+//  What this file is
+//  -----------------
+//  The merge of the two validated BluPin engines into one script:
+//
+//    A. ORD v3 SESSION ENGINE (the skeleton of this file)
+//       Contrarian foundation — session closed BELOW open → BUY, ABOVE open
+//       → SELL, evaluated at session end — with the two-stage FLIP → RETEST
+//       override split by the session's halfway point. *** The detection
+//       rules are FROZEN (2026-08-23) and copied verbatim — see section 4.***
+//       Execution: fixed-pip SL, structure-based TP targeting the firing
+//       session's open (capped/fallback to fixed), repeat-loser dedupe,
+//       auto pip size, flat-at-next-session-start.
+//
+//    B. ULTIMATE SIGNAL OF THE DAY (final spec 2026-08-29)
+//       One signal per day, displayed at the 03:00 window close. Inside
+//       the 00:00–02:55 observation window (clock time, script timezone -
+//       the deciding sweep must be confirmed by 02:55) the LATEST
+//       penetration of the late-session range decides the direction:
+//       BELOW the range low → BUY, ABOVE the range high → SELL. Any
+//       penetration counts — a wick or a full candle beyond, no minimum
+//       depth. The range (20:00–00:00 by default) is built from candle
+//       BODIES (wicks ignored) and its high/low freeze at the day roll;
+//       the box stretches to the window close. Sweep one
+//       side and then the other, and the SECOND move stands. Yesterday's
+//       full-day H/L can optionally compete as a second level pair (off
+//       by default). Days with NO qualifying sweep
+//       publish a contrarian read of the window itself (closed below the
+//       00:00 open = BUY, above = SELL, source "No Sweep") — every day
+//       gets a signal.
+//       Nothing is drawn when the sweep occurs; the ULTIMATE BUY / SELL
+//       label and entry appear on the 03:00 bar, then the day is locked.
+//       Quality gates retained from v4.4:
+//         • 0.20 ATR sweep floor (bare touches never qualify)
+//         • HTF bias gate (Off/Loose/Strict) on fallback signals only
+//         • Reclaim-failure cancel (published signal marked + alerted)
+//         • No-chase check at 03:00: price further than 1 ATR from the
+//           swept level → the signal is skipped, never published late
+//         • Per-source stats (Late Range vs Yest H/L) in the Data Window
+//         • Trade path (opt-in via ultTrade): section ⑥ risk settings plus
+//           optional structure stop, flatten exemption, cancel-close, trail
+//
+//  Interaction rules
+//  -----------------
+//    • The two engines run in parallel; neither replaces the other.
+//    • A session signal on the same bar takes precedence over an Ultimate
+//      entry, so the engines can never fire opposing orders on one bar.
+//    • Ultimate entries only fire when flat (they never reverse a session
+//      trade) and are exempt from the session-start flatten.
+//    • Exactly one session signal per session; at most one Ultimate signal
+//      per day. Fully non-repainting throughout: every signal reads only
+//      confirmed bars at the moment it fires.
+//
+//  On-chart graphic objects (signals only)
+//  ---------------------------------------
+//  Session background tints, opening-price lines, session boundary and
+//  halfway markers, compact BUY/SELL + entry labels, FLIP+RETEST tag,
+//  SL/TP labels, Entry/SL/TP level plots, ULTIMATE BUY/SELL labels and
+//  arrows, ULT CANCELLED marks, optional 20:00–00:00 range box (off by
+//  default). No SMC boxes, no dashboard table, no debug shapes.
+//
+//  Structure of this file
+//  ----------------------
+//    1.  Inputs
+//    2.  Core series & helper functions
+//    3.  Trend / volatility / volume / MTF filters + internal key levels
+//    4.  Session engine (Contrarian + Flip + Retest override — FROZEN)
+//    4b. Ultimate Signal of the Day (grafted from v4.4 — FROZEN)
+//    5.  Confidence scoring & final signal
+//    6.  Strategy execution & risk management (both engines)
+//    6b. Ultimate per-source statistics (Data Window)
+//    7.  Alerts
+//
+// ============================================================================
+
+//@version=6
+strategy("BluPin ORD v3 + Ultimate [Institutional]",
+     shorttitle          = "BluPin ORD+ULT",
+     overlay             = true,
+     initial_capital     = 1000000,
+     default_qty_type    = strategy.fixed,
+     default_qty_value   = 1,
+     calc_on_every_tick  = false,
+     process_orders_on_close = true,
+     max_boxes_count     = 500,
+     max_lines_count     = 500,
+     max_labels_count    = 500)
+
+// ============================================================================
+// 1. INPUTS
+// ============================================================================
+
+// ---- Sessions --------------------------------------------------------------
+var string G_SESS = "① Session Times"
+session1   = input.session("0100-0200",  "Session 1", group = G_SESS)
+session2   = input.session("0700-0800",  "Session 2", group = G_SESS)
+session3   = input.session("1300-1400",  "Session 3", group = G_SESS)
+session4   = input.session("1600-1700",  "Session 4", group = G_SESS)
+tz         = input.string("Africa/Johannesburg", "Timezone", group = G_SESS,
+     options = ["Africa/Johannesburg", "America/New_York", "Europe/London",
+                "UTC", "Asia/Tokyo", "Australia/Sydney"])
+sessionHalfMinutes = input.int(30, "Session Halfway Point (minutes)", minval = 1, group = G_SESS,
+     tooltip = "Marks the midpoint of each session with a dotted vertical line and splits the session's " +
+               "signal logic in two: a FLIP through the open must happen BEFORE this point, and the " +
+               "confirming RETEST of the open must happen AFTER it (but before session close). " +
+               "Defaults to 30 (half of a 1-hour session).")
+retestTolPips = input.float(10, "Retest Tolerance (pips)", minval = 0.0, step = 1, group = G_SESS,
+     tooltip = "How close to the session opening price the second-half retest must come to count. " +
+               "0 = must touch the open exactly; e.g. 10 = a rejection within 10 pips of the open " +
+               "also qualifies ('a few pips near the open price, or exactly on it').")
+sessConfirmMode = input.string("Tag Only", "15-Min Confirmation Mode", group = G_SESS,
+     options = ["Tag Only", "Drop Unconfirmed"],
+     tooltip = "Tag Only (default): EVERY session shows its signal at end+15 - the " +
+               "confirmation check (price moved the signal's way vs the session close) " +
+               "becomes a ✓/✗ tag on the label instead of a filter, so no session is ever " +
+               "silent. Drop Unconfirmed: unconfirmed signals are suppressed (counted in " +
+               "the Data Window).")
+sessConfMin = input.int(15, "Session Confirmation Delay (minutes)", minval = 5, maxval = 60, step = 5, group = G_SESS,
+     tooltip = "Two-stage session signals: the DIRECTION is decided by the session hour " +
+               "itself (contrarian close-vs-open, or FLIP+RETEST detected by the frozen " +
+               "engine). The signal then only SHOWS this many minutes after the session " +
+               "ends, and only if price has moved in the signal's direction versus the " +
+               "session close by then - otherwise it is dropped (counted in the Data " +
+               "Window as confirmation failures). Applies to ALL session signals, " +
+               "including FLIP+RETEST.")
+// Contrarian (session close vs session open) is the fixed, unconditional
+// foundation — closed below open fires BUY, closed above fires SELL. The
+// ONLY override is the combined FLIP + RETEST sequence: a flip through the
+// open in the FIRST half of the session, confirmed by a rejection retest of
+// the open in the SECOND half (see the architecture note at the top of this
+// file). Either half of that sequence alone is NOT a signal — a session
+// without the full sequence is treated as plain Contrarian.
+
+// ---- Trend filter ----------------------------------------------------------
+var string G_TREND = "② Trend Filter"
+useEmaFilter = input.bool(true,  "Use EMA Trend Filter",   group = G_TREND)
+emaFastLen   = input.int(50,     "Fast EMA",  minval = 2,  group = G_TREND)
+emaSlowLen   = input.int(200,    "Slow EMA",  minval = 5,  group = G_TREND)
+
+// ---- Volatility / volume ---------------------------------------------------
+var string G_VOL = "③ Volatility & Volume"
+useAtrFilter = input.bool(true,  "Use ATR Range Filter",   group = G_VOL)
+atrLen       = input.int(14,     "ATR Length", minval = 1, group = G_VOL)
+atrMinMult   = input.float(0.50, "Min Session Range (× ATR)", minval = 0.0, step = 0.05, group = G_VOL,
+     tooltip = "Session high–low range must be at least this many ATRs for a valid signal.")
+useVolFilter = input.bool(true,  "Use Volume Confirmation", group = G_VOL)
+volLen       = input.int(20,     "Volume SMA Length", minval = 1, group = G_VOL)
+volMult      = input.float(1.00, "Min Volume (× SMA)", minval = 0.1, step = 0.05, group = G_VOL)
+
+// ---- Multi-timeframe -------------------------------------------------------
+var string G_MTF = "④ Multi-Timeframe Confirmation"
+useMtf   = input.bool(true, "Use HTF EMA Confirmation", group = G_MTF)
+mtfTf    = input.timeframe("240", "Higher Timeframe",    group = G_MTF)
+mtfFast  = input.int(50,  "HTF Fast EMA", minval = 2,    group = G_MTF)
+mtfSlow  = input.int(200, "HTF Slow EMA", minval = 5,    group = G_MTF)
+
+// ---- Ultimate Signal of the Day --------------------------------------------
+var string G_ULT = "④b Ultimate Signal of the Day"
+useUltimate   = input.bool(true, "Enable Ultimate Signal", group = G_ULT,
+     tooltip = "One signal per trading day, displayed exactly at 03:00.\n" +
+               "00:00        day roll: levels frozen, state reset, start watching\n" +
+               "00:00-02:55  every penetration of the late-session range is recorded\n" +
+               "             (wick or close, any depth); the LATEST one sets the\n" +
+               "             direction: below the range = BUY, above = SELL.\n" +
+               "03:00        ULTIMATE BUY / SELL is drawn, day locked\n" +
+               "Nothing is drawn at the moment of the sweep itself - the sweep only " +
+               "decides the direction; the signal appears at 03:00.")
+ultObsSession = input.session("0000-0255", "Observation Window", group = G_ULT,
+     tooltip = "The period during which a sweep is allowed to decide the day, in the " +
+               "Timezone chosen in section ①. Default 00:00-02:55: the deciding sweep must " +
+               "be CONFIRMED at or before 02:55 - a last-second poke on the 02:55-03:00 " +
+               "candle can no longer decide the day. The signal is displayed on the bar " +
+               "that closes the window (the 02:55 candle, appearing on its 03:00 close).\n" +
+               "Keep the window inside one calendar day (do not let it cross midnight).")
+ultDispMin    = input.int(30, "Display Signal N Minutes After Box Close", minval = 0, maxval = 240, step = 5, group = G_ULT,
+     tooltip = "Display delay ONLY: the direction still locks at the observation-window " +
+               "close (~02:55) and nothing after it can change the decision. The ULTIMATE " +
+               "label and the trade entry appear this many minutes after the box closes at " +
+               "03:00 - default 30 = signal at 03:30. The reclaim-failure cancel watch " +
+               "only arms AFTER the signal has displayed, so the delay can never eat the " +
+               "day's signal - every committed day shows.")
+ultLevelSrc   = input.string("Script Timezone Day", "Yesterday's Levels Source", group = G_ULT,
+     options = ["Script Timezone Day", "Exchange Daily (D)"],
+     tooltip = "Script Timezone Day (default): yesterday's Ultimate High/Low are the extremes " +
+               "of the previous calendar day in the script's own timezone, so they line up " +
+               "with the 00:00 day roll and the observation window.\n" +
+               "Exchange Daily (D): reuse the previous-day high/low requested on the daily " +
+               "timeframe (exchange timezone). Either way the levels are frozen at the 00:00 " +
+               "roll and never change during the day.")
+ultSweepMode  = input.string("Wick Penetration", "Sweep Confirmation", group = G_ULT,
+     options = ["Sweep & Reclaim", "Wick Penetration", "Close Beyond Level"],
+     tooltip = "Wick Penetration (default): ANY trade through the level qualifies - a wick " +
+               "or a full candle beyond the range both count; the close is irrelevant.\n" +
+               "Sweep & Reclaim: the wick trades through but the bar must CLOSE back inside.\n" +
+               "Close Beyond Level: the bar must CLOSE through the level (breakout reading).\n" +
+               "A bare touch never qualifies in any mode.")
+ultMinPenAtr  = input.float(0.0, "Min Penetration Beyond Level (× ATR)", minval = 0.0, step = 0.01, group = G_ULT,
+     tooltip = "0 (default): any penetration beyond a bare touch counts - even a small wick. " +
+               "Raise it if one-tick pokes start deciding too many days.")
+ultUseYest    = input.bool(false, "Also Watch Yesterday's Ultimate H/L", group = G_ULT,
+     tooltip = "OFF (default): the day is decided purely by the late-session range - the " +
+               "latest penetration BELOW the range low = BUY, ABOVE the range high = SELL. " +
+               "ON: yesterday's full-day High/Low compete as a second level pair (winning " +
+               "same-bar conflicts), as in earlier versions.")
+ultBiasMode   = input.string("Off", "Bias Gate — Late Range Only", group = G_ULT,
+     options = ["Off", "Loose", "Strict"],
+     tooltip = "Off (default): never blocks - every day with a qualifying sweep publishes a " +
+               "BUY or SELL. Loose/Strict re-enable the trend filter for signals decided by " +
+               "the late-session range (Yest H/L sweep-fades are never gated):\n" +
+               "Loose: block only when BOTH the chart-timeframe and HTF EMA trends oppose " +
+               "the signal. Strict: block when EITHER opposes it. A blocked day publishes " +
+               "nothing (no on-chart mark).")
+ultUseInval   = input.bool(true, "Cancel on Reclaim Failure", group = G_ULT,
+     tooltip = "The sweep thesis is 'liquidity taken and rejected'. If price later CLOSES back " +
+               "beyond the swept level in the sweep's direction, the reclaim has failed. A " +
+               "pending signal is silently dropped; a published one gets a CANCELLED mark and " +
+               "alert.")
+ultInvalAtr   = input.float(0.50, "Cancel if Close Beyond Swept Level (× ATR)", minval = 0.1, step = 0.05, group = G_ULT,
+     tooltip = "How far beyond the swept level the bar must CLOSE for the cancel to trigger.")
+ultUseChase   = input.bool(false, "No-Chase Check at 03:00", group = G_ULT,
+     tooltip = "OFF (default): the 03:00 signal always publishes, however far price has run " +
+               "from the swept level.\n" +
+               "ON: the signal is SKIPPED for the day when, on the 03:00 bar, price is further " +
+               "than the distance below from the swept level - it is never published late. " +
+               "NOTE: this is a single hard check at exactly 03:00 (no waiting for a pullback), " +
+               "so a tight distance suppresses most days. Watch the typical 03:00 distance on " +
+               "your symbol first, then enable it with a suitable multiple.")
+ultChaseAtr   = input.float(1.0, "Max Entry Distance From Swept Level (× ATR)", minval = 0.1, step = 0.1, group = G_ULT,
+     tooltip = "How close to the swept level price must be for publication to go ahead.")
+ultAlwaysOn   = input.bool(true, "Signal Every Day (contrarian fallback)", group = G_ULT,
+     tooltip = "ON (default): on a day where NO qualifying sweep occurred in the whole " +
+               "observation window, publish anyway using the contrarian read of the window " +
+               "itself - the window closing BELOW the day's 00:00 open = BUY, above = SELL " +
+               "(the same close-vs-open logic as the session engine). The label shows " +
+               "'No Sweep' as its source and these days are scored in their own Data Window " +
+               "rows, so their hit rate can be judged separately from real sweep days.\n" +
+               "OFF: no-sweep days stay quiet.")
+ultStructSl   = input.bool(false, "Ultimate: Structure Stop at Swept Level", group = G_ULT,
+     tooltip = "OFF (default): the stop is the fixed Stop Loss from section ⑥. ON: stop just " +
+               "beyond the level the deciding sweep took - 'price re-breaks the swept level' is " +
+               "the trade's actual invalidation, usually far tighter than the fixed stop. Falls " +
+               "back to the fixed stop when no level is available. Only applies when Trade " +
+               "Ultimate Signals is on.")
+ultSlBufAtr   = input.float(0.25, "Structure Stop Buffer (× ATR)", minval = 0.0, step = 0.05, group = G_ULT,
+     tooltip = "How far beyond the swept level the structure stop sits.")
+ultUseTrail   = input.bool(false, "Ultimate: ATR Trailing Stop", group = G_ULT,
+     tooltip = "OFF (default): the tested rider profile uses only the fixed ATR stop and the " +
+               "day-end exit - a trail tightens into exactly the winners that pay for the " +
+               "system. ON: trails the stop behind price by the distance below (untested " +
+               "with the rider exits).")
+ultTrailAtr   = input.float(2.0, "Ultimate Trail Distance (× ATR)", minval = 0.1, step = 0.1, group = G_ULT)
+ultTieBreak   = input.string("Closer to Bar Open First", "Both Levels Swept in One Bar", group = G_ULT,
+     options = ["Closer to Bar Open First", "Candle Direction", "No Signal"],
+     tooltip = "OHLC cannot prove which side was hit first inside a single bar, so this is a " +
+               "deterministic rule rather than a guess presented as fact:\n" +
+               "Closer to Bar Open First (default): the level nearer the bar's OPEN was reached " +
+               "first.\n" +
+               "Candle Direction: an up-closing bar is read as down-then-up (low first, BUY); a " +
+               "down-closing bar as up-then-down (high first, SELL).\n" +
+               "No Signal: treat that level pair as undecided.\n" +
+               "Drop to a lower chart timeframe if you need true intrabar sequencing.")
+ultFbMode     = input.string("Clock Range", "Late-Session Range Source", group = G_ULT,
+     options = ["Clock Range", "Last Swing Pivots"],
+     tooltip = "The second level pair, watched alongside yesterday's Ultimate High/Low - " +
+               "the LATEST qualifying sweep across both pairs decides the day.\n" +
+               "Clock Range (default): the high and low built during the last N minutes of the " +
+               "outgoing day - 240 = the 20:00-00:00 range.\n" +
+               "Last Swing Pivots: the most recent confirmed swing high and swing low.\n" +
+               "Either way the range is frozen at the 00:00 roll and is NEVER extended by bars " +
+               "made during the observation window.")
+ultFbWinMin   = input.int(240, "Late-Session Range: minutes before 00:00", minval = 5, maxval = 720, step = 5, group = G_ULT,
+     tooltip = "How much of the outgoing day's close forms the late-session range, counted back " +
+               "from midnight. 240 = 20:00-00:00 (the default). 180 = 21:00-00:00. Only used by " +
+               "the Clock Range mode.")
+ultBodyRange  = input.bool(true, "Range From Candle Bodies (ignore wicks)", group = G_ULT,
+     tooltip = "ON (default): the late-session range high/low are built from candle BODIES " +
+               "only - the highest body top and the lowest body bottom of the build window. " +
+               "Wicks poking beyond the bodies are ignored when the range is set, which also " +
+               "means a later wick beyond the body-high/low registers as a sweep sooner. " +
+               "OFF: classic wick-to-wick range.")
+ultShowBox      = input.bool(true, "Show 20:00–00:00 Range Box", group = G_ULT,
+     tooltip = "Draws the late-session range as a box over the period that built it. In Last " +
+               "Swing Pivots mode there is no period to box, so the swing levels are drawn as " +
+               "lines instead.")
+ultShowTrendTag = input.bool(true, "Show 20:00–03:00 Trend Tag", group = G_ULT,
+     tooltip = "Small text under the box showing the dominating trend of the FULL span - " +
+               "a pure endpoint read: the 03:00 close vs yesterday's 20:00 open. Close " +
+               "higher = BULLISH, lower = BEARISH - always a direction call, no flat " +
+               "reading. Prints at 03:00.")
+ultExtendBox    = input.bool(true, "Extend Box Through Observation Window", group = G_ULT,
+     tooltip = "Stretches the box's right edge across 00:00-03:00 so you can see price " +
+               "interacting with the range it has to sweep. Turn off to box the 20:00-00:00 " +
+               "period only.")
+ultShowYestLines = input.bool(false, "Show Yesterday's Ultimate H/L Lines", group = G_ULT,
+     tooltip = "Off by default. Yesterday's Ultimate High/Low still compete as a level pair - " +
+               "this only controls whether their lines are drawn.")
+ultShowWindowBg = input.bool(true, "Highlight Observation Window", group = G_ULT)
+ultShowLabels = input.bool(true,  "Show Ultimate Signal Labels",      group = G_ULT)
+ultLabelSize  = input.string("Small", "Ultimate Label Size", group = G_ULT,
+     options = ["Tiny", "Small", "Normal", "Large"],
+     tooltip = "Size of the ULTIMATE BUY / SELL label. Default Small - one step larger than " +
+               "the session signal labels, so the day signal stands out. The arrow marker " +
+               "below/above the bar is fixed at small (Pine requires a constant there).")
+ultShowSweepMarks = input.bool(false, "Mark Sweep Bars (debug)", group = G_ULT,
+     tooltip = "Small × marks on the bar where a sweep was RECORDED during the window. " +
+               "These are not signals - they are a verification aid showing why the " +
+               "published signal pointed the way it did. Off by default.")
+ultTrade      = input.bool(true, "Trade Ultimate Signals", group = G_ULT,
+     tooltip = "ON (default): the daily signal is the trade - entry at the 03:00 close with " +
+               "the rider exits below (small ATR stop, ride to day end). OFF: display and " +
+               "alerts only.")
+oneTradeMode  = input.bool(true, "One Trade Per Day (Ultimate only)", group = G_ULT,
+     tooltip = "ON (default): the Ultimate Signal is the ONLY trade the strategy places - " +
+               "session signals stay on the chart as context (compact labels, no orders, " +
+               "no SL/TP clutter). OFF: session signals trade too, as before.")
+ultSlAtr      = input.float(1.0, "Ultimate Stop (× ATR)", minval = 0.25, step = 0.25, group = G_ULT,
+     tooltip = "The small stop of the rider profile. Tested on ~575 days with the current " +
+               "detection defaults: 1.0 ATR + ride to day end = +43.2%/2y at a 28.9% trade " +
+               "win rate (losers capped small, winners ride the day). With Sweep & Reclaim " +
+               "detection (see Sweep Confirmation), 1.5 ATR tested best: +103.5%/2y.")
+ultTpMode     = input.string("Ride to Day End", "Ultimate Take Profit", group = G_ULT,
+     options = ["Ride to Day End", "ATR Target"],
+     tooltip = "Ride to Day End (default): no TP - the position runs until the 00:00 day " +
+               "roll (the tested 'large take profit': the whole day). Every fixed ATR " +
+               "target tested WORSE than riding: capping winners is what this profile " +
+               "cannot afford.\n" +
+               "ATR Target: fixed target at the distance below, for comparison.")
+ultTpAtrX     = input.float(4.0, "Ultimate ATR Target (× ATR)", minval = 1.0, step = 0.5, group = G_ULT)
+
+// ---- Survivor Signal (Rung 3) ----------------------------------------------
+var string G_R3 = "④c Survivor Signal"
+r3On = input.bool(true, "Enable Survivor Signal (rung 3)", group = G_R3,
+     tooltip = "The tested-best win-rate configuration. Four silent day-skips plus a " +
+               "proof window:\n" +
+               "1. NFP Friday veto (first Friday of month - went 1-for-24 over 2y)\n" +
+               "2. Prior-day bias: only fade sweeps that CONTINUE yesterday (BUY low-sweep " +
+               "after a down day, SELL high-sweep after an up day)\n" +
+               "3. Noise floor: sweep penetration must beat 0.25x that hour's 14-day mean\n" +
+               "4. Thin-level skip: the swept level needs touches in 2+ separate hours\n" +
+               "Then SURVIVOR: the committed signal only shows at the checkpoint below, and " +
+               "only if price never closed 0.5 ATR back through the swept level meanwhile - " +
+               "the proven signal. Tested 2y: 42.8% win +103.1 ATR (both halves 40.5/45.9); " +
+               "2026 window 65.4% win in pessimistic 1h sim terms (~70%+ expected on the " +
+               "30m tester). Roughly 2-3 signals per week. Skipped/suppressed days stay " +
+               "quiet (counted in the Data Window). OFF = the plain baseline signal.")
+r3Min = input.int(120, "Survivor Checkpoint (minutes after 03:00)", minval = 30,
+     maxval = 360, step = 30, group = G_R3,
+     tooltip = "120 = the tested 05:00 checkpoint. Wrong fades reveal themselves in the " +
+               "03:00-06:00 window; the checkpoint waits it out before showing anything.")
+
+// ---- Confidence ------------------------------------------------------------
+var string G_CONF = "⑤ Confidence Scoring"
+filterMode = input.string("Confidence Only", "Filter Mode", group = G_CONF,
+     options = ["Confidence Only", "Hard Filters"],
+     tooltip = "Confidence Only: filters contribute to the score but never veto a trade — " +
+               "any session signal at or above the threshold trades.\n" +
+               "Hard Filters: EMA, MTF, ATR and volume must ALL pass in addition to the score.")
+minConfidence = input.int(45, "Minimum Confidence to Trade", minval = 0, maxval = 100, group = G_CONF,
+     tooltip = "Weighted score across trend, MTF, volatility, volume and FVG/OB key-level confluence " +
+               "(the latter only applies to FLIP+RETEST signals whose rejection happened off a key level). " +
+               "Base session signal alone = 30. 45 requires one strong confluence; 60+ requires several. " +
+               "Applies to SESSION signals only — the Ultimate Signal has its own gates (bias, depth, " +
+               "chase, cancel) and is not confidence-scored.")
+
+// ---- Risk management -------------------------------------------------------
+var string G_RISK = "⑥ Risk Management"
+useSlTp      = input.bool(true,  "Use Stop Loss / Take Profit", group = G_RISK)
+tpMode       = input.string("Structure (Session Open)", "Take Profit Mode", group = G_RISK,
+     options = ["Fixed Pips", "Structure (Session Open)"],
+     tooltip = "Fixed Pips: TP is always the fixed distance below.\n" +
+               "Structure (Session Open): a Contrarian fade bets on price reverting to the session's " +
+               "opening price, so the TP targets that actual level (plus the optional buffer) instead " +
+               "of an arbitrary distance — capped at the fixed TP so it can never be further, and " +
+               "falling back to the fixed TP when the open is too close to be a meaningful target " +
+               "(e.g. FLIP+RETEST entries, which fill right at the open). Ultimate entries have no " +
+               "session open to revert to, so they always use the fixed TP.")
+tpPips       = input.float(500, "Take Profit (pips) — fixed / cap", minval = 1, step = 10, group = G_RISK)
+tpMinPips    = input.float(150, "Min Structure TP (pips)", minval = 0, step = 10, group = G_RISK,
+     tooltip = "Structure mode only: if the session open is closer to the entry than this, the " +
+               "structure target is too small to be worth taking — fall back to the fixed TP instead.")
+tpBufferPips = input.float(0, "Structure TP Buffer (pips)", minval = 0, step = 5, group = G_RISK,
+     tooltip = "Structure mode only: extends the TP this many pips beyond the session open.")
+slPips       = input.float(500, "Stop Loss (pips)",   minval = 1, step = 10, group = G_RISK)
+pipSize      = input.float(0.0, "Pip Size (0 = auto-detect)", minval = 0.0, step = 0.00001, group = G_RISK,
+     tooltip = "Leave at 0 to auto-detect from the symbol's tick size (mintick × 10 — correct for " +
+               "standard 5-digit FX pairs and 3-digit JPY pairs). Override if your symbol needs a " +
+               "different pip definition (e.g. indices, crypto, metals).")
+exitOnSess   = input.bool(true,  "Flatten at Next Session Start", group = G_RISK,
+     tooltip = "Session trades are closed when the next session begins. Ultimate trades are " +
+               "EXEMPT — their winners trend for many hours and the next session start is not " +
+               "their invalidation.")
+allowLongs   = input.bool(true,  "Allow Longs",  group = G_RISK)
+allowShorts  = input.bool(true,  "Allow Shorts", group = G_RISK)
+useDedupe    = input.bool(true,  "Skip Repeat Same-Direction Loser", group = G_RISK,
+     tooltip = "If the most recent closed trade was in the SAME direction, lost, and closed within the " +
+               "lookback below, skip the new signal instead of re-entering the same losing bet — the " +
+               "recurring failure case is session 4 repeating session 3's just-stopped fade an hour later. " +
+               "Applies to session signals only.")
+dedupeBars   = input.int(36, "Repeat-Loser Lookback (bars)", minval = 1, group = G_RISK,
+     tooltip = "How recently the same-direction loser must have closed for the skip to apply. " +
+               "36 bars = 3 hours on a 5-minute chart, comfortably covering consecutive sessions.")
+
+// ---- Statistics ------------------------------------------------------------
+var string G_STAT = "⑥b Statistics"
+evalBars = input.int(12, "Directional Win Evaluation (bars)", minval = 1, group = G_STAT,
+     tooltip = "Bars after an Ultimate signal at which price direction is checked to score the " +
+               "per-source hit rates shown in the Data Window.")
+
+// ---- Style -----------------------------------------------------------------
+// Only labels and lines are drawn as graphic objects (no dashboard table).
+// Session background highlighting uses bgcolor(), which paints the chart
+// pane itself rather than adding a drawing object.
+var string G_STYLE = "⑦ Style"
+buyColor     = input.color(#089981, "Buy Color",     group = G_STYLE)
+sellColor    = input.color(#f23645, "Sell Color",    group = G_STYLE)
+neutralColor = input.color(#787b86, "Neutral Color", group = G_STYLE)
+sess1Color   = input.color(color.new(#2962ff, 85), "Session 1 Background", group = G_STYLE)
+sess2Color   = input.color(color.new(#ff6d00, 85), "Session 2 Background", group = G_STYLE)
+sess3Color   = input.color(color.new(#9c27b0, 85), "Session 3 Background", group = G_STYLE)
+sess4Color   = input.color(color.new(#00bcd4, 85), "Session 4 Background", group = G_STYLE)
+showSessBg   = input.bool(true, "Highlight Session Background", group = G_STYLE,
+     tooltip = "Tints the chart background while each session is active, using that session's color.")
+showOpenLine = input.bool(true, "Show Opening Price Lines",  group = G_STYLE)
+showMarkers  = input.bool(true, "Show Vertical Session Markers", group = G_STYLE)
+showHalfLine = input.bool(true, "Show Session Halfway Line", group = G_STYLE,
+     tooltip = "Vertical line at the halfway point of each session (see 'Session Halfway Point' input " +
+               "above), used to gate whether a Flip is trusted as a standalone signal.")
+showLabels   = input.bool(true, "Show BUY / SELL Labels",    group = G_STYLE,
+     tooltip = "Compact label: direction and entry price only (no confidence %, no other metadata).")
+showTag      = input.bool(true, "Show FLIP+RETEST Tag",      group = G_STYLE,
+     tooltip = "A small tag label reading FLIP+RETEST, shown only when the full two-stage override " +
+               "sequence actually fired. A plain Contrarian signal carries no tag.")
+showLevels   = input.bool(true, "Show Entry / SL / TP Levels", group = G_STYLE,
+     tooltip = "Plots each trade's entry, SL and TP as its own horizontal segment (native plot, " +
+               "always on-scale) for the duration it's open. Every past session's levels stay visible " +
+               "in the chart's history, not just the latest.")
+
+// ============================================================================
+// 2. CORE SERIES & HELPERS
+// ============================================================================
+
+atr     = ta.atr(atrLen)
+emaFast = ta.ema(close, emaFastLen)
+emaSlow = ta.ema(close, emaSlowLen)
+volSma  = ta.sma(volume, volLen)
+
+// Effective pip size: use the manual override if set, otherwise auto-detect
+// from the symbol's minimum tick (mintick × 10 — correct for standard 5-digit
+// FX quoting and 3-digit JPY pairs). This is what makes SL/TP respect the
+// instrument's actual tick/pip convention instead of assuming 1 price unit
+// equals 1 pip.
+effPipSize = pipSize > 0 ? pipSize : syminfo.mintick * 10
+
+f_pct(num, den) =>
+    den > 0 ? 100.0 * num / den : na
+
+// ============================================================================
+// 3. TREND / VOLATILITY / VOLUME / MTF FILTERS
+// ============================================================================
+
+trendBull = emaFast > emaSlow
+trendBear = emaFast < emaSlow
+
+volOk = not useVolFilter or volume > volSma * volMult
+
+// --- HTF confirmation (non-repainting: confirmed HTF values only) -----------
+htfFastEma = request.security(syminfo.tickerid, mtfTf,
+     ta.ema(close, mtfFast)[1], lookahead = barmerge.lookahead_off)
+htfSlowEma = request.security(syminfo.tickerid, mtfTf,
+     ta.ema(close, mtfSlow)[1], lookahead = barmerge.lookahead_off)
+
+mtfBull = htfFastEma > htfSlowEma
+mtfBear = htfFastEma < htfSlowEma
+
+// --- Previous-day high / low (data only, nothing drawn) ----------------------
+// Used by the Ultimate engine's "Exchange Daily (D)" level source.
+[pdh, pdl] = request.security(syminfo.tickerid, "D", [high[1], low[1]],
+     lookahead = barmerge.lookahead_off)
+
+// --- Last confirmed swing pivots (data only, nothing drawn) ------------------
+// Used by the Ultimate engine's "Last Swing Pivots" late-range mode.
+phPiv = ta.pivothigh(high, 5, 5)
+plPiv = ta.pivotlow(low,  5, 5)
+var float lastPH = na
+var float lastPL = na
+if not na(phPiv)
+    lastPH := phPiv
+if not na(plPiv)
+    lastPL := plPiv
+
+// --- Key levels (FVG / Order Block zones — detection only, nothing drawn) ---
+// A rolling window of recently formed zones price tends to react from. Used
+// solely as confluence for the second-half retest: a rejection off the
+// session open is stronger when the open itself sits inside one of these
+// zones. These are NOT drawn on the chart — the earlier decision to remove
+// FVG/OB visuals stands; this is internal signal logic only.
+var array<float> keyTopA = array.new<float>()
+var array<float> keyBotA = array.new<float>()
+int KEY_MAX = 40
+
+// Bullish FVG: gap between high[2] and low (low > high[2]).
+if low > high[2]
+    array.push(keyTopA, low)
+    array.push(keyBotA, high[2])
+// Bearish FVG: gap between low[2] and high (high < low[2]).
+if high < low[2]
+    array.push(keyTopA, low[2])
+    array.push(keyBotA, high)
+// Bullish Order Block: down candle whose high is broken by the next close.
+if close[1] < open[1] and close > high[1]
+    array.push(keyTopA, high[1])
+    array.push(keyBotA, low[1])
+// Bearish Order Block: up candle whose low is broken by the next close.
+if close[1] > open[1] and close < low[1]
+    array.push(keyTopA, high[1])
+    array.push(keyBotA, low[1])
+// Keep only the most recent KEY_MAX zones.
+if array.size(keyTopA) > KEY_MAX
+    while array.size(keyTopA) > KEY_MAX
+        array.shift(keyTopA)
+        array.shift(keyBotA)
+
+// True when `px` (± tol) overlaps any stored key-level zone.
+f_nearKey(float px, float tol) =>
+    bool hit = false
+    int n = array.size(keyTopA)
+    if n > 0
+        for i = 0 to n - 1
+            if px + tol >= array.get(keyBotA, i) and px - tol <= array.get(keyTopA, i)
+                hit := true
+                break
+    hit
+
+// ============================================================================
+// 4. SESSION ENGINE — Contrarian + Flip + Retest override
+//
+// *** FROZEN DEFINITION — 2026-08-23 ***
+// The FLIP+RETEST detection rules below are frozen for forward validation.
+// Do NOT modify the detection logic in this section until enough sessions
+// have been collected under THIS exact definition to judge it. Prior
+// iterations changed the flip/retest rules faster than they could be
+// validated — the 20-day screenshot review spanned multiple incompatible
+// engine versions, which made the mechanism impossible to evaluate.
+// Risk-management and filter changes outside this section are fine.
+// ============================================================================
+//
+// process_session() owns everything for one session (opening line, vertical
+// markers, halfway line, the signal itself) and returns:
+//   [signal, sessOpen, sessRange, sessStart, sessEnd, inSession, tag, keyOk]
+//
+// `tag` is "" for a plain Contrarian signal or "FLIP+RETEST" when the full
+// two-stage sequence fired. `keyOk` is true when that retest rejected off a
+// session open sitting inside a recent FVG/OB key-level zone — extra
+// confluence that feeds the confidence score. Every signal only fires on a
+// confirmed bar and only ever reads that bar and earlier — non-repainting.
+// ----------------------------------------------------------------------------
+
+process_session(string sess, string tz_id) =>
+    inSession    = not na(time(timeframe.period, sess, tz_id))
+    sessionStart = inSession and not inSession[1]
+    sessionEnd   = not inSession and inSession[1]
+
+    var float sessOpen     = na
+    var float sessHigh     = na
+    var float sessLow      = na
+    var line  openLine     = na
+    var int   sessStartT   = na      // session start timestamp (ms)
+    var bool  halfDrawn    = false   // halfway vertical line drawn yet?
+    var int   initSide     = 0       // side of the open price traded first
+    var int   firstCrossT  = na      // timestamp of the FIRST cross to the other side
+    var bool  sessFired    = false   // signal already fired this session?
+
+    int    signal = 0
+    string tag    = ""
+    bool   keyOk  = false
+
+    if sessionStart
+        sessOpen    := open
+        sessHigh    := high
+        sessLow     := low
+        sessStartT  := time
+        halfDrawn   := false
+        firstCrossT := na
+        sessFired   := false
+        initSide    := close > open ? 1 : close < open ? -1 : 0
+        if showOpenLine
+            openLine := line.new(bar_index, open, bar_index, open,
+                 color = neutralColor, width = 2)
+        if showMarkers
+            line.new(bar_index, low - atr, bar_index, high + atr,
+                 extend = extend.both, color = color.new(neutralColor, 60),
+                 style = line.style_dashed)
+
+    if inSession
+        sessHigh := math.max(nz(sessHigh, high), high)
+        sessLow  := math.min(nz(sessLow,  low),  low)
+        if not na(openLine)
+            line.set_x2(openLine, bar_index)
+
+        inSecondHalf = not na(sessStartT) and time >= sessStartT + sessionHalfMinutes * 60000
+
+        // --- Halfway vertical line ------------------------------------------
+        if showHalfLine and not halfDrawn and inSecondHalf
+            line.new(bar_index, low - atr, bar_index, high + atr,
+                 extend = extend.both, color = color.new(neutralColor, 75),
+                 style = line.style_dotted)
+            halfDrawn := true
+
+        // --- FIRST HALF: track the flip through the session open ------------
+        // initSide is the side price traded on first; the first later bar
+        // that CLOSES on the opposite side records the crossing timestamp.
+        barSide = close > sessOpen ? 1 : close < sessOpen ? -1 : 0
+        if initSide == 0 and barSide != 0
+            initSide := barSide
+        else if initSide != 0 and barSide != 0 and barSide != initSide and na(firstCrossT)
+            firstCrossT := time
+
+        // --- SECOND HALF: look for the retest that CONFIRMS the flip --------
+        // Only armed when a flip already happened in the FIRST half. The
+        // retest = price pulls back to the session open — touching it
+        // exactly, or coming within `retestTolPips` of it — and the candle
+        // REJECTS the level, closing back on the flipped side. That
+        // rejection candle's own close fires the combined FLIP+RETEST
+        // signal immediately, in the flipped direction. Non-repainting: it
+        // reads only the confirmed bar it fires on.
+        flipEarly   = not na(firstCrossT) and not na(sessStartT) and
+             firstCrossT < sessStartT + sessionHalfMinutes * 60000
+        flippedSide = -initSide
+        if not sessFired and flipEarly and inSecondHalf
+            tol = retestTolPips * effPipSize
+            bullRetest = flippedSide == 1  and low  <= sessOpen + tol and close > sessOpen
+            bearRetest = flippedSide == -1 and high >= sessOpen - tol and close < sessOpen
+            if bullRetest or bearRetest
+                signal    := flippedSide
+                tag       := "FLIP+RETEST"
+                // Key-level confluence: is the session open (the level just
+                // rejected) sitting inside a recently formed FVG / Order
+                // Block zone? If so this rejection is off a level that
+                // matters twice over — fed into the confidence score.
+                keyOk     := f_nearKey(sessOpen, tol)
+                sessFired := true
+                if not na(openLine)
+                    line.set_color(openLine, signal == 1 ? buyColor : sellColor)
+
+    if sessionEnd
+        if showMarkers
+            line.new(bar_index, low - atr, bar_index, high + atr,
+                 extend = extend.both, color = color.new(neutralColor, 60),
+                 style = line.style_dashed)
+        // Contrarian — the default for every session where the full
+        // FLIP+RETEST sequence did not complete. This is the original,
+        // untouched rule: closed below open → BUY, above → SELL.
+        if not sessFired
+            sessClose  = close[1]
+            closedDown = sessClose < sessOpen
+            closedUp   = sessClose > sessOpen
+            signal := closedDown ? 1 : closedUp ? -1 : 0
+            tag    := ""
+            if not na(openLine)
+                line.set_color(openLine, signal == 1 ? buyColor : signal == -1 ? sellColor : neutralColor)
+
+    sessRange = nz(sessHigh) - nz(sessLow)
+    [signal, sessOpen, sessRange, sessionStart, sessionEnd, inSession, tag, keyOk]
+
+[sig1, open1, range1, start1, end1, in1, tag1, key1] = process_session(session1, tz)
+[sig2, open2, range2, start2, end2, in2, tag2, key2] = process_session(session2, tz)
+[sig3, open3, range3, start3, end3, in3, tag3, key3] = process_session(session3, tz)
+[sig4, open4, range4, start4, end4, in4, tag4, key4] = process_session(session4, tz)
+
+anySessionStart = start1 or start2 or start3 or start4
+
+// Session background: tints the pane while each session is active.
+bgcolor(showSessBg and in1 ? color.new(sess1Color, 92) :
+     showSessBg and in2 ? color.new(sess2Color, 92) :
+     showSessBg and in3 ? color.new(sess3Color, 92) :
+     showSessBg and in4 ? color.new(sess4Color, 92) : na)
+
+// Which session fired this bar (0-based index; -1 = none)
+rawSignal  = sig1 != 0 ? sig1 : sig2 != 0 ? sig2 : sig3 != 0 ? sig3 : sig4 != 0 ? sig4 : 0
+firedIdx   = sig1 != 0 ? 0    : sig2 != 0 ? 1    : sig3 != 0 ? 2    : sig4 != 0 ? 3    : -1
+firedRange = firedIdx == 0 ? range1 : firedIdx == 1 ? range2 : firedIdx == 2 ? range3 : firedIdx == 3 ? range4 : na
+firedTag   = firedIdx == 0 ? tag1   : firedIdx == 1 ? tag2   : firedIdx == 2 ? tag3   : firedIdx == 3 ? tag4   : ""
+firedKey   = firedIdx == 0 ? key1   : firedIdx == 1 ? key2   : firedIdx == 2 ? key3   : firedIdx == 3 ? key4   : false
+firedOpen  = firedIdx == 0 ? open1  : firedIdx == 1 ? open2  : firedIdx == 2 ? open3  : firedIdx == 3 ? open4  : na
+
+// ============================================================================
+// 4b. ULTIMATE SIGNAL OF THE DAY
+//
+// *** FROZEN DEFINITION — 2026-08-29 (latest sweep wins, 02:55 deadline) ***
+// Detection, hierarchy, gate, and timing rules frozen for forward validation.
+// Do not retune until the per-source Data Window stats have accumulated
+// enough forward sessions to judge them.
+// ============================================================================
+//
+// One signal per trading day, displayed at the 03:00 window close. TWO sets
+// of levels are watched during the observation window (00:00-02:55 by
+// default, in the script's own timezone):
+//
+//     A. Yesterday's Ultimate High / Low   (the whole previous day's range)
+//     B. The pre-00:00 fallback range      (yesterday 20:00-00:00 by default)
+//
+// The LATEST qualifying sweep inside the window decides the direction: High
+// swept last -> SELL, Low swept last -> BUY. When price sweeps one side and
+// later sweeps the other, the first move was the trap and the second one
+// sets the direction - the final sweep, not the first, is what the signal
+// follows. Both level pairs are frozen at the day roll and are never
+// extended by bars made after 00:00.
+//
+//   00:00          day roll: freeze both level pairs, clear per-day state
+//   00:00 -> 02:55 record every qualifying sweep; each one overwrites the
+//                  last, so the record always holds the LATEST sweep
+//   02:55/03:00    resolve the latest sweep, apply the gates, display the
+//                  signal, lock the day
+//
+// Nothing is drawn while the window is open: the sweeps decide, the window
+// close displays. Non-repainting: every state change is gated on
+// barstate.isconfirmed and the decision only ever reads bars inside the
+// observation window.
+// ----------------------------------------------------------------------------
+
+// --- Trading day + observation window, both in the script's timezone ---------
+ultTzDay  = dayofmonth(time, tz)
+ultNewDay = bar_index > 0 and not na(ultTzDay) and not na(ultTzDay[1]) and ultTzDay != ultTzDay[1]
+
+inUltObs  = not na(time(timeframe.period, ultObsSession, tz))
+ultObsEnd = not inUltObs and inUltObs[1]      // the window-close bar (03:00)
+
+// --- Late-session range (yesterday 20:00-00:00 by default) -------------------
+// Running high/low of the last ultFbWinMin minutes of the CURRENT day. It is
+// read (and frozen) at the next day roll, so what gets used is always the
+// late-session structure of the day that just ended - never anything built
+// during the observation window itself.
+ultMinOfDay   = hour(time, tz) * 60 + minute(time, tz)
+inUltFbWin    = ultMinOfDay >= 1440 - ultFbWinMin
+ultFbWinStart = inUltFbWin and not inUltFbWin[1]
+useClockRange = ultFbMode != "Last Swing Pivots"
+
+var float ultPreHi  = na
+var float ultPreLo  = na
+var float ultPreOpen = na   // the window's 20:00 opening price
+var int   ultPreDay = na
+
+// Range source per bar: candle bodies by default (wicks ignored)
+ultBodyHi = ultBodyRange ? math.max(open, close) : high
+ultBodyLo = ultBodyRange ? math.min(open, close) : low
+
+if inUltFbWin
+    if na(ultPreDay) or ultPreDay != ultTzDay
+        ultPreHi  := ultBodyHi
+        ultPreLo  := ultBodyLo
+        ultPreOpen := open
+        ultPreDay := ultTzDay
+    else
+        ultPreHi := math.max(nz(ultPreHi, ultBodyHi), ultBodyHi)
+        ultPreLo := math.min(nz(ultPreLo, ultBodyLo), ultBodyLo)
+
+// --- Trend-tag span (yesterday 20:00 through the observation-window close) ----
+var float ultTrHi       = na
+var float ultTrLo       = na
+var int   ultTrStartBar = na
+if inUltFbWin or inUltObs
+    if ultFbWinStart
+        ultTrHi       := high
+        ultTrLo       := low
+        ultTrStartBar := bar_index
+    else
+        ultTrHi := math.max(nz(ultTrHi, high), high)
+        ultTrLo := math.min(nz(ultTrLo, low), low)
+
+// --- Per-day state ------------------------------------------------------------
+var float  ultDayHigh   = na   // today's running extremes -> tomorrow's levels
+var float  ultDayLow    = na
+var float  ultDayOpen   = na   // today's 00:00 open (contrarian fallback anchor)
+var float  ultRefHi     = na   // yesterday's Ultimate High - frozen at the roll
+var float  ultRefLo     = na   // yesterday's Ultimate Low  - frozen at the roll
+var float  ultFbHi      = na   // late-session high         - frozen at the roll
+var float  ultFbLo      = na   // late-session low          - frozen at the roll
+var int    ultDir       = 0    // published direction for the day
+var bool   ultFired     = false
+var string ultSource    = "—"
+// Latest-sweep record across BOTH level pairs (each new sweep overwrites)
+var int    ultLastDir   = 0    // direction of the latest qualifying sweep
+var int    ultLastSrc   = 0    // 1 = fallback range, 2 = yesterday's H/L
+var float  ultLastLvl   = na   // the level that sweep took
+// Published-signal record (feeds the cancel watch and the structure stop)
+var int    ultPubDir    = 0
+var float  ultPubLvl    = na
+var bool   ultCancelled = false
+// Pending display: committed at the window close, shown after the delay
+var int    ultPendDir   = 0
+var string ultPendSrc   = "—"
+var int    ultShowT     = na   // show on the first bar closing at/after this
+var bool   ultShown     = false
+// Survivor-signal state (rung 3)
+var int    ultPrevDir   = 0    // prior trading day: 00:00 open vs last close
+var bool   ultPreInval  = false // invalidated before the checkpoint
+var int    ultLastHr    = na   // SAST hour of the latest qualifying sweep
+var int    r3FltSkip    = 0    // days skipped by the four filters
+var int    r3Supp       = 0    // days suppressed by the survivor check
+var array<float> r3TchHi    = array.new<float>(7, na)   // per-hour extremes 20:00-03:00
+var array<float> r3TchLo    = array.new<float>(7, na)
+var array<float> r3PenHi    = array.new<float>(3, 0.0)  // per-obs-hour max penetration
+var array<float> r3PenLo    = array.new<float>(3, 0.0)
+var array<float> r3NzH0 = array.new<float>()            // 14-day noise history
+var array<float> r3NzH1 = array.new<float>()
+var array<float> r3NzH2 = array.new<float>()
+var array<float> r3NzL0 = array.new<float>()
+var array<float> r3NzL1 = array.new<float>()
+var array<float> r3NzL2 = array.new<float>()
+
+if ultNewDay
+    // Prior trading day's direction, captured before the reset wipes ultDayOpen
+    if not na(ultDayOpen)
+        ultPrevDir := close[1] > ultDayOpen ? 1 : close[1] < ultDayOpen ? -1 : 0
+    // Freeze yesterday's Ultimate range BEFORE any bar of the new day is
+    // measured against it, so today's action can never rewrite it.
+    ultRefHi := ultLevelSrc == "Exchange Daily (D)" ? pdh : ultDayHigh
+    ultRefLo := ultLevelSrc == "Exchange Daily (D)" ? pdl : ultDayLow
+    // Freeze the late-session range: the closing-period structure of the day
+    // that just ended (ultTzDay[1]), or the most recent confirmed swing pivots.
+    if useClockRange
+        ultFbHi := (not na(ultPreDay) and ultPreDay == ultTzDay[1]) ? ultPreHi : na
+        ultFbLo := (not na(ultPreDay) and ultPreDay == ultTzDay[1]) ? ultPreLo : na
+    else
+        ultFbHi := lastPH
+        ultFbLo := lastPL
+    // Full daily reset
+    ultDayHigh   := high
+    ultDayLow    := low
+    ultDayOpen   := open
+    ultDir       := 0
+    ultFired     := false
+    ultSource    := "—"
+    ultLastDir   := 0
+    ultLastSrc   := 0
+    ultLastLvl   := na
+    ultPubDir    := 0
+    ultPubLvl    := na
+    ultCancelled := false
+    ultPendDir   := 0
+    ultPendSrc   := "—"
+    ultShowT     := na
+    ultShown     := false
+    ultPreInval  := false
+    ultLastHr    := na
+    array.fill(r3PenHi, 0.0)
+    array.fill(r3PenLo, 0.0)
+else
+    ultDayHigh := math.max(nz(ultDayHigh, high), high)
+    ultDayLow  := math.min(nz(ultDayLow,  low),  low)
+
+// --- Survivor-signal feature tracking (rung 3) --------------------------------
+if ultFbWinStart
+    array.fill(r3TchHi, na)
+    array.fill(r3TchLo, na)
+if r3On and (inUltFbWin or inUltObs) and barstate.isconfirmed
+    int tb = hour(time, tz)
+    int ti = tb >= 20 ? tb - 20 : tb + 4
+    if ti >= 0 and ti < 7
+        array.set(r3TchHi, ti, math.max(nz(array.get(r3TchHi, ti), high), high))
+        array.set(r3TchLo, ti, math.min(nz(array.get(r3TchLo, ti), low),  low))
+if r3On and inUltObs and barstate.isconfirmed and not na(ultFbHi) and not na(ultFbLo)
+    int pb = hour(time, tz)
+    if pb >= 0 and pb <= 2
+        array.set(r3PenHi, pb, math.max(array.get(r3PenHi, pb), math.max(0.0, high - ultFbHi)))
+        array.set(r3PenLo, pb, math.max(array.get(r3PenLo, pb), math.max(0.0, ultFbLo - low)))
+
+// --- Sweep helpers (one definition, used for ALL FOUR levels) ----------------
+// A bare touch never qualifies: penetration must be strictly beyond the level
+// and at least ultMinPenAtr ATRs deep. na levels can never produce a sweep.
+f_ultSweptHi(float lvl) =>
+    pen = not na(lvl) and high > lvl and (high - lvl) >= atr * ultMinPenAtr
+    ultSweepMode == "Wick Penetration"       ? pen :
+         ultSweepMode == "Close Beyond Level" ? (pen and close > lvl) :
+         (pen and close < lvl)
+
+f_ultSweptLo(float lvl) =>
+    pen = not na(lvl) and low < lvl and (lvl - low) >= atr * ultMinPenAtr
+    ultSweepMode == "Wick Penetration"       ? pen :
+         ultSweepMode == "Close Beyond Level" ? (pen and close < lvl) :
+         (pen and close > lvl)
+
+// Resolve ONE level pair on this bar. Returns [dir, lvl]:
+//   dir  1 = BUY (low swept), -1 = SELL (high swept), 0 = nothing swept
+//   lvl  the price of the swept level (na when dir == 0)
+// A single swept level is unambiguous. When both levels of the pair are swept
+// on one bar the intrabar order is unknowable, so the configured tie-break
+// decides - and "No Signal" leaves the bar undecided so a later, cleaner bar
+// can settle it. Deterministic: the same history always resolves the same way.
+f_ultPairDecide(float hiLvl, float loLvl) =>
+    swHi = f_ultSweptHi(hiLvl)
+    swLo = f_ultSweptLo(loLvl)
+    int   dir = 0
+    float lvl = na
+    if swHi and not swLo
+        dir := -1
+        lvl := hiLvl
+    else if swLo and not swHi
+        dir := 1
+        lvl := loLvl
+    else if swHi and swLo
+        if ultTieBreak == "Closer to Bar Open First"
+            // the level nearest the bar's open is the one price reached first
+            dHi = math.abs(hiLvl - open)
+            dLo = math.abs(open - loLvl)
+            dir := dHi <= dLo ? -1 : 1
+            lvl := dHi <= dLo ? hiLvl : loLvl
+        else if ultTieBreak == "Candle Direction"
+            // an up-closing bar is read as down-then-up, so the low went first
+            if close > open
+                dir := 1
+                lvl := loLvl
+            else if close < open
+                dir := -1
+                lvl := hiLvl
+        // "No Signal": leave dir 0 - this bar cannot decide, keep watching
+    [dir, lvl]
+
+// Evaluated unconditionally (cheap, and keeps the calls out of a branch)
+[ultYestBarDir, ultYestBarLvl] = f_ultPairDecide(ultRefHi, ultRefLo)
+[ultFbBarDir,   ultFbBarLvl]   = f_ultPairDecide(ultFbHi,  ultFbLo)
+
+// This bar's single resolution. Yesterday's H/L participate only when
+// enabled; on a same-bar conflict they win (the major liquidity).
+ultYBarDir = ultUseYest ? ultYestBarDir : 0
+ultBarDir = ultYBarDir != 0 ? ultYBarDir : ultFbBarDir
+ultBarSrc = ultYBarDir != 0 ? 2 : ultFbBarDir != 0 ? 1 : 0
+ultBarLvl = ultYBarDir != 0 ? ultYestBarLvl : ultFbBarLvl
+
+ultLateName = useClockRange ? "Late Range" : "Swing H/L"
+
+// Noise-history helpers: 14-day ring of per-hour penetrations, avg needs 10
+f_nzPush(array<float> arr, float v) =>
+    array.push(arr, v)
+    if array.size(arr) > 14
+        array.shift(arr)
+f_nzAvg(array<float> arr) =>
+    array.size(arr) >= 10 ? array.avg(arr) : na
+
+// --- Observation: remember the LATEST qualifying sweep -----------------------
+// Every qualifying sweep overwrites the record, so what survives at the
+// window close is the final sweep of the window - sweep one side and then
+// the other and the SECOND one stands; the first was the trap.
+ultRecNow = useUltimate and inUltObs and not ultFired and ultBarDir != 0
+
+if ultRecNow and barstate.isconfirmed
+    ultLastDir := ultBarDir
+    ultLastSrc := ultBarSrc
+    ultLastLvl := ultBarLvl
+    ultLastHr  := hour(time, tz)
+
+// --- Resolve the latest sweep and display at the window close ----------------
+// The window-close bar is the earliest non-repainting moment the LATEST
+// sweep can be known - publishing on an earlier sweep and revising it later
+// would repaint, which this script never does. The "not ultNewDay" guard
+// matters only
+// when data is missing at the window end: without it, the deferred close bar
+// could land after the day roll and resolve the freshly-reset (empty) state
+// against the NEW day.
+// Gates (both resolve on this same bar, so the display time never slips):
+//   * Bias gate - fallback signals only; Yest H/L is never gated
+//     (counter-trend at extremes is that setup's entire identity).
+//   * No-chase check - if price has already run further than ultChaseAtr
+//     ATRs from the swept level, the signal is skipped, not published late.
+// A gated or skipped day locks with no signal (one decision per day).
+int ultSignal = 0
+
+if useUltimate and ultObsEnd and not ultFired and not ultNewDay and barstate.isconfirmed
+    int   resDir = ultLastDir
+    int   resSrc = ultLastSrc
+    float resLvl = ultLastLvl
+    // No qualifying sweep in the whole window: contrarian read of the window
+    // itself - closed below the day's 00:00 open = BUY, above = SELL. No
+    // swept level exists, so the cancel watch and structure stop stay off.
+    if resDir == 0 and ultAlwaysOn and not na(ultDayOpen) and close != ultDayOpen
+        resDir := close < ultDayOpen ? 1 : -1
+        resSrc := 3
+        resLvl := na
+    if resDir != 0
+        ultFired   := true
+        opposeTrend = resDir == 1 ? trendBear : trendBull
+        opposeMtf   = resDir == 1 ? mtfBear   : mtfBull
+        gateOk  = ultBiasMode == "Off" or resSrc == 2 or
+             (ultBiasMode == "Strict" ? not (opposeTrend or opposeMtf) : not (opposeTrend and opposeMtf))
+        proxOk  = not ultUseChase or na(resLvl) or
+             math.abs(close - resLvl) <= atr * ultChaseAtr
+        // Rung-3 day filters: a failing day locks quietly (nothing drawn)
+        bool r3Ok = true
+        if r3On and gateOk and proxOk
+            if dayofweek(time, tz) == dayofweek.friday and dayofmonth(time, tz) <= 7
+                r3Ok := false
+                ultSource := "Skip (NFP)"
+            if r3Ok and resSrc == 1 and ultPrevDir != 0 and
+                 not ((resDir == 1 and ultPrevDir == -1) or (resDir == -1 and ultPrevDir == 1))
+                r3Ok := false
+                ultSource := "Skip (bias)"
+            if r3Ok and resSrc == 1 and not na(ultLastHr) and ultLastHr >= 0 and ultLastHr <= 2
+                float nzAvg1 = resDir == -1 ?
+                     f_nzAvg(ultLastHr == 0 ? r3NzH0 : ultLastHr == 1 ? r3NzH1 : r3NzH2) :
+                     f_nzAvg(ultLastHr == 0 ? r3NzL0 : ultLastHr == 1 ? r3NzL1 : r3NzL2)
+                float pen1 = resDir == -1 ? array.get(r3PenHi, ultLastHr) :
+                     array.get(r3PenLo, ultLastHr)
+                if not na(nzAvg1) and pen1 <= nzAvg1 * 0.25
+                    r3Ok := false
+                    ultSource := "Skip (noise)"
+            if r3Ok and resSrc == 1 and not na(resLvl) and not na(ultLastHr)
+                int swTi = ultLastHr >= 20 ? ultLastHr - 20 : ultLastHr + 4
+                int tch = 0
+                for cti = 0 to 6
+                    if cti < swTi
+                        float ext = resDir == -1 ? array.get(r3TchHi, cti) : array.get(r3TchLo, cti)
+                        if not na(ext) and math.abs(ext - resLvl) <= atr * 0.5
+                            tch += 1
+                if tch < 2
+                    r3Ok := false
+                    ultSource := "Skip (thin)"
+            if not r3Ok
+                r3FltSkip += 1
+        if gateOk and proxOk and r3Ok
+            ultPendDir := resDir
+            ultPendSrc := resSrc == 1 ? ultLateName : resSrc == 2 ? "Yest H/L" : "No Sweep"
+            ultPubDir  := resDir
+            ultPubLvl  := resLvl
+            ultShowT   := time_close + (r3On ? r3Min : ultDispMin) * 60000
+        else if gateOk and proxOk
+            // rung-3 filter skip: day locks with no signal
+            ultPubDir := 0
+        else
+            // Suppressed by a gate: the day locks quietly (Data Window still
+            // records the reason via ultSource; nothing is drawn on the chart)
+            ultSource := not gateOk ? "Gated (bias)" : "Chased (skip)"
+
+// Noise history: push today's per-hour penetrations AFTER the resolve read
+if r3On and ultObsEnd and barstate.isconfirmed and not na(ultFbHi) and not na(ultFbLo)
+    f_nzPush(r3NzH0, array.get(r3PenHi, 0))
+    f_nzPush(r3NzH1, array.get(r3PenHi, 1))
+    f_nzPush(r3NzH2, array.get(r3PenHi, 2))
+    f_nzPush(r3NzL0, array.get(r3PenLo, 0))
+    f_nzPush(r3NzL1, array.get(r3PenLo, 1))
+    f_nzPush(r3NzL2, array.get(r3PenLo, 2))
+
+// Survivor watch: a close 0.5 ATR back through the swept level before the
+// checkpoint invalidates the committed signal - the day then stays quiet
+if r3On and useUltimate and ultPendDir != 0 and not ultShown and not ultPreInval and
+     not na(ultPubLvl) and barstate.isconfirmed
+    ultPreInval := ultPendDir == -1 ? close > ultPubLvl + atr * ultInvalAtr :
+         close < ultPubLvl - atr * ultInvalAtr
+
+// Display at the checkpoint: only the proven signal shows (survivor), or the
+// committed signal after the plain display delay when rung 3 is off.
+if useUltimate and ultPendDir != 0 and not ultShown and not ultCancelled and
+     not na(ultShowT) and time_close >= ultShowT and barstate.isconfirmed
+    if r3On and ultPreInval
+        ultShown  := true
+        ultDir    := 0
+        ultPubDir := 0
+        ultSource := "Suppressed"
+        r3Supp    += 1
+    else
+        ultShown  := true
+        ultDir    := ultPendDir
+        ultSource := ultPendSrc
+        ultSignal := ultPendDir
+
+ultBuy  = ultSignal ==  1
+ultSell = ultSignal == -1
+
+// --- Reclaim-failure invalidation ---------------------------------------------
+// A SELL exists because a high was swept and rejected; if price then CLOSES
+// above that high by ultInvalAtr ATRs, the rejection failed and the signal is
+// void: it is marked CANCELLED once, with an alert, and (when trading) its
+// live position is closed by section 6. Never fires twice.
+ultInvalHit = useUltimate and ultUseInval and not ultCancelled and ultShown and
+     ultPubDir != 0 and not na(ultPubLvl) and barstate.isconfirmed and
+     (ultPubDir == -1 ? close > ultPubLvl + atr * ultInvalAtr :
+                        close < ultPubLvl - atr * ultInvalAtr)
+
+if ultInvalHit
+    ultCancelled := true
+    ultDir    := 0
+    ultSource := "Cancelled"
+    if ultShown
+        alert("ULTIMATE CANCELLED | " + syminfo.ticker + " | reclaim failed at " +
+             str.tostring(ultPubLvl, format.mintick), alert.freq_once_per_bar_close)
+
+// --- 20:00-03:00 trend tag ----------------------------------------------------
+// The span's dominating trend, stamped under the middle of the box the moment
+// the observation window closes: its 03:00 close vs its 20:00 open, FLAT when
+// the net move is under 15% of the span's high-low range.
+if ultShowTrendTag and useClockRange and ultObsEnd and barstate.isconfirmed and
+     not na(ultPreOpen) and not na(ultTrHi) and not na(ultTrLo) and not na(ultTrStartBar)
+    trNet = close[1] - ultPreOpen
+    tDir = trNet >= 0 ? 1 : -1
+    tCol = tDir == 1 ? buyColor : sellColor
+    trY  = na(ultFbLo) ? ultTrLo : math.min(ultFbLo, ultTrLo)
+    label.new(int((ultTrStartBar + bar_index) / 2), trY,
+         tDir == 1 ? "TREND: BULLISH ▲" : "TREND: BEARISH ▼",
+         style = label.style_label_up, color = color.new(tCol, 80),
+         textcolor = color.new(tCol, 0), size = size.tiny)
+    ultTrStartBar := na
+
+// --- 20:00-00:00 range box ----------------------------------------------------
+// Built live through the late-session period, then left in place. Optionally
+// stretched across the observation window so the sweep is visible against the
+// range it has to take.
+var box ultBox = na
+
+if useUltimate and ultShowBox and useClockRange
+    if ultFbWinStart
+        ultBox := box.new(bar_index, ultBodyHi, bar_index, ultBodyLo,
+             border_color = color.new(neutralColor, 25),
+             bgcolor      = color.new(neutralColor, 88),
+             text = "20:00–00:00", text_color = color.new(neutralColor, 15),
+             text_size = size.tiny, text_halign = text.align_left,
+             text_valign = text.align_top)
+    if not na(ultBox)
+        if inUltFbWin
+            box.set_right(ultBox, bar_index)
+            box.set_top(ultBox, nz(ultPreHi, ultBodyHi))
+            box.set_bottom(ultBox, nz(ultPreLo, ultBodyLo))
+        else if ultExtendBox and inUltObs
+            box.set_right(ultBox, bar_index)
+
+// --- Levels & window on the chart ---------------------------------------------
+plot(useUltimate and ultShowYestLines ? ultRefHi : na, "Ultimate High (Yesterday)",
+     color = color.new(sellColor, 20), style = plot.style_linebr, linewidth = 2)
+plot(useUltimate and ultShowYestLines ? ultRefLo : na, "Ultimate Low (Yesterday)",
+     color = color.new(buyColor, 20),  style = plot.style_linebr, linewidth = 2)
+// Swing-pivot mode has no period to box, so it falls back to lines
+plot(useUltimate and ultShowBox and not useClockRange ? ultFbHi : na, "Swing High (Late)",
+     color = color.new(sellColor, 40), style = plot.style_linebr, linewidth = 1)
+plot(useUltimate and ultShowBox and not useClockRange ? ultFbLo : na, "Swing Low (Late)",
+     color = color.new(buyColor, 40),  style = plot.style_linebr, linewidth = 1)
+
+bgcolor(useUltimate and ultShowWindowBg and inUltObs ? color.new(neutralColor, 93) : na,
+     title = "Ultimate Observation Window")
+
+// --- Signal markers -----------------------------------------------------------
+f_ultLabelSize() =>
+    switch ultLabelSize
+        "Tiny"   => size.tiny
+        "Small"  => size.small
+        "Normal" => size.normal
+        => size.large
+
+plotshape(ultBuy,  "ULTIMATE BUY",  style = shape.triangleup,   location = location.belowbar,
+     color = buyColor,  size = size.small)
+plotshape(ultSell, "ULTIMATE SELL", style = shape.triangledown, location = location.abovebar,
+     color = sellColor, size = size.small)
+
+if ultShowLabels and ultBuy
+    label.new(bar_index, low - atr * 0.5, "ULTIMATE BUY\n" + ultSource,
+         style = label.style_label_up, color = buyColor,
+         textcolor = color.white, size = f_ultLabelSize())
+if ultShowLabels and ultSell
+    label.new(bar_index, high + atr * 0.5, "ULTIMATE SELL\n" + ultSource,
+         style = label.style_label_down, color = sellColor,
+         textcolor = color.white, size = f_ultLabelSize())
+
+// Verification aid: EVERY qualifying sweep recorded inside the window, as it
+// happens. These are not signals - the LAST mark before the label is the one
+// that decided the day, which makes a sweep-both-sides day easy to read.
+ultMarkDir = ultRecNow ? ultBarDir : 0
+ultSweepNow = ultShowSweepMarks and ultMarkDir != 0
+
+plotshape(ultSweepNow and ultMarkDir == -1, "Sweep (high)",
+     style = shape.xcross, location = location.abovebar,
+     color = color.new(sellColor, 25), size = size.tiny)
+plotshape(ultSweepNow and ultMarkDir ==  1, "Sweep (low)",
+     style = shape.xcross, location = location.belowbar,
+     color = color.new(buyColor, 25),  size = size.tiny)
+
+// Diagnostics (Data Window only): what the engine has recorded today.
+// 1 = BUY side swept first, -1 = SELL side, 0 = nothing recorded yet.
+plot(ultLastDir,        "ULT Latest-Sweep Dir",     display = display.data_window)
+plot(ultLastSrc,        "ULT Latest-Sweep Src",     display = display.data_window)
+plot(ultFired ? 1 : 0,  "ULT Resolved Today",       display = display.data_window)
+plot(r3FltSkip, "R3 Filter Skips",      display = display.data_window)
+plot(r3Supp,    "R3 Suppressed (inval)", display = display.data_window)
+
+// ============================================================================
+// 5. CONFIDENCE SCORING & FINAL SIGNAL  (session signals only)
+// ============================================================================
+//
+// Weights (sum = 100):
+//   Session signal (base) ............ 30
+//   EMA trend alignment .............. 15
+//   HTF (MTF) alignment .............. 15
+//   ATR range filter passed .......... 15
+//   Volume confirmation .............. 10
+//   Key-level confluence (FVG/OB) .... 15
+// ----------------------------------------------------------------------------
+
+f_confidence(int dir, float sessRange, bool keyOk) =>
+    float score = 0.0
+    if dir != 0
+        score += 30
+        // Trend
+        if not useEmaFilter or (dir == 1 and trendBull) or (dir == -1 and trendBear)
+            score += 15
+        // MTF
+        if not useMtf or (dir == 1 and mtfBull) or (dir == -1 and mtfBear)
+            score += 15
+        // Volatility
+        if not useAtrFilter or (not na(sessRange) and sessRange >= atr * atrMinMult)
+            score += 15
+        // Volume
+        if volOk
+            score += 10
+        // Key-level confluence — the FLIP+RETEST rejection happened off a
+        // session open sitting inside a recent FVG / Order Block zone.
+        if keyOk
+            score += 15
+    score
+
+confidence = f_confidence(rawSignal, firedRange, firedKey)
+
+// Optional hard filters — only applied when Filter Mode = "Hard Filters".
+// In "Confidence Only" mode these conditions still shape the confidence score
+// (section above) but never veto a trade on their own.
+trendOk = not useEmaFilter or rawSignal == 0 or
+     (rawSignal == 1 and trendBull) or (rawSignal == -1 and trendBear)
+atrOk   = not useAtrFilter or rawSignal == 0 or
+     (not na(firedRange) and firedRange >= atr * atrMinMult)
+mtfOk   = not useMtf or rawSignal == 0 or
+     (rawSignal == 1 and mtfBull) or (rawSignal == -1 and mtfBear)
+
+hardOk = filterMode == "Hard Filters" ? (trendOk and atrOk and mtfOk and volOk) : true
+
+sideOk = rawSignal == 1 ? allowLongs : rawSignal == -1 ? allowShorts : false
+
+finalSignal = rawSignal != 0 and sideOk and hardOk and
+     confidence >= minConfidence and barstate.isconfirmed ? rawSignal : 0
+
+// --- Repeat-loser de-duplication ---------------------------------------------
+// If the most recent closed trade was in the same direction, lost, and closed
+// within `dedupeBars`, skip this signal instead of re-entering the same losing
+// bet — the recurring case being session 4 repeating session 3's just-stopped
+// fade an hour later. Reads the strategy's own closed-trade history, so it
+// also covers a same-direction loss stopped out mid-session.
+if useDedupe and finalSignal != 0 and strategy.closedtrades > 0
+    lastIdx     = strategy.closedtrades - 1
+    lastDir     = strategy.closedtrades.size(lastIdx) > 0 ? 1 : -1
+    lastPnl     = strategy.closedtrades.profit(lastIdx)
+    lastExitBar = strategy.closedtrades.exit_bar_index(lastIdx)
+    if finalSignal == lastDir and lastPnl < 0 and bar_index - lastExitBar <= dedupeBars
+        finalSignal := 0
+
+// --- Two-stage session signals: decide in the hour, confirm 15 min after -----
+// The frozen engine decides the direction (contrarian at session end, or
+// FLIP+RETEST mid-session). The signal is then ARMED, its reference becomes
+// the session's true closing price, and it only SHOWS sessConfMin minutes
+// after the session ends - and only if price has moved in the signal's
+// direction versus that session close. Otherwise it is dropped.
+var int    sPendDir  = 0
+var bool   sPendTradable = false   // passed confidence/filters/dedupe at fire time
+var string sPendTag  = ""
+var float  sPendConf = na
+var float  sPendOpen = na
+var int    sPendIdx  = -1
+var float  sPendRef  = na
+var int    sPendT    = na
+var int    sConfFail = 0
+
+anySessionEnd = end1 or end2 or end3 or end4
+
+if rawSignal != 0 and barstate.isconfirmed
+    sPendDir  := rawSignal
+    sPendTradable := finalSignal != 0
+    sPendTag  := firedTag
+    sPendConf := confidence
+    sPendOpen := firedOpen
+    sPendIdx  := firedIdx
+    sPendRef  := na
+    sPendT    := na
+
+if anySessionEnd and sPendDir != 0 and na(sPendT)
+    sPendRef := close[1]
+    sPendT   := time + sessConfMin * 60000
+
+int sessSignal = 0
+bool sessConfOk = false
+if sPendDir != 0 and not na(sPendT) and time >= sPendT and barstate.isconfirmed
+    confOk = sPendDir == 1 ? close > sPendRef : close < sPendRef
+    sessConfOk := confOk
+    if confOk or sessConfirmMode == "Tag Only"
+        sessSignal := sPendDir
+    if not confOk
+        sConfFail += 1
+    sPendDir := 0
+    sPendT   := na
+
+plot(sConfFail, "Session Confirm Fails", display = display.data_window)
+
+// ============================================================================
+// 6. STRATEGY EXECUTION & RISK MANAGEMENT  (both engines)
+// ============================================================================
+//
+// Configurable SL/TP. Entry is always taken at the price of the current
+// (confirmed) signal bar — whichever mechanism fired it — so the SL/TP
+// distances are measured from that exact entry point. TP can be fixed-pip or
+// structure-based (targeting the firing session's OPEN); Ultimate entries
+// always use the fixed TP (no session open to revert to) and may override
+// the fixed SL with the structure stop at the swept level.
+// ----------------------------------------------------------------------------
+
+var float slPrice = na
+var float tpPrice = na
+
+// Entry / SL / TP level plots — native plot() series (always rendered, always
+// included in price-scale autofit, unlike line.new()/label.new() drawings).
+// Each series holds the live trade's level and goes na the instant the
+// position is flat, so with plot.style_linebr every past trade leaves its
+// own permanent horizontal segment in the chart's history.
+var float curEntryPx = na
+var float curSlPx    = na
+var float curTpPx    = na
+
+// The open position came from the Ultimate signal (drives the structure stop,
+// trail, session-flatten exemption, and cancel-close below).
+var bool ultTradeOpen = false
+
+// TP distance for this entry: fixed pips, or the distance to the firing
+// session's open (+ buffer) in Structure mode — capped at the fixed TP,
+// falling back to the fixed TP when the open is closer than `tpMinPips`
+// (an override entry fills right at the open, so structure mode naturally
+// doesn't apply there; an Ultimate entry passes na and gets the fixed TP).
+f_tpDistance(int dir, float entry, float sessOpenPx) =>
+    float dist = tpPips * effPipSize
+    if tpMode == "Structure (Session Open)" and dir != 0 and not na(sessOpenPx)
+        structDist = (sessOpenPx - entry) * dir + tpBufferPips * effPipSize
+        if structDist >= tpMinPips * effPipSize
+            dist := math.min(structDist, tpPips * effPipSize)
+    dist
+
+// Ultimate Signal entries (opt-in). A session signal on the same bar takes
+// precedence, and an Ultimate entry only ever fires when flat — it never
+// reverses a live session trade.
+ultLong  = useUltimate and ultTrade and ultBuy  and allowLongs  and
+     sessSignal == 0 and strategy.position_size == 0
+ultShort = useUltimate and ultTrade and ultSell and allowShorts and
+     sessSignal == 0 and strategy.position_size == 0
+
+sessTrades = not oneTradeMode
+goLong     = (sessTrades and sessSignal ==  1 and sPendTradable) or ultLong
+goShort    = (sessTrades and sessSignal == -1 and sPendTradable) or ultShort
+isUltEntry = ultLong or ultShort
+
+// One-trade mode: session signals remain visible as context (no orders)
+if oneTradeMode and showLabels and sessSignal == 1
+    label.new(bar_index, close, "BUY " + (sessConfOk ? "✓" : "✗") +
+         "\nEntry: " + str.tostring(close, format.mintick),
+         style = label.style_label_up, color = color.new(buyColor, sessConfOk ? 35 : 60),
+         textcolor = color.white, size = size.tiny)
+if oneTradeMode and showLabels and sessSignal == -1
+    label.new(bar_index, close, "SELL " + (sessConfOk ? "✓" : "✗") +
+         "\nEntry: " + str.tostring(close, format.mintick),
+         style = label.style_label_down, color = color.new(sellColor, sessConfOk ? 35 : 60),
+         textcolor = color.white, size = size.tiny)
+
+if goLong
+    strategy.entry("Long", strategy.long, comment = isUltEntry ? "L ULT" :
+         "L S" + str.tostring(sPendIdx + 1) + " C" + str.tostring(sPendConf, "#") +
+         (sPendTag != "" ? " " + sPendTag : ""))
+    slPrice := close - slPips * effPipSize
+    tpPrice := close + f_tpDistance(1, close, isUltEntry ? na : sPendOpen)
+    ultTradeOpen := isUltEntry
+    if isUltEntry
+        slPrice := close - atr * ultSlAtr
+        tpPrice := ultTpMode == "ATR Target" ? close + atr * ultTpAtrX : na
+    if isUltEntry and ultStructSl and not na(ultPubLvl) and ultPubLvl < close
+        slPrice := ultPubLvl - atr * ultSlBufAtr
+    curEntryPx := close
+    curSlPx    := slPrice
+    curTpPx    := tpPrice
+    if showLabels and not isUltEntry
+        label.new(bar_index, close, "BUY\nEntry: " + str.tostring(close, format.mintick),
+             style = label.style_label_up, color = buyColor,
+             textcolor = color.white, size = size.tiny)
+    if showTag and not isUltEntry and sPendTag != ""
+        label.new(bar_index, close, sPendTag,
+             style = label.style_label_down, color = color.new(neutralColor, 0),
+             textcolor = color.white, size = size.tiny)
+if goShort
+    strategy.entry("Short", strategy.short, comment = isUltEntry ? "S ULT" :
+         "S S" + str.tostring(sPendIdx + 1) + " C" + str.tostring(sPendConf, "#") +
+         (sPendTag != "" ? " " + sPendTag : ""))
+    slPrice := close + slPips * effPipSize
+    tpPrice := close - f_tpDistance(-1, close, isUltEntry ? na : sPendOpen)
+    ultTradeOpen := isUltEntry
+    if isUltEntry
+        slPrice := close + atr * ultSlAtr
+        tpPrice := ultTpMode == "ATR Target" ? close - atr * ultTpAtrX : na
+    if isUltEntry and ultStructSl and not na(ultPubLvl) and ultPubLvl > close
+        slPrice := ultPubLvl + atr * ultSlBufAtr
+    curEntryPx := close
+    curSlPx    := slPrice
+    curTpPx    := tpPrice
+    if showLabels and not isUltEntry
+        label.new(bar_index, close, "SELL\nEntry: " + str.tostring(close, format.mintick),
+             style = label.style_label_down, color = sellColor,
+             textcolor = color.white, size = size.tiny)
+    if showTag and not isUltEntry and sPendTag != ""
+        label.new(bar_index, close, sPendTag,
+             style = label.style_label_up, color = color.new(neutralColor, 0),
+             textcolor = color.white, size = size.tiny)
+// --- Ultimate trail (tightening only) ----------------------------------------
+if strategy.position_size > 0 and ultUseTrail and ultTradeOpen
+    slPrice := math.max(slPrice, close - atr * ultTrailAtr)
+    curSlPx := slPrice
+if strategy.position_size < 0 and ultUseTrail and ultTradeOpen
+    slPrice := math.min(slPrice, close + atr * ultTrailAtr)
+    curSlPx := slPrice
+
+if useSlTp and strategy.position_size > 0
+    strategy.exit("Long Exit",  from_entry = "Long",  stop = slPrice, limit = tpPrice)
+if useSlTp and strategy.position_size < 0
+    strategy.exit("Short Exit", from_entry = "Short", stop = slPrice, limit = tpPrice)
+
+// Ultimate trades are exempt from the session flatten — their winners trend
+// for many hours and the next session start is not their invalidation.
+if exitOnSess and anySessionStart and strategy.position_size != 0 and not ultTradeOpen
+    strategy.close_all(comment = "Session Start Flat")
+
+// A cancelled Ultimate signal takes its live trade with it.
+if ultCancelled and ultTradeOpen and strategy.position_size != 0
+    strategy.close_all(comment = "ULT Cancelled")
+
+// The rider's "large take profit" is the whole day: flatten at the day roll.
+if ultNewDay and ultTradeOpen and strategy.position_size != 0
+    strategy.close_all(comment = "Day End")
+
+// Attribution reset: once flat with no fresh entry this bar, the next trade
+// starts unattributed.
+if strategy.position_size == 0 and not (goLong or goShort)
+    ultTradeOpen := false
+
+// Once flat, break the plotted segments so each trade's levels render as its
+// own distinct horizontal run rather than connecting into the next trade's.
+if strategy.position_size == 0
+    curEntryPx := na
+    curSlPx    := na
+    curTpPx    := na
+
+plot(showLevels ? curEntryPx : na, title = "Entry Level", style = plot.style_linebr,
+     color = neutralColor, linewidth = 1)
+plot(showLevels ? curSlPx : na,    title = "SL Level",    style = plot.style_linebr,
+     color = sellColor, linewidth = 1)
+plot(showLevels ? curTpPx : na,    title = "TP Level",    style = plot.style_linebr,
+     color = buyColor, linewidth = 1)
+
+// ============================================================================
+// 6b. ULTIMATE PER-SOURCE STATISTICS  (Data Window only)
+// ============================================================================
+//
+// Directional scoring: `evalBars` bars after publication, did price move the
+// signal's way? Split by which level pair decided the day, so "Late Range"
+// and "Yest H/L" are measured as the two separate setups they are. This is
+// the forward-validation instrument for the frozen v4.4 rules.
+// ----------------------------------------------------------------------------
+
+var int   ultLateCnt = 0
+var int   ultLateWin = 0
+var int   ultYestCnt = 0
+var int   ultYestWin = 0
+var int   ultNsCnt   = 0
+var int   ultNsWin   = 0
+var int   uPendDir   = 0
+var int   uPendBar   = na
+var int   uPendSrc   = 0     // 1 = late-range pair, 2 = yesterday's H/L pair
+var float uPendPx    = na
+
+if ultSignal != 0
+    uPendDir := ultSignal
+    uPendPx  := close
+    uPendBar := bar_index
+    uPendSrc := ultSource == "Yest H/L" ? 2 : ultSource == "No Sweep" ? 3 : 1
+    if uPendSrc == 2
+        ultYestCnt += 1
+    else if uPendSrc == 3
+        ultNsCnt += 1
+    else
+        ultLateCnt += 1
+
+if barstate.isconfirmed and uPendDir != 0 and not na(uPendBar) and
+     bar_index - uPendBar >= evalBars
+    if (close - uPendPx) * uPendDir > 0
+        if uPendSrc == 2
+            ultYestWin += 1
+        else if uPendSrc == 3
+            ultNsWin += 1
+        else
+            ultLateWin += 1
+    uPendDir := 0
+    uPendPx  := na
+    uPendBar := na
+    uPendSrc := 0
+
+plot(ultLateCnt, "ULT Late — Signals", display = display.data_window)
+plot(ultLateWin, "ULT Late — Wins",    display = display.data_window)
+plot(f_pct(ultLateWin, ultLateCnt), "ULT Late — Win %", display = display.data_window)
+plot(ultYestCnt, "ULT Yest — Signals", display = display.data_window)
+plot(ultYestWin, "ULT Yest — Wins",    display = display.data_window)
+plot(f_pct(ultYestWin, ultYestCnt), "ULT Yest — Win %", display = display.data_window)
+plot(ultNsCnt, "ULT NoSweep — Signals", display = display.data_window)
+plot(ultNsWin, "ULT NoSweep — Wins",    display = display.data_window)
+plot(f_pct(ultNsWin, ultNsCnt), "ULT NoSweep — Win %", display = display.data_window)
+
+// ============================================================================
+// 7. ALERTS
+// ============================================================================
+
+if sessSignal == 1
+    alert("ORD v3 BUY (confirmed +" + str.tostring(sessConfMin) + "m) | " + syminfo.ticker +
+         " | Session " + str.tostring(sPendIdx + 1) +
+         " | " + (sPendTag != "" ? sPendTag : "Contrarian") +
+         " | Confidence " + str.tostring(sPendConf, "#") + "% | Price " +
+         str.tostring(close, format.mintick), alert.freq_once_per_bar_close)
+if sessSignal == -1
+    alert("ORD v3 SELL (confirmed +" + str.tostring(sessConfMin) + "m) | " + syminfo.ticker +
+         " | Session " + str.tostring(sPendIdx + 1) +
+         " | " + (sPendTag != "" ? sPendTag : "Contrarian") +
+         " | Confidence " + str.tostring(sPendConf, "#") + "% | Price " +
+         str.tostring(close, format.mintick), alert.freq_once_per_bar_close)
+
+// Ultimate Signal alerts fire whether or not the signal is set to trade.
+if ultBuy
+    alert("ULTIMATE BUY | " + syminfo.ticker + " | " + ultSource +
+         (ultSource == "No Sweep" ? " (contrarian window)" : " low swept last") +
+         " | Price " + str.tostring(close, format.mintick),
+         alert.freq_once_per_bar_close)
+if ultSell
+    alert("ULTIMATE SELL | " + syminfo.ticker + " | " + ultSource +
+         (ultSource == "No Sweep" ? " (contrarian window)" : " high swept last") +
+         " | Price " + str.tostring(close, format.mintick),
+         alert.freq_once_per_bar_close)
+
+alertcondition(sessSignal == 1,  "ORD v3 — Buy Signal",  "ORD v3 Buy signal on {{ticker}} at {{close}}")
+alertcondition(sessSignal == -1, "ORD v3 — Sell Signal", "ORD v3 Sell signal on {{ticker}} at {{close}}")
+alertcondition(rawSignal != 0 and finalSignal == 0, "ORD v3 — Signal Skipped",
+     "ORD v3 raw session signal on {{ticker}} was filtered out")
+alertcondition(ultSignal ==  1, "Ultimate Buy",
+     "ULTIMATE BUY published at {{ticker}} {{close}} (delay after sweep elapsed)")
+alertcondition(ultSignal == -1, "Ultimate Sell",
+     "ULTIMATE SELL published at {{ticker}} {{close}} (delay after sweep elapsed)")
+alertcondition(ultSignal != 0,  "Ultimate Signal (any)",
+     "ULTIMATE SIGNAL on {{ticker}} at {{close}}")
