@@ -76,8 +76,13 @@ jobs:
             echo "@reboot $AN/run.sh # charts-analytics-keepalive" ) | crontab -
           echo "== cron installed"
 
+          echo "== import smoke test (surfaces startup crashes)"
+          timeout 60 ./.venv/bin/python -c "import main; print('main imports OK')" 2>&1 | tail -15 || true
+          echo "== last uvicorn log lines"
+          tail -20 uvicorn.log 2>/dev/null || echo "no uvicorn.log yet"
+
           ./run.sh
-          sleep 6
+          sleep 10
           echo "== process: $(pgrep -u "$(id -un)" -f 'uvicorn main:app' | head -1 || echo NOT RUNNING)"
           echo "== local probe:"
           curl -s -o /dev/null -w "docs: %{http_code}\n" http://127.0.0.1:8001/docs || true
