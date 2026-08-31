@@ -41,11 +41,15 @@ jobs:
               'bash -s' <<'SETUP'
           set -euo pipefail
           AN="$DEPLOY_PATH/analytics"
-          PY=/opt/alt/python311/bin/python3.11
-          [ -x "$PY" ] || PY=/opt/alt/python312/bin/python3.12
+          PY=/opt/alt/python312/bin/python3.12
+          [ -x "$PY" ] || PY=/opt/alt/python313/bin/python3.13
           echo "== python: $($PY --version)"
           cd "$AN"
 
+          # pandas-ta's current releases need >=3.12: recreate a stale venv
+          if [ -d .venv ] && ! ./.venv/bin/python --version 2>/dev/null | grep -q "3\.1[23]"; then
+            rm -rf .venv
+          fi
           if [ ! -d .venv ]; then
             "$PY" -m venv .venv
           fi
