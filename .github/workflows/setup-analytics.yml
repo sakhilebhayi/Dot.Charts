@@ -46,6 +46,16 @@ jobs:
           echo "== python: $($PY --version)"
           cd "$AN"
 
+          echo "== prior uvicorn log (crash evidence from earlier attempts)"
+          tail -25 uvicorn.log 2>/dev/null || echo "no uvicorn.log"
+          echo "== limits"
+          ulimit -v; ulimit -u
+          echo "== staged import probe (finds the memory killer)"
+          for mod in fastapi pandas numpy sklearn statsmodels backtrader numba vectorbt main; do
+            r=$(timeout 90 ./.venv/bin/python -X faulthandler -c "import $mod" 2>&1 | tail -2)
+            echo "import $mod -> ${r:-OK}"
+          done || true
+
           # pandas-ta's current releases need >=3.12: recreate a stale venv
           if [ -d .venv ] && ! ./.venv/bin/python --version 2>/dev/null | grep -q "3\.1[23]"; then
             rm -rf .venv
