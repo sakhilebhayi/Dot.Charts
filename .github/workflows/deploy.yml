@@ -1,0 +1,84 @@
+name: Deploy to Production
+
+# Manual-only, mirroring the memory/dopemine pipeline: run from the Actions
+# tab (or `gh workflow run deploy.yml -f confirm=deploy`). Builds the
+# frontend on the runner, updates the repo + Laravel on the server, and
+# refreshes the docroot statics. Requires the DEPLOY_* secrets.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm deploying main to production'
+        required: true
+
+concurrency:
+  group: charts-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy main to charts.infodot.co.za
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Refuse unconfirmed runs
+        if: ${{ github.event.inputs.confirm != 'deploy' }}
+        run: |
+          echo '::error::Confirmation input was not "deploy" -- aborting.'
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build frontend (same-origin API)
+        working-directory: frontend
+        run: |
+          npm install --no-audit --no-fund
+          VITE_API_BASE=/api npx vite build
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Deploy backend
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}" \
+              'bash -s' <<'DEPLOY'
+          set -euo pipefail
+          cd "$DEPLOY_PATH/backend"
+          PHP=php
+          echo "== Current release: $(git -C "$DEPLOY_PATH" rev-parse --short HEAD)"
+          git -C "$DEPLOY_PATH" fetch origin main
+          $PHP artisan down --retry=30 || true
+          git -C "$DEPLOY_PATH" reset --hard origin/main
+          composer install --no-interaction --optimize-autoloader --no-dev
+          $PHP artisan migrate --force
+          $PHP artisan config:cache
+          $PHP artisan route:cache
+          $PHP artisan up
+          echo "== Deployed: $(git -C "$DEPLOY_PATH" rev-parse --short HEAD)"
+          DEPLOY
+
+      - name: Upload built frontend to docroot
+        run: |
+          DOCROOT_PARENT="$(dirname "${{ secrets.DEPLOY_PATH }}")"
+          tar -C frontend/dist -czf frontend.tgz .
+          scp -i ~/.ssh/deploy_key frontend.tgz \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$DOCROOT_PARENT/frontend.tgz"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              "cd '$DOCROOT_PARENT' && tar -xzf frontend.tgz && rm frontend.tgz"
+
+      - name: Verify
+        run: |
+          sleep 3
+          curl -s -o /dev/null -w "/: %{http_code}\n" https://charts.infodot.co.za/
+          curl -s -o /dev/null -w "/api POST backtests: %{http_code}\n" -X POST https://charts.infodot.co.za/api/backtests

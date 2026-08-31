@@ -1,7 +1,7 @@
 import { getToken, clearToken, isLoggedIn } from './auth.js';
 import { renderBacktestResult } from './results-renderer.js';
 
-const API_BASE = 'http://localhost:8000/api';
+import { API_BASE } from './api-base.js';
 
 const authStateEl = document.getElementById('authState');
 if (isLoggedIn()) {

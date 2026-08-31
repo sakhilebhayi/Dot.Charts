@@ -1,0 +1,138 @@
+name: Bootstrap Production
+
+# One-time first deployment of Dot.Charts to charts.infodot.co.za,
+# mirroring the memory/dopemine layout adapted for the monorepo: docroot is
+# ~/charts.infodot.co.za, the repo lives at <docroot>/charts, the Laravel app
+# at <docroot>/charts/backend, and the docroot holds the BUILT frontend
+# statics plus an index.php shim + .htaccess that route everything else
+# (including /api/*) into Laravel. SQLite on purpose. The pre-existing
+# static-clone files are backed up to ~/charts-static-clone-backup, never
+# deleted. Safe to re-run: every step is idempotent.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "bootstrap" to confirm first-time production setup'
+        required: true
+
+concurrency:
+  group: charts-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Bootstrap charts.infodot.co.za
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Refuse unconfirmed runs
+        if: ${{ github.event.inputs.confirm != 'bootstrap' }}
+        run: |
+          echo '::error::Confirmation input was not "bootstrap" -- aborting.'
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build frontend (same-origin API)
+        working-directory: frontend
+        run: |
+          npm install --no-audit --no-fund
+          VITE_API_BASE=/api npx vite build
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Bootstrap server
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}" \
+              'bash -s' <<'BOOTSTRAP'
+          set -euo pipefail
+          APP="$DEPLOY_PATH"                    # <docroot>/charts (the repo)
+          DOCROOT="$(dirname "$APP")"
+          BACKEND="$APP/backend"
+          PHP=php
+
+          echo "== PHP: $($PHP -v | head -1)"
+
+          mkdir -p "$DOCROOT"
+
+          # Preserve the old static clone, once.
+          if [ ! -d "$HOME/charts-static-clone-backup" ] && [ -e "$DOCROOT/index.html" ] && [ ! -d "$APP" ]; then
+            mkdir -p "$HOME/charts-static-clone-backup"
+            find "$DOCROOT" -mindepth 1 -maxdepth 1 -exec mv {} "$HOME/charts-static-clone-backup/" \;
+            echo "== static clone backed up"
+          fi
+
+          if [ ! -d "$APP/.git" ]; then
+            git clone https://github.com/sakhilebhayi/Dot.Charts.git "$APP"
+          else
+            git -C "$APP" fetch origin main
+            git -C "$APP" reset --hard origin/main
+          fi
+
+          cd "$BACKEND"
+          composer install --no-interaction --optimize-autoloader --no-dev
+
+          if [ ! -f .env ]; then
+            cp .env.example .env
+            $PHP artisan key:generate --force
+          fi
+          # Idempotent env pinning
+          set_env() { grep -q "^$1=" .env && sed -i "s|^$1=.*|$1=$2|" .env || echo "$1=$2" >> .env; }
+          set_env APP_ENV production
+          set_env APP_DEBUG false
+          set_env APP_URL https://charts.infodot.co.za
+          set_env DB_CONNECTION sqlite
+          set_env SESSION_DRIVER file
+          set_env CACHE_STORE file
+          set_env QUEUE_CONNECTION sync
+          set_env ANALYTICS_SERVICE_URL http://127.0.0.1:8001
+          touch database/database.sqlite
+
+          $PHP artisan migrate --force
+          $PHP artisan config:cache
+          $PHP artisan route:cache
+
+          # Docroot shim: static files are served directly; everything else
+          # (including /api/*) goes through Laravel.
+          cat > "$DOCROOT/index.php" <<'SHIM'
+          <?php
+          // Dot.Charts docroot shim -> Laravel (charts/backend/public)
+          require __DIR__.'/charts/backend/public/index.php';
+          SHIM
+          cat > "$DOCROOT/.htaccess" <<'HT'
+          DirectoryIndex index.html index.php
+          RewriteEngine On
+          RewriteCond %{REQUEST_FILENAME} !-f
+          RewriteCond %{REQUEST_FILENAME} !-d
+          RewriteRule ^ index.php [L]
+          HT
+          echo "== bootstrap complete: $(git -C "$APP" rev-parse --short HEAD)"
+          BOOTSTRAP
+
+      - name: Upload built frontend to docroot
+        run: |
+          DOCROOT_PARENT="$(dirname "${{ secrets.DEPLOY_PATH }}")"
+          tar -C frontend/dist -czf frontend.tgz .
+          scp -i ~/.ssh/deploy_key frontend.tgz \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$DOCROOT_PARENT/frontend.tgz"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              "cd '$DOCROOT_PARENT' && tar -xzf frontend.tgz && rm frontend.tgz && ls -1 *.html | head"
+
+      - name: Verify
+        run: |
+          sleep 3
+          echo "== / (frontend)" && curl -s -o /dev/null -w "%{http_code} %{content_type}\n" https://charts.infodot.co.za/
+          echo "== /api/up equivalent" && curl -s -o /dev/null -w "%{http_code}\n" https://charts.infodot.co.za/up
+          echo "== /api/backtests (expect 422/429/503, not 404)" && curl -s -o /dev/null -w "%{http_code}\n" -X POST https://charts.infodot.co.za/api/backtests

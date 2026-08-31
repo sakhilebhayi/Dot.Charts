@@ -1,0 +1,47 @@
+name: Server Recon
+
+# Read-only reconnaissance for the Dot.Charts deployment: what lives in the
+# charts.infodot.co.za docroot today (the stale static clone), which PHP is
+# default, and - the open architecture question - what Python tooling the
+# host offers for the analytics FastAPI service. Prints facts; changes nothing.
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Inspect
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              'bash -s' <<'INSPECT'
+          set -uo pipefail
+          echo "== charts docroot today"
+          ls -la "$HOME"/charts.infodot.co.za 2>/dev/null | head -20 || echo "no charts docroot"
+          echo "== default php"
+          php -v 2>/dev/null | head -1
+          echo "== python candidates"
+          for p in python3 /usr/bin/python3 /opt/alt/python3*/bin/python3* /opt/alt/python*/bin/python*; do
+            [ -x "$p" ] && echo "$p -> $($p --version 2>&1)" || true
+          done 2>/dev/null | sort -u | head -12
+          echo "== cloudlinux python selector"
+          ls -1 /opt/alt/ 2>/dev/null | grep -i python | head -8 || echo "no /opt/alt python"
+          echo "== passenger"
+          ls -1d "$HOME"/.passenger* /usr/sbin/passenger* /opt/passenger* 2>/dev/null | head -4 || echo "no passenger artifacts visible"
+          command -v cloudlinux-selector >/dev/null && cloudlinux-selector get --json --interpreter python 2>/dev/null | head -c 400 || echo "no cloudlinux-selector"
+          echo ""
+          echo "== pip availability + user site"
+          python3 -m pip --version 2>/dev/null || echo "no pip for default python3"
+          echo "== memory/dopemine layout (mirror check)"
+          ls -1 "$HOME"/memory.infodot.co.za "$HOME"/dopemine.infodot.co.za 2>/dev/null | head -10
+          echo "== disk quota"
+          quota -s 2>/dev/null | tail -3 || df -h "$HOME" | tail -1
+          INSPECT

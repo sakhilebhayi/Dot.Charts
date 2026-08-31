@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8000/api';
+import { API_BASE } from './api-base.js';
 
 const checkButton = document.getElementById('checkButton');
 const errorEl = document.getElementById('error');

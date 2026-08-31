@@ -1,6 +1,6 @@
 import { setToken } from './auth.js';
 
-const API_BASE = 'http://localhost:8000/api';
+import { API_BASE } from './api-base.js';
 const errorEl = document.getElementById('error');
 const button = document.getElementById('registerButton');
 

@@ -1,3 +1,4 @@
+import { API_BASE } from './api-base.js';
 document.addEventListener('DOMContentLoaded', () => {
   const uploadArea = document.getElementById('uploadArea');
   const fileInput = document.getElementById('fileInput');
@@ -44,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         // Only send image and context to backend; backend handles all API calls and signal generation
         const symbolOverride = document.getElementById('symbolOverride')?.value.trim();
-        const response = await fetch('http://localhost:8000/api/chart/analyze', {
+        const response = await fetch(`${API_BASE}/chart/analyze`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

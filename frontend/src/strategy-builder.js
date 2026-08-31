@@ -213,7 +213,7 @@ if (authStateEl) {
 renderPanel('entry');
 renderPanel('exit');
 
-const API_BASE = 'http://localhost:8000/api';
+import { API_BASE } from './api-base.js';
 
 document.getElementById('testRunButton').addEventListener('click', async () => {
   const button = document.getElementById('testRunButton');
