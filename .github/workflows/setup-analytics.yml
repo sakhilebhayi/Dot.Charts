@@ -1,0 +1,84 @@
+name: Setup Analytics Service
+
+# Provisions the Python FastAPI analytics service on the shared host:
+# CloudLinux Python 3.11 venv at <repo>/analytics/.venv, dependencies from
+# requirements.txt, a run script, and a keepalive cron (every 5 minutes +
+# @reboot) that restarts uvicorn on 127.0.0.1:8001 if it died. Laravel
+# already points at it via ANALYTICS_SERVICE_URL. Idempotent; safe to
+# re-run after dependency changes.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "setup" to provision the analytics service'
+        required: true
+
+concurrency:
+  group: charts-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Refuse unconfirmed runs
+        if: ${{ github.event.inputs.confirm != 'setup' }}
+        run: |
+          echo '::error::Confirmation input was not "setup" -- aborting.'
+          exit 1
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Provision
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}" \
+              'bash -s' <<'SETUP'
+          set -euo pipefail
+          AN="$DEPLOY_PATH/analytics"
+          PY=/opt/alt/python311/bin/python3.11
+          [ -x "$PY" ] || PY=/opt/alt/python312/bin/python3.12
+          echo "== python: $($PY --version)"
+          cd "$AN"
+
+          if [ ! -d .venv ]; then
+            "$PY" -m venv .venv
+          fi
+          ./.venv/bin/pip install --upgrade --quiet pip wheel setuptools
+          echo "== installing requirements (this is the heavy step)"
+          ./.venv/bin/pip install --no-cache-dir --quiet -r requirements.txt
+          echo "== install done: $(./.venv/bin/pip list 2>/dev/null | wc -l) packages"
+
+          cat > run.sh <<'RUN'
+          #!/bin/bash
+          # Keepalive-managed launcher for the analytics service.
+          cd "$(dirname "$0")"
+          if ! pgrep -u "$(id -un)" -f "uvicorn main:app" >/dev/null; then
+            nohup ./.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8001 \
+              >> uvicorn.log 2>&1 &
+            echo "$(date -u +%FT%TZ) started" >> keepalive.log
+          fi
+          RUN
+          chmod +x run.sh
+
+          # Idempotent crontab entries
+          ( crontab -l 2>/dev/null | grep -v "charts-analytics-keepalive" ;
+            echo "*/5 * * * * $AN/run.sh # charts-analytics-keepalive" ;
+            echo "@reboot $AN/run.sh # charts-analytics-keepalive" ) | crontab -
+          echo "== cron installed"
+
+          ./run.sh
+          sleep 6
+          echo "== process: $(pgrep -u "$(id -un)" -f 'uvicorn main:app' | head -1 || echo NOT RUNNING)"
+          echo "== local probe:"
+          curl -s -o /dev/null -w "docs: %{http_code}\n" http://127.0.0.1:8001/docs || true
+          curl -s -X POST http://127.0.0.1:8001/validate-rule \
+            -H 'Content-Type: application/json' \
+            -d '{"rule":{"entry":{"all":[{"indicator":"rsi","period":14,"op":"lt","value":30}]},"exit":{"all":[{"indicator":"rsi","period":14,"op":"gt","value":70}]}}}' \
+            -w "\nvalidate-rule: %{http_code}\n" | tail -2 || true
+          SETUP
