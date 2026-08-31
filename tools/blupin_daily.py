@@ -16,7 +16,7 @@ Each run (weekdays ~05:15 SAST):
 
 Stateless: everything is derived from the 60-day fetch each run.
 """
-import json, os, sys, urllib.request
+import json, os, subprocess, sys, urllib.request
 from datetime import datetime, timezone, timedelta
 
 SAST = timezone(timedelta(hours=2))
@@ -24,11 +24,21 @@ SYMBOL = os.environ.get("BLUPIN_SYMBOL", "GC=F")
 JOURNAL = os.path.join(os.path.dirname(__file__), "..", "signals", "journal.jsonl")
 
 
+def _get(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        return json.load(urllib.request.urlopen(req, timeout=30))
+    except Exception:
+        # environments with broken local cert stores: curl carries its own CAs
+        out = subprocess.run(["curl", "-sf", "-A", "Mozilla/5.0", url],
+                             capture_output=True, timeout=45, check=True)
+        return json.loads(out.stdout)
+
+
 def fetch_bars():
     url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}"
            "?interval=1h&range=60d")
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    r = json.load(urllib.request.urlopen(req, timeout=30))["chart"]["result"][0]
+    r = _get(url)["chart"]["result"][0]
     ts, q = r["timestamp"], r["indicators"]["quote"][0]
     bars = []
     for i, t in enumerate(ts):
