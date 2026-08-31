@@ -179,16 +179,19 @@ def analyze(bars, atr):
     return out
 
 
-def emit_memory(envelope):
+def emit_memory(stage, body):
+    """POST one loop record to Dot.Memory's flat intelligence API
+    (LoopController: loop_id/event_id/platform/subject_* + stage extras,
+    payload in `detail`, idempotent on event_id)."""
     base = os.environ.get("DOT_MEMORY_URL", "").rstrip("/")
     token = os.environ.get("DOT_MEMORY_TOKEN", "")
     if not base or not token:
         return "skipped (no DOT_MEMORY_URL/TOKEN)"
     path = {"observation": "events", "decision": "decisions",
-            "outcome": "outcomes"}[envelope["stage"]]
+            "outcome": "outcomes"}[stage]
     req = urllib.request.Request(
         f"{base}/api/intelligence/{path}",
-        data=json.dumps(envelope).encode(),
+        data=json.dumps(body).encode(),
         headers={"Authorization": f"Bearer {token}",
                  "Content-Type": "application/json",
                  "Accept": "application/json"},
@@ -196,22 +199,38 @@ def emit_memory(envelope):
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             return f"HTTP {r.status}"
+    except urllib.error.HTTPError as e:
+        return f"error: HTTP {e.code}: {e.read()[:200].decode(errors='replace')}"
     except Exception as e:
         return f"error: {e}"
 
 
 def envelope(stage, day, payload):
-    return {
+    body = {
         "loop_id": f"blupin-gold-{day}",
         "event_id": f"blupin-gold-{day}-{stage}",
-        "stage": stage,
         "platform": "blupin",
-        "subject": {"type": "trading-signal", "id": f"gold-{day}",
-                    "label": "BluPin ORD+ULT daily signal (TVC:GOLD)"},
         "source": "blupin-daily-engine",
+        "subject_type": "trading-signal",
+        "subject_id": f"gold-{day}",
+        "subject_label": "BluPin ORD+ULT daily signal (TVC:GOLD)",
         "occurred_at": datetime.now(timezone.utc).isoformat(),
-        "x-blupin": payload,
+        "detail": payload,
+        "signature": "blupin-survivor-daily",
     }
+    if stage == "decision":
+        # confidence anchors on the backtested win rates (2y 0.43, 2026
+        # window 0.65 for shown signals; skips tested as correct removals) -
+        # graded outcomes are what refine these over time.
+        skipped = payload.get("skip") is not None
+        body["confidence"] = 0.7 if skipped else 0.6
+        body["risk"] = 0.1 if skipped else 0.4
+        body["autonomy_level"] = "recommend"
+    if stage == "outcome":
+        pa = payload.get("pnl_atr")
+        body["verdict"] = "inconclusive" if pa is None else             "unchanged" if abs(pa) < 0.05 else             "improved" if pa > 0 else "worsened"
+        body["measure"] = f"pnl_atr={pa}"
+    return body
 
 
 def main():
@@ -258,7 +277,7 @@ def main():
                 f.write(json.dumps(ln) + "\n")
 
     for stage, day, payload in emits:
-        print(f"memory {stage} {day}: {emit_memory(envelope(stage, day, payload))}")
+        print(f"memory {stage} {day}: {emit_memory(stage, envelope(stage, day, payload))}")
 
 
 if __name__ == "__main__":
