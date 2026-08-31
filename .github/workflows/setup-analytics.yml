@@ -66,7 +66,14 @@ jobs:
           ./.venv/bin/pip install --upgrade --quiet pip wheel setuptools
           echo "== installing requirements (this is the heavy step)"
           ./.venv/bin/pip install --no-cache-dir --quiet -r requirements.txt
+          # vectorbt (0.2x) registers plotly 'scattermapbox' templates that
+          # plotly >=6 removed - import explodes without this pin
+          ./.venv/bin/pip install --no-cache-dir --quiet 'plotly<6.0'
           echo "== install done: $(./.venv/bin/pip list 2>/dev/null | wc -l) packages"
+          echo "== re-probe vectorbt + main after plotly pin"
+          ( timeout 90 ./.venv/bin/python -c "import vectorbt; print('vectorbt OK')" 2>&1 | tail -2 ) || true
+          ( timeout 120 ./.venv/bin/python -c "import main; print('main OK')" 2>&1 | tail -3 ) || true
+          set -x
 
           cat > run.sh <<'RUN'
           #!/bin/bash
