@@ -69,7 +69,8 @@ jobs:
           # Preserve the old static clone, once.
           if [ ! -d "$HOME/charts-static-clone-backup" ] && [ -e "$DOCROOT/index.html" ] && [ ! -d "$APP" ]; then
             mkdir -p "$HOME/charts-static-clone-backup"
-            find "$DOCROOT" -mindepth 1 -maxdepth 1 -exec mv {} "$HOME/charts-static-clone-backup/" \;
+            # .well-known (AutoSSL/ACME) and cgi-bin stay in place
+            find "$DOCROOT" -mindepth 1 -maxdepth 1 ! -name .well-known ! -name cgi-bin -exec mv {} "$HOME/charts-static-clone-backup/" \;
             echo "== static clone backed up"
           fi
 
