@@ -87,10 +87,14 @@ jobs:
           RUN
           chmod +x run.sh
 
-          # Idempotent crontab entries
-          ( crontab -l 2>/dev/null | grep -v "charts-analytics-keepalive" ;
-            echo "*/5 * * * * $AN/run.sh # charts-analytics-keepalive" ;
-            echo "@reboot $AN/run.sh # charts-analytics-keepalive" ) | crontab -
+          # Idempotent crontab entries (temp file - a grep with zero
+          # surviving lines must not kill the script under set -e/pipefail)
+          ( crontab -l 2>/dev/null || true ) > cron.old
+          grep -v "charts-analytics-keepalive" cron.old > cron.new || true
+          echo "*/5 * * * * $AN/run.sh # charts-analytics-keepalive" >> cron.new
+          echo "@reboot $AN/run.sh # charts-analytics-keepalive" >> cron.new
+          crontab cron.new
+          rm -f cron.old cron.new
           echo "== cron installed"
 
           echo "== import smoke test (surfaces startup crashes)"
