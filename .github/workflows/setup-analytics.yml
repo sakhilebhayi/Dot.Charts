@@ -78,6 +78,9 @@ jobs:
           cat > run.sh <<'RUN'
           #!/bin/bash
           # Keepalive-managed launcher for the analytics service.
+          # Start-if-dead ONLY - the 5-minute cron runs this; it must never
+          # kill a healthy process. Restarts for new code happen in the
+          # setup workflow itself, below.
           cd "$(dirname "$0")"
           if ! pgrep -u "$(id -un)" -f "uvicorn main:app" >/dev/null; then
             nohup ./.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8001 \
@@ -102,9 +105,18 @@ jobs:
           echo "== last uvicorn log lines"
           tail -20 uvicorn.log 2>/dev/null || echo "no uvicorn.log yet"
 
+          # Deliberate restart: this workflow ships new code/deps, and a
+          # surviving old process would keep serving the previous build.
+          pkill -u "$(id -un)" -f "uvicorn main:app" || true
+          sleep 2
           ./run.sh
           sleep 10
           echo "== process: $(pgrep -u "$(id -un)" -f 'uvicorn main:app' | head -1 || echo NOT RUNNING)"
+          echo "== OCR endpoint probe (tiny white png - engine load + inference)"
+          PNG_B64="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+          curl -s -m 90 -X POST http://127.0.0.1:8001/ocr-symbol \
+            -H 'Content-Type: application/json' \
+            -d "{\"image_b64\": \"$PNG_B64\"}" -w "\nocr-symbol: HTTP %{http_code}\n" | tail -3
           echo "== local probe:"
           curl -s -o /dev/null -w "docs: %{http_code}\n" http://127.0.0.1:8001/docs || true
           curl -s -X POST http://127.0.0.1:8001/validate-rule \
