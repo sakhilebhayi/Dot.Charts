@@ -1030,12 +1030,19 @@ plotshape(ultBuy,  "ULTIMATE BUY",  style = shape.triangleup,   location = locat
 plotshape(ultSell, "ULTIMATE SELL", style = shape.triangledown, location = location.abovebar,
      color = sellColor, size = size.small)
 
+// The label reads the COMMITTED source (ultPendSrc), never the mutable
+// ultSource - a cancel firing on the display bar can no longer stamp
+// "Cancelled" onto the signal. Every label carries its entry and stop.
 if ultShowLabels and ultBuy
-    label.new(bar_index, low - atr * 0.5, "ULTIMATE BUY\n" + ultSource,
+    label.new(bar_index, low - atr * 0.5, "ULTIMATE BUY\n" + ultPendSrc +
+         "\nEntry: " + str.tostring(close, format.mintick) +
+         "\nSL: " + str.tostring(close - ultSlPoints * ultPointVal, format.mintick),
          style = label.style_label_up, color = buyColor,
          textcolor = color.white, size = f_ultLabelSize())
 if ultShowLabels and ultSell
-    label.new(bar_index, high + atr * 0.5, "ULTIMATE SELL\n" + ultSource,
+    label.new(bar_index, high + atr * 0.5, "ULTIMATE SELL\n" + ultPendSrc +
+         "\nEntry: " + str.tostring(close, format.mintick) +
+         "\nSL: " + str.tostring(close + ultSlPoints * ultPointVal, format.mintick),
          style = label.style_label_down, color = sellColor,
          textcolor = color.white, size = f_ultLabelSize())
 
@@ -1358,7 +1365,7 @@ if ultSignal != 0
     uPendDir := ultSignal
     uPendPx  := close
     uPendBar := bar_index
-    uPendSrc := ultSource == "Yest H/L" ? 2 : ultSource == "No Sweep" ? 3 : 1
+    uPendSrc := ultPendSrc == "Yest H/L" ? 2 : ultPendSrc == "No Sweep" ? 3 : 1
     if uPendSrc == 2
         ultYestCnt += 1
     else if uPendSrc == 3
@@ -1409,13 +1416,13 @@ if sessSignal == -1
 
 // Ultimate Signal alerts fire whether or not the signal is set to trade.
 if ultBuy
-    alert("ULTIMATE BUY | " + syminfo.ticker + " | " + ultSource +
-         (ultSource == "No Sweep" ? " (contrarian window)" : " low swept last") +
+    alert("ULTIMATE BUY | " + syminfo.ticker + " | " + ultPendSrc +
+         (ultPendSrc == "No Sweep" ? " (contrarian window)" : " low swept last") +
          " | Price " + str.tostring(close, format.mintick),
          alert.freq_once_per_bar_close)
 if ultSell
-    alert("ULTIMATE SELL | " + syminfo.ticker + " | " + ultSource +
-         (ultSource == "No Sweep" ? " (contrarian window)" : " high swept last") +
+    alert("ULTIMATE SELL | " + syminfo.ticker + " | " + ultPendSrc +
+         (ultPendSrc == "No Sweep" ? " (contrarian window)" : " high swept last") +
          " | Price " + str.tostring(close, format.mintick),
          alert.freq_once_per_bar_close)
 
