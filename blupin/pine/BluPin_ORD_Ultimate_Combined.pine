@@ -1317,7 +1317,11 @@ if strategy.position_size == 0 and not (goLong or goShort)
 
 // Once flat, break the plotted segments so each trade's levels render as its
 // own distinct horizontal run rather than connecting into the next trade's.
-if strategy.position_size == 0
+// The entry-bar guard matters: with process_orders_on_close the position
+// still reads flat DURING the entry bar (the order fills on its close), so
+// clearing without it wiped the levels the moment they were set - the SL
+// line could never draw.
+if strategy.position_size == 0 and not (goLong or goShort)
     curEntryPx := na
     curSlPx    := na
     curTpPx    := na
