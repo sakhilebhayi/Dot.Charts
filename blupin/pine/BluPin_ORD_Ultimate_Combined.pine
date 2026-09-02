@@ -319,11 +319,18 @@ oneTradeMode  = input.bool(true, "One Trade Per Day (Ultimate only)", group = G_
      tooltip = "ON (default): the Ultimate Signal is the ONLY trade the strategy places - " +
                "session signals stay on the chart as context (compact labels, no orders, " +
                "no SL/TP clutter). OFF: session signals trade too, as before.")
-ultSlAtr      = input.float(1.0, "Ultimate Stop (× ATR)", minval = 0.25, step = 0.25, group = G_ULT,
-     tooltip = "The small stop of the rider profile. Tested on ~575 days with the current " +
-               "detection defaults: 1.0 ATR + ride to day end = +43.2%/2y at a 28.9% trade " +
-               "win rate (losers capped small, winners ride the day). With Sweep & Reclaim " +
-               "detection (see Sweep Confirmation), 1.5 ATR tested best: +103.5%/2y.")
+ultSlAtr      = input.float(1.1, "Ultimate Stop (× ATR, 1h-anchored)", minval = 0.25, step = 0.05, group = G_ULT,
+     tooltip = "The small stop of the rider profile, measured in 1-HOUR ATR units when " +
+               "anchoring is on (below) - so the stop is the same dollar size on any chart " +
+               "timeframe. 1.1 x 1h-ATR is the tested-best geometry (2y sim, robust in " +
+               "both halves); on gold that is roughly a $19 stop at current volatility.")
+ultAnchorAtr  = input.bool(true, "Anchor Risk Distances to 1h ATR", group = G_ULT,
+     tooltip = "ON (default): the stop, cancel/invalidation distance, chase check, " +
+               "structure-stop buffer, trail, ATR target, and the thin-level tolerance all " +
+               "measure in 1-HOUR ATR (fetched non-repainting via request.security) - the " +
+               "geometry every backtest was run at. Changing the chart timeframe no longer " +
+               "changes the risk engine: on a 30m chart the old chart-ATR stop was only " +
+               "~62% of tested size, on 15m ~43%. OFF: legacy chart-timeframe ATR.")
 ultTpMode     = input.string("Ride to Day End", "Ultimate Take Profit", group = G_ULT,
      options = ["Ride to Day End", "ATR Target"],
      tooltip = "Ride to Day End (default): no TP - the position runs until the 00:00 day " +
@@ -477,6 +484,14 @@ htfSlowEma = request.security(syminfo.tickerid, mtfTf,
 
 mtfBull = htfFastEma > htfSlowEma
 mtfBear = htfFastEma < htfSlowEma
+
+// --- 1h-anchored risk ATR (non-repainting: last CONFIRMED 1h value) ----------
+// Every Ultimate risk distance was backtested in 1h-ATR units. Anchoring here
+// makes that geometry hold on any chart timeframe; falls back to chart ATR
+// until enough 1h history exists.
+atrH1 = request.security(syminfo.tickerid, "60", ta.atr(atrLen)[1],
+     lookahead = barmerge.lookahead_off)
+riskAtr = ultAnchorAtr and not na(atrH1) ? atrH1 : atr
 
 // --- Previous-day high / low (data only, nothing drawn) ----------------------
 // Used by the Ultimate engine's "Exchange Daily (D)" level source.
@@ -989,7 +1004,7 @@ if useUltimate and ultObsEnd and not ultFired and not ultNewDay and barstate.isc
         gateOk  = ultBiasMode == "Off" or resSrc == 2 or
              (ultBiasMode == "Strict" ? not (opposeTrend or opposeMtf) : not (opposeTrend and opposeMtf))
         proxOk  = not ultUseChase or na(resLvl) or
-             math.abs(close - resLvl) <= atr * ultChaseAtr
+             math.abs(close - resLvl) <= riskAtr * ultChaseAtr
         // Rung-3 day filters: a failing day locks quietly (nothing drawn)
         bool r3Ok = true
         if r3On and gateOk and proxOk
@@ -1015,7 +1030,7 @@ if useUltimate and ultObsEnd and not ultFired and not ultNewDay and barstate.isc
                 for cti = 0 to 6
                     if cti < swTi
                         float ext = resDir == -1 ? array.get(r3TchHi, cti) : array.get(r3TchLo, cti)
-                        if not na(ext) and math.abs(ext - resLvl) <= atr * 0.5
+                        if not na(ext) and math.abs(ext - resLvl) <= riskAtr * 0.5
                             tch += 1
                 if tch < 2
                     r3Ok := false
@@ -1049,8 +1064,8 @@ if r3On and ultObsEnd and barstate.isconfirmed and not na(ultFbHi) and not na(ul
 // checkpoint invalidates the committed signal - the day then stays quiet
 if r3On and useUltimate and ultPendDir != 0 and not ultShown and not ultPreInval and
      not na(ultPubLvl) and barstate.isconfirmed
-    ultPreInval := ultPendDir == -1 ? close > ultPubLvl + atr * ultInvalAtr :
-         close < ultPubLvl - atr * ultInvalAtr
+    ultPreInval := ultPendDir == -1 ? close > ultPubLvl + riskAtr * ultInvalAtr :
+         close < ultPubLvl - riskAtr * ultInvalAtr
 
 // Display at the checkpoint: only the proven signal shows (survivor), or the
 // committed signal after the plain display delay when rung 3 is off.
@@ -1078,8 +1093,8 @@ ultSell = ultSignal == -1
 // live position is closed by section 6. Never fires twice.
 ultInvalHit = useUltimate and ultUseInval and not ultCancelled and ultShown and
      ultPubDir != 0 and not na(ultPubLvl) and barstate.isconfirmed and
-     (ultPubDir == -1 ? close > ultPubLvl + atr * ultInvalAtr :
-                        close < ultPubLvl - atr * ultInvalAtr)
+     (ultPubDir == -1 ? close > ultPubLvl + riskAtr * ultInvalAtr :
+                        close < ultPubLvl - riskAtr * ultInvalAtr)
 
 if ultInvalHit
     ultCancelled := true
@@ -1372,10 +1387,10 @@ if goLong
     tpPrice := close + f_tpDistance(1, close, isUltEntry ? na : sPendOpen)
     ultTradeOpen := isUltEntry
     if isUltEntry
-        slPrice := close - atr * ultSlAtr
-        tpPrice := ultTpMode == "ATR Target" ? close + atr * ultTpAtrX : na
+        slPrice := close - riskAtr * ultSlAtr
+        tpPrice := ultTpMode == "ATR Target" ? close + riskAtr * ultTpAtrX : na
     if isUltEntry and ultStructSl and not na(ultPubLvl) and ultPubLvl < close
-        slPrice := ultPubLvl - atr * ultSlBufAtr
+        slPrice := ultPubLvl - riskAtr * ultSlBufAtr
     curEntryPx := close
     curSlPx    := slPrice
     curTpPx    := tpPrice
@@ -1395,10 +1410,10 @@ if goShort
     tpPrice := close - f_tpDistance(-1, close, isUltEntry ? na : sPendOpen)
     ultTradeOpen := isUltEntry
     if isUltEntry
-        slPrice := close + atr * ultSlAtr
-        tpPrice := ultTpMode == "ATR Target" ? close - atr * ultTpAtrX : na
+        slPrice := close + riskAtr * ultSlAtr
+        tpPrice := ultTpMode == "ATR Target" ? close - riskAtr * ultTpAtrX : na
     if isUltEntry and ultStructSl and not na(ultPubLvl) and ultPubLvl > close
-        slPrice := ultPubLvl + atr * ultSlBufAtr
+        slPrice := ultPubLvl + riskAtr * ultSlBufAtr
     curEntryPx := close
     curSlPx    := slPrice
     curTpPx    := tpPrice
@@ -1412,10 +1427,10 @@ if goShort
              textcolor = color.white, size = size.tiny)
 // --- Ultimate trail (tightening only) ----------------------------------------
 if strategy.position_size > 0 and ultUseTrail and ultTradeOpen
-    slPrice := math.max(slPrice, close - atr * ultTrailAtr)
+    slPrice := math.max(slPrice, close - riskAtr * ultTrailAtr)
     curSlPx := slPrice
 if strategy.position_size < 0 and ultUseTrail and ultTradeOpen
-    slPrice := math.min(slPrice, close + atr * ultTrailAtr)
+    slPrice := math.min(slPrice, close + riskAtr * ultTrailAtr)
     curSlPx := slPrice
 
 if useSlTp and strategy.position_size > 0
