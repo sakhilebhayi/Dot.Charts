@@ -319,6 +319,19 @@ oneTradeMode  = input.bool(true, "One Trade Per Day (Ultimate only)", group = G_
      tooltip = "ON (default): the Ultimate Signal is the ONLY trade the strategy places - " +
                "session signals stay on the chart as context (compact labels, no orders, " +
                "no SL/TP clutter). OFF: session signals trade too, as before.")
+ultSlMode     = input.string("Fixed Points", "Ultimate Stop Mode", group = G_ULT,
+     options = ["Fixed Points", "ATR (1h-anchored)"],
+     tooltip = "Fixed Points (default): the stop sits a fixed distance below/above the " +
+               "entry - points x point value (3000 x 0.01 = $30 on gold). At current " +
+               "volatility ~1.7x the 1h ATR, inside the tested-best zone (1.4-1.5 ATR " +
+               "stops dominated the 2y sims). NOTE a fixed stop does not scale with " +
+               "volatility - in a much higher-vol regime it becomes tighter than tested; " +
+               "the ATR mode keeps the tested geometry automatically.")
+ultSlPoints   = input.float(3000, "Ultimate Stop (points)", minval = 100, step = 100, group = G_ULT,
+     tooltip = "Fixed Points mode. Distance = points x point value below.")
+ultPointVal   = input.float(0.01, "Point Value (price per point)", minval = 0.0001, step = 0.001, group = G_ULT,
+     tooltip = "0.01 (default): 3000 points = $30.00 on gold. Adjust if your symbol's " +
+               "point convention differs.")
 ultSlAtr      = input.float(1.1, "Ultimate Stop (× ATR, 1h-anchored)", minval = 0.25, step = 0.05, group = G_ULT,
      tooltip = "The small stop of the rider profile, measured in 1-HOUR ATR units when " +
                "anchoring is on (below) - so the stop is the same dollar size on any chart " +
@@ -492,6 +505,8 @@ mtfBear = htfFastEma < htfSlowEma
 atrH1 = request.security(syminfo.tickerid, "60", ta.atr(atrLen)[1],
      lookahead = barmerge.lookahead_off)
 riskAtr = ultAnchorAtr and not na(atrH1) ? atrH1 : atr
+// The Ultimate stop distance under the selected mode
+ultStopDist = ultSlMode == "Fixed Points" ? ultSlPoints * ultPointVal : riskAtr * ultSlAtr
 
 // --- Previous-day high / low (data only, nothing drawn) ----------------------
 // Used by the Ultimate engine's "Exchange Daily (D)" level source.
@@ -1387,7 +1402,7 @@ if goLong
     tpPrice := close + f_tpDistance(1, close, isUltEntry ? na : sPendOpen)
     ultTradeOpen := isUltEntry
     if isUltEntry
-        slPrice := close - riskAtr * ultSlAtr
+        slPrice := close - ultStopDist
         tpPrice := ultTpMode == "ATR Target" ? close + riskAtr * ultTpAtrX : na
     if isUltEntry and ultStructSl and not na(ultPubLvl) and ultPubLvl < close
         slPrice := ultPubLvl - riskAtr * ultSlBufAtr
@@ -1410,7 +1425,7 @@ if goShort
     tpPrice := close - f_tpDistance(-1, close, isUltEntry ? na : sPendOpen)
     ultTradeOpen := isUltEntry
     if isUltEntry
-        slPrice := close + riskAtr * ultSlAtr
+        slPrice := close + ultStopDist
         tpPrice := ultTpMode == "ATR Target" ? close - riskAtr * ultTpAtrX : na
     if isUltEntry and ultStructSl and not na(ultPubLvl) and ultPubLvl > close
         slPrice := ultPubLvl + riskAtr * ultSlBufAtr
