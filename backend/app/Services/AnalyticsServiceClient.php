@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -30,7 +31,11 @@ class AnalyticsServiceClient
             $payload['params'] = (object) $payload['params'];
         }
 
-        $response = Http::timeout(60)->post("{$this->baseUrl}/backtest", $payload);
+        try {
+            $response = Http::timeout(60)->post("{$this->baseUrl}/backtest", $payload);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException('Analytics service unreachable: '.$e->getMessage());
+        }
 
         if ($response->failed()) {
             throw new RuntimeException($this->errorMessage($response));
@@ -46,7 +51,11 @@ class AnalyticsServiceClient
      */
     public function analyzeChart(array $payload): array
     {
-        $response = Http::timeout(30)->post("{$this->baseUrl}/chart-analysis", $payload);
+        try {
+            $response = Http::timeout(30)->post("{$this->baseUrl}/chart-analysis", $payload);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException('Analytics service unreachable: '.$e->getMessage());
+        }
 
         if ($response->failed()) {
             throw new RuntimeException($this->errorMessage($response));
@@ -87,8 +96,12 @@ class AnalyticsServiceClient
      */
     public function ocrSymbol(string $imageB64): array
     {
-        $response = Http::timeout(25)
-            ->post("{$this->baseUrl}/ocr-symbol", ['image_b64' => $imageB64]);
+        try {
+            $response = Http::timeout(25)
+                ->post("{$this->baseUrl}/ocr-symbol", ['image_b64' => $imageB64]);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException('Analytics OCR unreachable: '.$e->getMessage());
+        }
 
         if (! $response->successful()) {
             throw new RuntimeException(
@@ -100,7 +113,11 @@ class AnalyticsServiceClient
 
     public function validateRule(array $rules): array
     {
-        $response = Http::timeout(15)->post("{$this->baseUrl}/validate-rule", ['rules' => $rules]);
+        try {
+            $response = Http::timeout(15)->post("{$this->baseUrl}/validate-rule", ['rules' => $rules]);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException('Analytics service unreachable: '.$e->getMessage());
+        }
 
         if ($response->failed()) {
             throw new RuntimeException($this->errorMessage($response));

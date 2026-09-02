@@ -84,7 +84,13 @@ class DkpEnvelopeSchemaConformanceTest extends TestCase
 
     public function test_observation_metric_pack_conforms_to_the_real_dkp_schema(): void
     {
-        $start = Carbon::parse('2026-08-01');
+        // The period must be the month the runs actually land in: created_at
+        // is not mass-assignable, so the explicit timestamps below were
+        // silently dropped and every run was stamped now() - the test only
+        // passed while "now" happened to fall inside the hardcoded month
+        // (it detonated on the 1st of the next month). Anchor everything to
+        // the current month so the fixture is calendar-proof.
+        $start = now()->startOfMonth();
         for ($i = 0; $i < 50; $i++) {
             $user = User::factory()->create();
             BacktestRun::create([
@@ -110,7 +116,7 @@ class DkpEnvelopeSchemaConformanceTest extends TestCase
             ]);
         }
 
-        $result = (new ObservationPackGenerator)->generateForPeriod('ma_crossover', '2026-08');
+        $result = (new ObservationPackGenerator)->generateForPeriod('ma_crossover', now()->format('Y-m'));
 
         $this->assertTrue($result['generated'], 'Setup should have produced a real pack -- fix the fixture, not the assertion, if this fails.');
         $this->assertEnvelopeConformsToDkpSchema($result['pack']->envelope, 'observation/metric pack');
