@@ -7,131 +7,147 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg:#020617;--panel:rgba(15,23,42,.7);--border:rgba(148,163,184,.15);
-      --text:#e5e7eb;--muted:#94a3b8;--accent:#22d3ee;
-      --accent-soft:rgba(34,211,238,.15);
-      --green:#22c55e;--greenSoft:rgba(34,197,94,.15);
-      --red:#ef4444;--redSoft:rgba(239,68,68,.15);
-      --purpleSoft:rgba(139,92,246,.18);
-      --warn-bg:rgba(250,204,21,.1);--warn-border:rgba(250,204,21,.3)
+      --bg:#020617;
+      --panel:#0a101f;
+      --panel-sunken:#070c18;
+      --line:rgba(148,163,184,.16);
+      --text:#e6e9ef;
+      --muted:#8fa0b8;
+      --signal:#f2a70b;            /* the logo's amber — control-room signal colour */
+      --signal-soft:rgba(242,167,11,.12);
+      --blue:#8ec9dc;              /* the logo's powder blue — secondary */
+      --green:#34c26b;--green-soft:rgba(52,194,107,.12);
+      --red:#e5484d;--red-soft:rgba(229,72,77,.12);
+      --font-display:'IBM Plex Sans Condensed',system-ui,sans-serif;
+      --font-body:'IBM Plex Sans',system-ui,sans-serif;
+      --font-mono:'IBM Plex Mono',ui-monospace,monospace;
     }
-    *{box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
-    body{margin:0;min-height:100vh;color:var(--text);
-      background:
-      radial-gradient(circle at 50% 80%,rgba(99,102,241,.15),transparent 60%),
-      linear-gradient(to right,rgba(255,255,255,.03) 1px,transparent 1px),
-      linear-gradient(to bottom,rgba(255,255,255,.03) 1px,transparent 1px),
-      var(--bg);
-      background-size:auto,40px 40px,40px 40px,auto}
-    .container{max-width:1453px;margin:0 auto;padding:64px 24px 40px}
-    header{text-align:center;margin-bottom:48px}
-    .brand-logo{width:56px;height:56px;object-fit:contain;margin:0 auto 12px;display:block}
-    .logo{font-size:56px;font-weight:700;letter-spacing:-0.7px}
-    .logo span{background:linear-gradient(120deg,var(--accent),#38bdf8,#8b5cf6);
-      -webkit-background-clip:text;background-clip:text;color:transparent}
-    .badge{display:inline-flex;align-items:center;gap:10px;margin-top:16px;padding:10px 18px;
-      font-size:14px;font-weight:500;border-radius:999px;
-      background:linear-gradient(135deg,rgba(56,189,248,.15),rgba(59,130,246,.15));
-      color:#7dd3fc;border:1px solid rgba(56,189,248,.35);
-      box-shadow:0 0 0 1px rgba(56,189,248,.05),0 8px 24px rgba(56,189,248,.15);
-      backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-    .sparkle{width:16px;height:16px;flex-shrink:0;stroke:#38bdf8;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-    .subtitle{margin-top:18px;max-width:720px;margin-inline:auto;
-      color:var(--muted);font-size:18px}
-    .grid{display:grid;grid-template-columns:440px 1fr;gap:34px;align-items:flex-start}
-    .card{background:linear-gradient(135deg,rgba(15,18,26,.55),rgba(15,18,26,.35));
-      border:1px solid rgba(148,163,184,.16);border-radius:22px;padding:46px;
-      box-shadow:0 28px 78px rgba(0,0,0,.46),0 1px 0 rgba(255,255,255,.02) inset;
-      backdrop-filter:blur(16px) saturate(155%);transition:all .3s cubic-bezier(.4,0,.2,1)}
-    .card:hover{transform:translateY(-2px);box-shadow:0 32px 90px rgba(0,0,0,.5),0 1px 0 rgba(255,255,255,.03) inset}
-    .upload{border-style:dashed;text-align:center;cursor:pointer;transition:all .2s ease}
-    .upload:hover{border-color:var(--accent)}
-    .upload.drag-over{border-color:var(--accent);background:rgba(34,211,238,.08)}
-    .upload-icon{width:78px;height:78px;margin:0 auto 22px;border-radius:50%;
-      background:var(--accent-soft);color:var(--accent);
-      display:flex;align-items:center;justify-content:center;font-size:28px;
-      transition:all .3s ease;animation:pulse 2s ease-in-out infinite}
-    .upload:hover .upload-icon{transform:scale(1.1);background:rgba(34,211,238,.25)}
-    @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,211,238,.4)}50%{box-shadow:0 0 0 12px rgba(34,211,238,0)}}
-    .upload h3{margin:0 0 14px;font-size:24px}
-    .upload p{margin:0;font-size:16px;color:var(--muted)}
-    .pills{display:flex;justify-content:center;gap:12px;margin-top:22px}
-    .pill{font-size:15px;padding:9px 15px;border-radius:999px;
-      background:rgba(148,163,184,.1);border:1px solid var(--border);
-      color:var(--muted);transition:all .2s ease}
-    .pill:hover{background:rgba(148,163,184,.18);transform:translateY(-1px)}
-    .symbol-field{margin-top:26px;padding-top:22px;border-top:1px solid var(--border);text-align:left}
-    .symbol-field label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px}
-    .symbol-field input{width:100%;padding:11px 14px;border-radius:10px;
-      background:rgba(2,6,23,.5);border:1px solid var(--border);color:var(--text);
-      font-size:15px;transition:border-color .2s ease,box-shadow .2s ease}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;color:var(--text);font-family:var(--font-body);font-size:15px;
+      background:var(--bg)}
+    .container{max-width:1200px;margin:0 auto;padding:48px 24px 40px}
+
+    header{text-align:center;margin-bottom:36px}
+    .brand-logo{width:200px;height:auto;margin:0 auto;display:block}
+    .tagline{margin:6px 0 0;font-family:var(--font-mono);font-size:12px;letter-spacing:.14em;
+      text-transform:uppercase;color:var(--muted)}
+    nav{margin-top:22px;display:flex;justify-content:center;flex-wrap:wrap;gap:4px 26px}
+    nav a{font-family:var(--font-display);font-weight:600;font-size:13.5px;letter-spacing:.06em;
+      text-transform:uppercase;color:var(--blue);text-decoration:none;padding:4px 2px;
+      border-bottom:1px solid transparent}
+    nav a:hover{color:var(--text);border-bottom-color:var(--signal)}
+    .subtitle{margin:20px auto 0;max-width:620px;color:var(--muted);font-size:15.5px;line-height:1.65}
+    .subtitle strong{color:var(--text);font-weight:600}
+
+    /* Two bays sharing one ruled edge — a console, not floating cards. */
+    .console{display:grid;grid-template-columns:minmax(340px,430px) 1fr;gap:1px;
+      background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+    .bay{background:var(--panel);display:flex;flex-direction:column;min-width:0}
+    .bay-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel-sunken)}
+    .bay-title{font-family:var(--font-display);font-weight:700;font-size:12.5px;
+      letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+    .bay-note{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.08em;color:var(--muted)}
+    #panelStatus{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.12em}
+    #panelStatus[data-state="idle"]{color:var(--muted)}
+    #panelStatus[data-state="busy"]{color:var(--signal)}
+    #panelStatus[data-state="good"]{color:var(--green)}
+    #panelStatus[data-state="warn"]{color:var(--signal)}
+    #panelStatus[data-state="bad"]{color:var(--red)}
+    .bay-body{padding:26px;flex:1;display:flex;flex-direction:column}
+
+    .upload .bay-body{cursor:pointer}
+    .dropzone{border:1px dashed rgba(148,163,184,.35);border-radius:4px;padding:34px 22px;
+      text-align:center;transition:border-color .15s ease,background .15s ease}
+    .upload:hover .dropzone{border-color:var(--signal)}
+    .upload.drag-over .dropzone{border-color:var(--signal);background:var(--signal-soft)}
+    .dropzone svg{color:var(--signal);margin-bottom:12px}
+    .dropzone h3{margin:0 0 8px;font-family:var(--font-display);font-weight:600;font-size:19px}
+    .dropzone p{margin:0;font-size:14px;color:var(--muted);line-height:1.6}
+    .symbol-field{margin-top:22px;padding-top:20px;border-top:1px solid var(--line);
+      text-align:left;cursor:default}
+    .symbol-field label{display:block;font-family:var(--font-display);font-weight:600;font-size:11.5px;
+      letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+    .symbol-field input,.symbol-field select{width:100%;padding:10px 12px;border-radius:4px;
+      background:var(--panel-sunken);border:1px solid var(--line);color:var(--text);
+      font-family:var(--font-mono);font-size:14px}
+    .symbol-field select{margin-top:8px;font-family:var(--font-body)}
+    .field-note{margin:7px 0 0;font-size:12.5px;color:var(--muted)}
     .symbol-field input::placeholder{color:var(--muted)}
-    .symbol-field input:focus{outline:none;border-color:var(--accent);
-      box-shadow:0 0 0 3px rgba(34,211,238,.15)}
-    .analysis{display:flex;flex-direction:column;align-items:center;
-      justify-content:center;text-align:center;min-height:340px}
-    .analysis-icon{font-size:36px;margin-bottom:18px}
-    .analysis h3{margin:0 0 12px;font-size:24px}
-    .analysis p{font-size:18px;color:var(--muted);max-width:500px}
-    .analysis-results{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%;margin-top:18px}
-    .result-box{background:rgba(34,211,238,.05);border:1px solid var(--border);border-radius:15px;padding:18px;text-align:left;font-size:15px;transition:all .3s cubic-bezier(.4,0,.2,1)}
-    .result-box:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.25)}
-    .result-box label{display:block;color:var(--muted);font-size:14px;margin-bottom:6px}
-    .result-box .value{color:var(--text);font-weight:750;font-size:16px}
-    .signal-card{background:linear-gradient(135deg,rgba(34,197,94,.35),rgba(34,197,94,.1));border:1px solid rgba(34,197,94,.4);border-radius:12px;padding:16px;text-align:center}
-    .signal-card .signal-value{color:var(--green);font-size:26px;font-weight:800;margin:12px 0}
-    .progress{width:100%;height:14px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden;margin-top:12px}
-    .progress span{display:block;height:100%;width:0;background:var(--green);border-radius:999px;transition:width .8s ease}
-    .section-title{font-size:15px;color:var(--muted);margin:0 0 12px;text-transform:uppercase;letter-spacing:.55px}
-    .tags{display:flex;flex-wrap:wrap;gap:14px}
-    .tag{display:inline-flex;align-items:center;padding:9px 16px;border-radius:999px;font-size:15px;background:var(--purpleSoft);color:#c4b5fd;border:1px solid rgba(255,255,255,.05);transition:all .2s ease}
-    .tag:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(139,92,246,.3)}
-    .tag.green{background:var(--greenSoft);color:var(--green);border-color:rgba(34,197,94,.3)}
-    .tag.green:hover{box-shadow:0 4px 12px rgba(34,197,94,.3)}
-    .tag.red{background:var(--redSoft);color:var(--red);border-color:rgba(239,68,68,.35)}
-    .tag.red:hover{box-shadow:0 4px 12px rgba(239,68,68,.3)}
-    .summary{font-size:16px;color:var(--muted);line-height:1.72;margin-top:14px}
-    .meta{font-size:14px;color:var(--muted);margin-top:12px}
-    .signal-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%;align-items:center;margin-bottom:16px}
-    .preview-box{background:rgba(34,211,238,.05);border:1px solid var(--border);border-radius:15px;padding:16px;text-align:center}
-    .preview-box .section-title{margin-bottom:10px}
-    .preview-wrap{margin-top:18px;text-align:center}
-    .preview-thumb{max-width:100%;border-radius:14px;border:1px solid var(--border);box-shadow:0 10px 30px rgba(0,0,0,.3);cursor:pointer;transition:transform .2s ease,box-shadow .2s ease}
-    .preview-thumb:hover{transform:translateY(-2px);box-shadow:0 16px 40px rgba(0,0,0,.35)}
-    .spinner{width:42px;height:42px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:10px}
+    .symbol-field input:focus,.symbol-field select:focus{outline:none;border-color:var(--signal)}
+
+    .analysis{display:flex;flex-direction:column;align-items:center;justify-content:center;
+      text-align:center;min-height:340px;flex:1}
+    .analysis-icon{margin-bottom:14px;color:var(--muted)}
+    .analysis h3{margin:0 0 8px;font-family:var(--font-display);font-weight:600;font-size:19px}
+    .analysis p{font-size:14.5px;color:var(--muted);max-width:420px;line-height:1.6;margin:0}
+
+    /* Result readouts — flat panels, ruled apart, figures in mono. */
+    .analysis-results{display:grid;grid-template-columns:1fr 1fr;gap:1px;width:100%;
+      background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+    .result-box{background:var(--panel-sunken);padding:16px 18px;text-align:left;font-size:14px;min-width:0}
+    .result-box label{display:block;font-family:var(--font-display);font-weight:600;font-size:11px;
+      letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+    .result-box .value{color:var(--text);font-weight:600;font-size:15px}
+    .mono{font-family:var(--font-mono)}
+    .signal-card{border:1px solid var(--line);border-radius:4px;
+      padding:18px;text-align:left;background:var(--panel-sunken)}
+    .signal-card .readout-label{font-family:var(--font-display);font-weight:600;font-size:11px;
+      letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+    .signal-card .signal-value{font-family:var(--font-mono);font-size:24px;font-weight:600;
+      letter-spacing:.02em;text-transform:uppercase;margin:10px 0 0}
+    .progress{width:100%;height:4px;background:rgba(148,163,184,.18);overflow:hidden;margin-top:14px}
+    .progress span{display:block;height:100%}
+    .conf-line{margin-top:8px;font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;color:var(--muted)}
+    .tags{display:flex;flex-wrap:wrap;gap:8px}
+    .tag{display:inline-flex;align-items:center;padding:5px 10px;border-radius:3px;font-size:13px;
+      background:transparent;color:var(--text);border:1px solid var(--line)}
+    .tag.green{color:var(--green);border-color:rgba(52,194,107,.4);font-family:var(--font-mono)}
+    .tag.red{color:var(--red);border-color:rgba(229,72,77,.4);font-family:var(--font-mono)}
+    .setup-row{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:14px}
+    .setup-row .k{color:var(--muted)}
+    .setup-row .v{font-family:var(--font-mono)}
+    .summary{font-size:14px;color:var(--muted);line-height:1.7;margin-top:4px}
+    .meta{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.06em;color:var(--muted);margin-top:12px}
+    .signal-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;align-items:stretch;margin-bottom:14px}
+    .preview-box{border:1px solid var(--line);border-radius:4px;padding:10px;text-align:center;
+      background:var(--panel-sunken);display:flex;align-items:center;justify-content:center}
+    .preview-thumb{max-width:100%;max-height:220px;border-radius:2px;cursor:zoom-in}
+    .spinner{width:34px;height:34px;border:2px solid var(--line);border-top-color:var(--signal);
+      border-radius:50%;animation:spin .9s linear infinite;margin-bottom:14px}
     @keyframes spin{to{transform:rotate(360deg)}}
-    .primary-btn{margin-top:24px;padding:16px 24px;background:var(--accent);color:var(--bg);border:none;border-radius:14px;font-weight:850;cursor:pointer;font-size:17px;transition:all .3s cubic-bezier(.4,0,.2,1);box-shadow:0 4px 14px rgba(34,211,238,.3)}
-    .primary-btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(34,211,238,.4);background:#38bdf8}
-    .primary-btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(34,211,238,.3)}
-    .fade-in{animation:fadeIn .5s ease forwards;opacity:0}
+    .primary-btn{margin-top:20px;padding:12px 22px;background:var(--signal);color:#211a06;border:none;
+      border-radius:4px;font-family:var(--font-display);font-weight:700;font-size:14px;
+      letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+    .primary-btn:hover{filter:brightness(1.08)}
+    .primary-btn:active{transform:translateY(1px)}
+    .fade-in{animation:fadeIn .25s ease forwards;opacity:0;width:100%}
     @keyframes fadeIn{to{opacity:1}}
-    .stagger-1{animation:fadeInUp .6s ease forwards .1s;opacity:0}
-    .stagger-2{animation:fadeInUp .6s ease forwards .2s;opacity:0}
-    .stagger-3{animation:fadeInUp .6s ease forwards .3s;opacity:0}
-    .stagger-4{animation:fadeInUp .6s ease forwards .4s;opacity:0}
-    .stagger-5{animation:fadeInUp .6s ease forwards .5s;opacity:0}
-    @keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-    .demo-banner{display:flex;flex-direction:column;gap:4px;text-align:left;margin-bottom:16px;
-      padding:14px 18px;border-radius:12px;background:var(--warn-bg);border:1px solid var(--warn-border);
-      color:#fde68a;font-size:14px;line-height:1.5}
-    .demo-banner strong{font-size:15px}
-    .demo-banner span{color:#fcd34d}
-    .disclaimer{margin-top:40px;padding:18px 22px;border-radius:10px;
-      background:var(--warn-bg);border:1px solid var(--warn-border);
-      color:#fde68a;font-size:15px;display:flex;gap:12px;line-height:1.6;
-      align-items:center;justify-content:center;text-align:center}
-    .image-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:50;padding:24px;opacity:0;transition:opacity .3s ease}
-    .image-modal.open{display:flex;animation:modalFadeIn .3s ease forwards}
-    .image-modal img{max-width:90vw;max-height:90vh;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.1);animation:modalZoomIn .3s cubic-bezier(.4,0,.2,1)}
-    @keyframes modalFadeIn{to{opacity:1}}
-    @keyframes modalZoomIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
-    .modal-close{position:absolute;top:18px;right:18px;background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:999px;padding:10px 14px;cursor:pointer;font-size:16px;transition:all .2s ease}
-    .modal-close:hover{background:rgba(0,0,0,.8);transform:scale(1.1)}
+    .demo-banner{display:flex;flex-direction:column;gap:4px;text-align:left;margin-bottom:14px;
+      padding:12px 16px;border-radius:4px;background:var(--signal-soft);
+      border:1px solid rgba(242,167,11,.35);color:#f5c76a;font-size:13.5px;line-height:1.55}
+    .demo-banner strong{font-family:var(--font-display);letter-spacing:.04em;text-transform:uppercase;font-size:12.5px}
+    .disclaimer{margin-top:28px;padding:14px 18px;border-radius:4px;background:var(--signal-soft);
+      border:1px solid rgba(242,167,11,.3);color:#f5c76a;font-size:13.5px;line-height:1.6;
+      display:flex;gap:14px;align-items:baseline}
+    .disclaimer b{font-family:var(--font-display);font-weight:700;font-size:11.5px;
+      letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+    .image-modal{position:fixed;inset:0;background:rgba(2,6,23,.85);display:none;
+      align-items:center;justify-content:center;z-index:50;padding:24px}
+    .image-modal.open{display:flex}
+    .image-modal img{max-width:90vw;max-height:90vh;border-radius:4px;border:1px solid var(--line)}
+    .modal-close{position:absolute;top:18px;right:18px;background:var(--panel);color:var(--text);
+      border:1px solid var(--line);border-radius:4px;padding:8px 12px;cursor:pointer;font-size:14px}
+    .modal-close:hover{border-color:var(--signal)}
     @media(max-width:900px){
-      .grid{grid-template-columns:1fr}
+      .console{grid-template-columns:1fr}
       .signal-row{grid-template-columns:1fr}
+      .brand-logo{width:140px}
     }
   </style>
 </head>
@@ -139,95 +155,81 @@
 <div class="container">
 <header>
   <img src="/images/logo.png" alt="Dot.Charts" class="brand-logo" />
-  <div class="logo">Dot<span>.Charts</span></div>
-  <div class="badge">
-    <svg class="sparkle" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
-      <path d="M20 3v4"/>
-      <path d="M22 5h-4"/>
-      <path d="M4 17v2"/>
-      <path d="M5 18H3"/>
-    </svg>
-    <span>Market Intelligence · Part of the Dot Ecosystem</span>
-  </div>
-  <nav style="margin-top:14px">
-    <a href="/backtest.html" style="color:var(--accent);text-decoration:none;font-size:15px">
-      → Run a real backtest
-    </a>
-    <a href="/strategy-builder.html" style="color:var(--accent);text-decoration:none;font-size:15px;margin-left:16px">
-      Strategy Builder
-    </a>
-    <a href="/journal.html" style="color:var(--accent);text-decoration:none;font-size:15px;margin-left:16px">
-      Journal
-    </a>
-    <a href="/options.html" style="color:var(--accent);text-decoration:none;font-size:15px;margin-left:16px">
-      Options Vol
-    </a>
-    <a href="/login.html" style="color:var(--accent);text-decoration:none;font-size:15px;margin-left:16px">
-      Log in
-    </a>
+  <p class="tagline">Market intelligence &middot; Part of the Dot ecosystem</p>
+  <nav>
+    <a href="/backtest.html">Backtest</a>
+    <a href="/strategy-builder.html">Strategy Builder</a>
+    <a href="/journal.html">Journal</a>
+    <a href="/options.html">Options Vol</a>
+    <a href="/login.html">Log in</a>
   </nav>
   <p class="subtitle">
-    Upload any trading chart and get instant AI‑powered signals,
-    pattern recognition, and actionable trade setups.
+    Drop in a chart screenshot. The analyzer reads the symbol off the image, pulls
+    <strong>real market data</strong>, and returns a structural read &mdash; trend,
+    support and resistance, and a signal.
   </p>
 </header>
 
-<main class="grid">
-  <section class="card upload" id="uploadArea" role="button" aria-label="Upload chart">
-    <div class="upload-icon">
-      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-        <polyline points="17 8 12 3 7 8"></polyline>
-        <line x1="12" x2="12" y1="3" y2="15"></line>
-      </svg>
+<main class="console">
+  <section class="bay upload" id="uploadArea" role="button" aria-label="Upload chart">
+    <div class="bay-head">
+      <span class="bay-title">01 &middot; Upload</span>
+      <span class="bay-note">PNG / JPG</span>
     </div>
-    <h3>Drop your chart here</h3>
-    <p>
-      Drag & drop a trading chart image or click to browse.<br>
-      Supports PNG, JPG, and screenshots.
-    </p>
-    <div class="pills">
-      <div class="pill">📊 Candlestick</div>
-      <div class="pill">📉 Line Charts</div>
-    </div>
-    <input type="file" id="fileInput" accept="image/*" hidden>
-    <div class="symbol-field" onclick="event.stopPropagation()">
-      <label for="symbolOverride">Symbol (optional — improves accuracy over OCR)</label>
-      <input id="symbolOverride" placeholder="e.g. AAPL, BTC/USDT" autocomplete="off" />
-      <select id="marketSelect" style="width:100%;margin-top:8px;padding:11px 14px;border-radius:10px;background:rgba(15,20,40,.6);border:1px solid rgba(255,255,255,.08);color:inherit">
-        <option value="stocks" selected>Stocks / Commodities</option>
-        <option value="crypto">Crypto</option>
-        <option value="forex">Forex</option>
-      </select>
+    <div class="bay-body">
+      <div class="dropzone">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" x2="12" y1="3" y2="15"></line>
+        </svg>
+        <h3>Drop a chart here</h3>
+        <p>Drag &amp; drop a chart image, or click to browse.</p>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+      <div class="symbol-field" onclick="event.stopPropagation()">
+        <label for="symbolOverride">Symbol &mdash; optional</label>
+        <input id="symbolOverride" placeholder="AAPL, GC=F, BTC/USDT" autocomplete="off" />
+        <p class="field-note">A typed symbol beats reading one off the image.</p>
+        <select id="marketSelect" aria-label="Market">
+          <option value="stocks" selected>Stocks / Commodities</option>
+          <option value="crypto">Crypto</option>
+          <option value="forex">Forex</option>
+        </select>
+      </div>
     </div>
   </section>
 
-  <section class="card analysis" id="analysisPanel">
-    <div class="analysis-icon">
-      <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-      </svg>
+  <section class="bay">
+    <div class="bay-head">
+      <span class="bay-title">02 &middot; Analysis</span>
+      <span id="panelStatus" data-state="idle">READY</span>
     </div>
-    <h3>No Analysis Yet</h3>
-    <p>
-      Upload a trading chart image to get AI‑powered signals
-      and detailed technical analysis.
-    </p>
+    <div class="bay-body">
+      <div class="analysis" id="analysisPanel">
+        <div class="analysis-icon">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </div>
+        <h3>No analysis yet</h3>
+        <p>Drop a chart in the upload bay and the read appears here.</p>
+      </div>
+    </div>
   </section>
 </main>
 
 <footer class="disclaimer">
-  ⚠️
+  <b>Disclaimer</b>
   <span>
-    Disclaimer: This tool provides AI‑generated analysis for educational purposes only.
-    Always do your own research and never trade more than you can afford to lose.
+    Educational analysis, not financial advice. Do your own research and never
+    trade more than you can afford to lose.
   </span>
 </footer>
 </div>
 <div class="image-modal" id="imageModal" aria-hidden="true">
-  <button class="modal-close" id="modalClose" aria-label="Close image">✕</button>
-  <img id="modalImg" alt="Uploaded chart preview">
+  <button class="modal-close" id="modalClose" aria-label="Close image">&#10005;</button>
+  <img id="modalImg" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" alt="Uploaded chart preview">
 </div>
 </body>
 <script type="module" src="/src/main.js"></script>
