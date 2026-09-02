@@ -5,39 +5,28 @@
   <title>Dot.Charts — Log In</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-  <style>
-    :root {
-      --bg:#020617;--panel:rgba(15,23,42,.7);--border:rgba(148,163,184,.15);
-      --text:#e5e7eb;--muted:#94a3b8;--accent:#22d3ee;--red:#ef4444;
-    }
-    *{box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
-    body{margin:0;min-height:100vh;color:var(--text);background:var(--bg)}
-    .container{max-width:420px;margin:0 auto;padding:64px 24px}
-    h1{font-size:28px;margin-bottom:24px}
-    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px}
-    label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
-    input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
-      background:#0f172a;color:var(--text);font-size:15px}
-    button{margin-top:22px;width:100%;padding:14px 22px;background:var(--accent);color:var(--bg);
-      border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:15px}
-    button:disabled{opacity:.5;cursor:not-allowed}
-    #error{color:var(--red);margin-top:14px;display:none}
-    .switch{margin-top:18px;font-size:14px;color:var(--muted);text-align:center}
-    .switch a{color:var(--accent);text-decoration:none}
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/instrument.css" />
 </head>
 <body>
-<div class="container">
-  <h1>Log In</h1>
+<div class="container narrow">
+  <div class="auth-head">
+    <a href="/" aria-label="Dot.Charts home"><img src="/images/logo.png" alt="Dot.Charts" /></a>
+  </div>
+  <div class="page-head" style="text-align:center">
+    <h1>Log In</h1>
+  </div>
   <div class="card">
     <label for="email">Email</label>
     <input id="email" type="email" placeholder="you@example.com" />
     <label for="password">Password</label>
-    <input id="password" type="password" placeholder="••••••••" />
-    <button id="loginButton">Log In</button>
+    <input id="password" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" />
+    <button id="loginButton" style="width:100%">Log In</button>
     <div id="error"></div>
   </div>
-  <p class="switch">No account? <a href="/register.html">Register</a></p>
+  <p class="switch">No account? <a href="/register.html">Register</a> &nbsp;&middot;&nbsp; <a href="/">Back to the console</a></p>
 </div>
 <script type="module" src="/src/login.js"></script>
 </body>

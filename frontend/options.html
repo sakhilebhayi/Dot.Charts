@@ -5,47 +5,28 @@
   <title>Dot.Charts — Options Vol</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-  <style>
-    :root {
-      --bg:#020617;--panel:rgba(15,23,42,.7);--border:rgba(148,163,184,.15);
-      --text:#e5e7eb;--muted:#94a3b8;--accent:#22d3ee;
-      --green:#22c55e;--red:#ef4444;--warn-bg:rgba(250,204,21,.1);--warn-border:rgba(250,204,21,.3)
-    }
-    *{box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
-    body{margin:0;min-height:100vh;color:var(--text);background:var(--bg)}
-    .container{max-width:920px;margin:0 auto;padding:48px 24px}
-    h1{font-size:32px;margin-bottom:8px}
-    .back-link{color:var(--accent);text-decoration:none;font-size:14px}
-    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px;margin-top:24px}
-    label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
-    input,select{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
-      background:#0f172a;color:var(--text);font-size:15px}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    button{margin-top:22px;padding:14px 22px;background:var(--accent);color:var(--bg);border:none;
-      border-radius:10px;font-weight:700;cursor:pointer;font-size:15px}
-    button:disabled{opacity:.5;cursor:not-allowed}
-    #error{color:var(--red);margin-top:14px;display:none}
-    #results{margin-top:24px;display:none}
-    .metrics-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px}
-    .metric-box{background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:14px}
-    .metric-box label{margin:0 0 4px}
-    .metric-box .value{font-size:20px;font-weight:700}
-    .metric-box .value.regime-elevated,.metric-box .value.regime-put_skew_elevated{color:var(--red)}
-    .metric-box .value.regime-low,.metric-box .value.regime-call_skew_elevated{color:var(--green)}
-    .disclosure{margin-top:20px;padding:16px 18px;border-radius:10px;background:var(--warn-bg);
-      border:1px solid var(--warn-border);color:#fde68a;font-size:14px;line-height:1.6}
-    .disclosure strong{display:block;margin-bottom:6px;color:#fcd34d}
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/instrument.css" />
 </head>
 <body>
 <div class="container">
-  <a class="back-link" href="/">← Back</a>
-  <a href="/backtest.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">Run a backtest</a>
-  <a href="/journal.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">Journal</a>
-  <a href="/history.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">History</a>
-  <a href="/strategy-builder.html" style="float:right;font-size:14px;color:var(--accent);text-decoration:none;margin-right:16px">Strategy Builder</a>
+<header class="bar">
+  <a href="/" aria-label="Dot.Charts home"><img src="/images/logo.png" alt="Dot.Charts" class="bar-logo" /></a>
+  <nav>
+    <a href="/backtest.html">Backtest</a>
+    <a href="/strategy-builder.html">Strategy Builder</a>
+    <a href="/history.html">History</a>
+    <a href="/journal.html">Journal</a>
+    <a href="/options.html" aria-current="page">Options Vol</a>
+    <a href="/login.html">Log in</a>
+  </nav>
+</header>
+<div class="page-head">
   <h1>Options Vol</h1>
-  <p style="color:var(--muted)">A current-state volatility-regime read — realized-vol rank and put-call skew. Not a backtest, not a trade recommendation.</p>
+  <p class="sub">A current-state volatility-regime read &mdash; realized-vol rank and put-call skew. Not a backtest, not a trade recommendation.</p>
+</div>
 
   <div class="card">
     <div class="row">
