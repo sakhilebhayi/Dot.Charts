@@ -69,7 +69,7 @@ jobs:
           # Repair any numpy damage from earlier cohabitation attempts: the
           # analytics stack is built against numpy 2; force a clean install
           # of whatever requirements.txt resolves to.
-          ./.venv/bin/pip install --no-cache-dir --quiet --force-reinstall --no-deps numpy
+          ./.venv/bin/pip install --no-cache-dir --quiet --force-reinstall --no-deps 'numpy>=2,<2.3'
           echo "== OCR venv (separate: rapidocr pins numpy<2)"
           if [ ! -x .venv-ocr/bin/python ]; then
             "$PY" -m venv .venv-ocr
