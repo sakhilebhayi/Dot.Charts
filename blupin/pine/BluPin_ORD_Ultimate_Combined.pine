@@ -313,37 +313,20 @@ ultShowSweepMarks = input.bool(false, "Mark Sweep Bars (debug)", group = G_ULT,
                "published signal pointed the way it did. Off by default.")
 ultTrade      = input.bool(true, "Trade Ultimate Signals", group = G_ULT,
      tooltip = "ON (default): the daily signal is the trade - entry at the 03:00 close with " +
-               "the rider exits below (small ATR stop, ride to day end). OFF: display and " +
-               "alerts only.")
+               "the rider exits below (fixed 3000-point stop, ride to day end). OFF: " +
+               "display and alerts only.")
 oneTradeMode  = input.bool(true, "One Trade Per Day (Ultimate only)", group = G_ULT,
      tooltip = "ON (default): the Ultimate Signal is the ONLY trade the strategy places - " +
                "session signals stay on the chart as context (compact labels, no orders, " +
                "no SL/TP clutter). OFF: session signals trade too, as before.")
-ultSlMode     = input.string("Fixed Points", "Ultimate Stop Mode", group = G_ULT,
-     options = ["Fixed Points", "ATR (1h-anchored)"],
-     tooltip = "Fixed Points (default): the stop sits a fixed distance below/above the " +
-               "entry - points x point value (3000 x 0.01 = $30 on gold). At current " +
-               "volatility ~1.7x the 1h ATR, inside the tested-best zone (1.4-1.5 ATR " +
-               "stops dominated the 2y sims). NOTE a fixed stop does not scale with " +
-               "volatility - in a much higher-vol regime it becomes tighter than tested; " +
-               "the ATR mode keeps the tested geometry automatically.")
 ultSlPoints   = input.float(3000, "Ultimate Stop (points)", minval = 100, step = 100, group = G_ULT,
-     tooltip = "Fixed Points mode. Distance = points x point value below.")
+     tooltip = "Fixed stop distance for Ultimate entries: points x point value = price " +
+               "distance. Default 3000 x 0.01 = $30.00 on gold - at current volatility " +
+               "about 1.7x the 1h ATR, inside the zone the 2y backtests favored (the " +
+               "1.4-1.5 ATR stops, ~$24-26, beat every tighter setting).")
 ultPointVal   = input.float(0.01, "Point Value (price per point)", minval = 0.0001, step = 0.001, group = G_ULT,
      tooltip = "0.01 (default): 3000 points = $30.00 on gold. Adjust if your symbol's " +
                "point convention differs.")
-ultSlAtr      = input.float(1.1, "Ultimate Stop (× ATR, 1h-anchored)", minval = 0.25, step = 0.05, group = G_ULT,
-     tooltip = "The small stop of the rider profile, measured in 1-HOUR ATR units when " +
-               "anchoring is on (below) - so the stop is the same dollar size on any chart " +
-               "timeframe. 1.1 x 1h-ATR is the tested-best geometry (2y sim, robust in " +
-               "both halves); on gold that is roughly a $19 stop at current volatility.")
-ultAnchorAtr  = input.bool(true, "Anchor Risk Distances to 1h ATR", group = G_ULT,
-     tooltip = "ON (default): the stop, cancel/invalidation distance, chase check, " +
-               "structure-stop buffer, trail, ATR target, and the thin-level tolerance all " +
-               "measure in 1-HOUR ATR (fetched non-repainting via request.security) - the " +
-               "geometry every backtest was run at. Changing the chart timeframe no longer " +
-               "changes the risk engine: on a 30m chart the old chart-ATR stop was only " +
-               "~62% of tested size, on 15m ~43%. OFF: legacy chart-timeframe ATR.")
 ultTpMode     = input.string("Ride to Day End", "Ultimate Take Profit", group = G_ULT,
      options = ["Ride to Day End", "ATR Target"],
      tooltip = "Ride to Day End (default): no TP - the position runs until the 00:00 day " +
@@ -352,27 +335,6 @@ ultTpMode     = input.string("Ride to Day End", "Ultimate Take Profit", group = 
                "cannot afford.\n" +
                "ATR Target: fixed target at the distance below, for comparison.")
 ultTpAtrX     = input.float(4.0, "Ultimate ATR Target (× ATR)", minval = 1.0, step = 0.5, group = G_ULT)
-
-// ---- Survivor Signal (Rung 3) ----------------------------------------------
-var string G_R3 = "④c Survivor Signal"
-r3On = input.bool(true, "Enable Survivor Signal (rung 3)", group = G_R3,
-     tooltip = "The tested-best win-rate configuration. Four silent day-skips plus a " +
-               "proof window:\n" +
-               "1. NFP Friday veto (first Friday of month - went 1-for-24 over 2y)\n" +
-               "2. Prior-day bias: only fade sweeps that CONTINUE yesterday (BUY low-sweep " +
-               "after a down day, SELL high-sweep after an up day)\n" +
-               "3. Noise floor: sweep penetration must beat 0.25x that hour's 14-day mean\n" +
-               "4. Thin-level skip: the swept level needs touches in 2+ separate hours\n" +
-               "Then SURVIVOR: the committed signal only shows at the checkpoint below, and " +
-               "only if price never closed 0.5 ATR back through the swept level meanwhile - " +
-               "the proven signal. Tested 2y: 42.8% win +103.1 ATR (both halves 40.5/45.9); " +
-               "2026 window 65.4% win in pessimistic 1h sim terms (~70%+ expected on the " +
-               "30m tester). Roughly 2-3 signals per week. Skipped/suppressed days stay " +
-               "quiet (counted in the Data Window). OFF = the plain baseline signal.")
-r3Min = input.int(120, "Survivor Checkpoint (minutes after 03:00)", minval = 30,
-     maxval = 360, step = 30, group = G_R3,
-     tooltip = "120 = the tested 05:00 checkpoint. Wrong fades reveal themselves in the " +
-               "03:00-06:00 window; the checkpoint waits it out before showing anything.")
 
 // ---- Confidence ------------------------------------------------------------
 var string G_CONF = "⑤ Confidence Scoring"
@@ -497,16 +459,6 @@ htfSlowEma = request.security(syminfo.tickerid, mtfTf,
 
 mtfBull = htfFastEma > htfSlowEma
 mtfBear = htfFastEma < htfSlowEma
-
-// --- 1h-anchored risk ATR (non-repainting: last CONFIRMED 1h value) ----------
-// Every Ultimate risk distance was backtested in 1h-ATR units. Anchoring here
-// makes that geometry hold on any chart timeframe; falls back to chart ATR
-// until enough 1h history exists.
-atrH1 = request.security(syminfo.tickerid, "60", ta.atr(atrLen)[1],
-     lookahead = barmerge.lookahead_off)
-riskAtr = ultAnchorAtr and not na(atrH1) ? atrH1 : atr
-// The Ultimate stop distance under the selected mode
-ultStopDist = ultSlMode == "Fixed Points" ? ultSlPoints * ultPointVal : riskAtr * ultSlAtr
 
 // --- Previous-day high / low (data only, nothing drawn) ----------------------
 // Used by the Ultimate engine's "Exchange Daily (D)" level source.
@@ -827,27 +779,8 @@ var int    ultPendDir   = 0
 var string ultPendSrc   = "—"
 var int    ultShowT     = na   // show on the first bar closing at/after this
 var bool   ultShown     = false
-// Survivor-signal state (rung 3)
-var int    ultPrevDir   = 0    // prior trading day: 00:00 open vs last close
-var bool   ultPreInval  = false // invalidated before the checkpoint
-var int    ultLastHr    = na   // SAST hour of the latest qualifying sweep
-var int    r3FltSkip    = 0    // days skipped by the four filters
-var int    r3Supp       = 0    // days suppressed by the survivor check
-var array<float> r3TchHi    = array.new<float>(7, na)   // per-hour extremes 20:00-03:00
-var array<float> r3TchLo    = array.new<float>(7, na)
-var array<float> r3PenHi    = array.new<float>(3, 0.0)  // per-obs-hour max penetration
-var array<float> r3PenLo    = array.new<float>(3, 0.0)
-var array<float> r3NzH0 = array.new<float>()            // 14-day noise history
-var array<float> r3NzH1 = array.new<float>()
-var array<float> r3NzH2 = array.new<float>()
-var array<float> r3NzL0 = array.new<float>()
-var array<float> r3NzL1 = array.new<float>()
-var array<float> r3NzL2 = array.new<float>()
 
 if ultNewDay
-    // Prior trading day's direction, captured before the reset wipes ultDayOpen
-    if not na(ultDayOpen)
-        ultPrevDir := close[1] > ultDayOpen ? 1 : close[1] < ultDayOpen ? -1 : 0
     // Freeze yesterday's Ultimate range BEFORE any bar of the new day is
     // measured against it, so today's action can never rewrite it.
     ultRefHi := ultLevelSrc == "Exchange Daily (D)" ? pdh : ultDayHigh
@@ -877,29 +810,9 @@ if ultNewDay
     ultPendSrc   := "—"
     ultShowT     := na
     ultShown     := false
-    ultPreInval  := false
-    ultLastHr    := na
-    array.fill(r3PenHi, 0.0)
-    array.fill(r3PenLo, 0.0)
 else
     ultDayHigh := math.max(nz(ultDayHigh, high), high)
     ultDayLow  := math.min(nz(ultDayLow,  low),  low)
-
-// --- Survivor-signal feature tracking (rung 3) --------------------------------
-if ultFbWinStart
-    array.fill(r3TchHi, na)
-    array.fill(r3TchLo, na)
-if r3On and (inUltFbWin or inUltObs) and barstate.isconfirmed
-    int tb = hour(time, tz)
-    int ti = tb >= 20 ? tb - 20 : tb + 4
-    if ti >= 0 and ti < 7
-        array.set(r3TchHi, ti, math.max(nz(array.get(r3TchHi, ti), high), high))
-        array.set(r3TchLo, ti, math.min(nz(array.get(r3TchLo, ti), low),  low))
-if r3On and inUltObs and barstate.isconfirmed and not na(ultFbHi) and not na(ultFbLo)
-    int pb = hour(time, tz)
-    if pb >= 0 and pb <= 2
-        array.set(r3PenHi, pb, math.max(array.get(r3PenHi, pb), math.max(0.0, high - ultFbHi)))
-        array.set(r3PenLo, pb, math.max(array.get(r3PenLo, pb), math.max(0.0, ultFbLo - low)))
 
 // --- Sweep helpers (one definition, used for ALL FOUR levels) ----------------
 // A bare touch never qualifies: penetration must be strictly beyond the level
@@ -965,14 +878,6 @@ ultBarLvl = ultYBarDir != 0 ? ultYestBarLvl : ultFbBarLvl
 
 ultLateName = useClockRange ? "Late Range" : "Swing H/L"
 
-// Noise-history helpers: 14-day ring of per-hour penetrations, avg needs 10
-f_nzPush(array<float> arr, float v) =>
-    array.push(arr, v)
-    if array.size(arr) > 14
-        array.shift(arr)
-f_nzAvg(array<float> arr) =>
-    array.size(arr) >= 10 ? array.avg(arr) : na
-
 // --- Observation: remember the LATEST qualifying sweep -----------------------
 // Every qualifying sweep overwrites the record, so what survives at the
 // window close is the final sweep of the window - sweep one side and then
@@ -983,7 +888,6 @@ if ultRecNow and barstate.isconfirmed
     ultLastDir := ultBarDir
     ultLastSrc := ultBarSrc
     ultLastLvl := ultBarLvl
-    ultLastHr  := hour(time, tz)
 
 // --- Resolve the latest sweep and display at the window close ----------------
 // The window-close bar is the earliest non-repainting moment the LATEST
@@ -1019,84 +923,26 @@ if useUltimate and ultObsEnd and not ultFired and not ultNewDay and barstate.isc
         gateOk  = ultBiasMode == "Off" or resSrc == 2 or
              (ultBiasMode == "Strict" ? not (opposeTrend or opposeMtf) : not (opposeTrend and opposeMtf))
         proxOk  = not ultUseChase or na(resLvl) or
-             math.abs(close - resLvl) <= riskAtr * ultChaseAtr
-        // Rung-3 day filters: a failing day locks quietly (nothing drawn)
-        bool r3Ok = true
-        if r3On and gateOk and proxOk
-            if dayofweek(time, tz) == dayofweek.friday and dayofmonth(time, tz) <= 7
-                r3Ok := false
-                ultSource := "Skip (NFP)"
-            if r3Ok and resSrc == 1 and ultPrevDir != 0 and
-                 not ((resDir == 1 and ultPrevDir == -1) or (resDir == -1 and ultPrevDir == 1))
-                r3Ok := false
-                ultSource := "Skip (bias)"
-            if r3Ok and resSrc == 1 and not na(ultLastHr) and ultLastHr >= 0 and ultLastHr <= 2
-                float nzAvg1 = resDir == -1 ?
-                     f_nzAvg(ultLastHr == 0 ? r3NzH0 : ultLastHr == 1 ? r3NzH1 : r3NzH2) :
-                     f_nzAvg(ultLastHr == 0 ? r3NzL0 : ultLastHr == 1 ? r3NzL1 : r3NzL2)
-                float pen1 = resDir == -1 ? array.get(r3PenHi, ultLastHr) :
-                     array.get(r3PenLo, ultLastHr)
-                if not na(nzAvg1) and pen1 <= nzAvg1 * 0.25
-                    r3Ok := false
-                    ultSource := "Skip (noise)"
-            if r3Ok and resSrc == 1 and not na(resLvl) and not na(ultLastHr)
-                int swTi = ultLastHr >= 20 ? ultLastHr - 20 : ultLastHr + 4
-                int tch = 0
-                for cti = 0 to 6
-                    if cti < swTi
-                        float ext = resDir == -1 ? array.get(r3TchHi, cti) : array.get(r3TchLo, cti)
-                        if not na(ext) and math.abs(ext - resLvl) <= riskAtr * 0.5
-                            tch += 1
-                if tch < 2
-                    r3Ok := false
-                    ultSource := "Skip (thin)"
-            if not r3Ok
-                r3FltSkip += 1
-        if gateOk and proxOk and r3Ok
+             math.abs(close - resLvl) <= atr * ultChaseAtr
+        if gateOk and proxOk
             ultPendDir := resDir
             ultPendSrc := resSrc == 1 ? ultLateName : resSrc == 2 ? "Yest H/L" : "No Sweep"
             ultPubDir  := resDir
             ultPubLvl  := resLvl
-            ultShowT   := time_close + (r3On ? r3Min : ultDispMin) * 60000
-        else if gateOk and proxOk
-            // rung-3 filter skip: day locks with no signal
-            ultPubDir := 0
+            ultShowT   := time_close + ultDispMin * 60000
         else
             // Suppressed by a gate: the day locks quietly (Data Window still
             // records the reason via ultSource; nothing is drawn on the chart)
             ultSource := not gateOk ? "Gated (bias)" : "Chased (skip)"
 
-// Noise history: push today's per-hour penetrations AFTER the resolve read
-if r3On and ultObsEnd and barstate.isconfirmed and not na(ultFbHi) and not na(ultFbLo)
-    f_nzPush(r3NzH0, array.get(r3PenHi, 0))
-    f_nzPush(r3NzH1, array.get(r3PenHi, 1))
-    f_nzPush(r3NzH2, array.get(r3PenHi, 2))
-    f_nzPush(r3NzL0, array.get(r3PenLo, 0))
-    f_nzPush(r3NzL1, array.get(r3PenLo, 1))
-    f_nzPush(r3NzL2, array.get(r3PenLo, 2))
-
-// Survivor watch: a close 0.5 ATR back through the swept level before the
-// checkpoint invalidates the committed signal - the day then stays quiet
-if r3On and useUltimate and ultPendDir != 0 and not ultShown and not ultPreInval and
-     not na(ultPubLvl) and barstate.isconfirmed
-    ultPreInval := ultPendDir == -1 ? close > ultPubLvl + riskAtr * ultInvalAtr :
-         close < ultPubLvl - riskAtr * ultInvalAtr
-
-// Display at the checkpoint: only the proven signal shows (survivor), or the
-// committed signal after the plain display delay when rung 3 is off.
+// Display after the delay: decision already locked. The cancel watch arms
+// only after display, so every committed day shows its signal at 03:30.
 if useUltimate and ultPendDir != 0 and not ultShown and not ultCancelled and
      not na(ultShowT) and time_close >= ultShowT and barstate.isconfirmed
-    if r3On and ultPreInval
-        ultShown  := true
-        ultDir    := 0
-        ultPubDir := 0
-        ultSource := "Suppressed"
-        r3Supp    += 1
-    else
-        ultShown  := true
-        ultDir    := ultPendDir
-        ultSource := ultPendSrc
-        ultSignal := ultPendDir
+    ultShown  := true
+    ultDir    := ultPendDir
+    ultSource := ultPendSrc
+    ultSignal := ultPendDir
 
 ultBuy  = ultSignal ==  1
 ultSell = ultSignal == -1
@@ -1108,8 +954,8 @@ ultSell = ultSignal == -1
 // live position is closed by section 6. Never fires twice.
 ultInvalHit = useUltimate and ultUseInval and not ultCancelled and ultShown and
      ultPubDir != 0 and not na(ultPubLvl) and barstate.isconfirmed and
-     (ultPubDir == -1 ? close > ultPubLvl + riskAtr * ultInvalAtr :
-                        close < ultPubLvl - riskAtr * ultInvalAtr)
+     (ultPubDir == -1 ? close > ultPubLvl + atr * ultInvalAtr :
+                        close < ultPubLvl - atr * ultInvalAtr)
 
 if ultInvalHit
     ultCancelled := true
@@ -1211,8 +1057,6 @@ plotshape(ultSweepNow and ultMarkDir ==  1, "Sweep (low)",
 plot(ultLastDir,        "ULT Latest-Sweep Dir",     display = display.data_window)
 plot(ultLastSrc,        "ULT Latest-Sweep Src",     display = display.data_window)
 plot(ultFired ? 1 : 0,  "ULT Resolved Today",       display = display.data_window)
-plot(r3FltSkip, "R3 Filter Skips",      display = display.data_window)
-plot(r3Supp,    "R3 Suppressed (inval)", display = display.data_window)
 
 // ============================================================================
 // 5. CONFIDENCE SCORING & FINAL SIGNAL  (session signals only)
@@ -1402,10 +1246,10 @@ if goLong
     tpPrice := close + f_tpDistance(1, close, isUltEntry ? na : sPendOpen)
     ultTradeOpen := isUltEntry
     if isUltEntry
-        slPrice := close - ultStopDist
-        tpPrice := ultTpMode == "ATR Target" ? close + riskAtr * ultTpAtrX : na
+        slPrice := close - ultSlPoints * ultPointVal
+        tpPrice := ultTpMode == "ATR Target" ? close + atr * ultTpAtrX : na
     if isUltEntry and ultStructSl and not na(ultPubLvl) and ultPubLvl < close
-        slPrice := ultPubLvl - riskAtr * ultSlBufAtr
+        slPrice := ultPubLvl - atr * ultSlBufAtr
     curEntryPx := close
     curSlPx    := slPrice
     curTpPx    := tpPrice
@@ -1425,10 +1269,10 @@ if goShort
     tpPrice := close - f_tpDistance(-1, close, isUltEntry ? na : sPendOpen)
     ultTradeOpen := isUltEntry
     if isUltEntry
-        slPrice := close + ultStopDist
-        tpPrice := ultTpMode == "ATR Target" ? close - riskAtr * ultTpAtrX : na
+        slPrice := close + ultSlPoints * ultPointVal
+        tpPrice := ultTpMode == "ATR Target" ? close - atr * ultTpAtrX : na
     if isUltEntry and ultStructSl and not na(ultPubLvl) and ultPubLvl > close
-        slPrice := ultPubLvl + riskAtr * ultSlBufAtr
+        slPrice := ultPubLvl + atr * ultSlBufAtr
     curEntryPx := close
     curSlPx    := slPrice
     curTpPx    := tpPrice
@@ -1442,10 +1286,10 @@ if goShort
              textcolor = color.white, size = size.tiny)
 // --- Ultimate trail (tightening only) ----------------------------------------
 if strategy.position_size > 0 and ultUseTrail and ultTradeOpen
-    slPrice := math.max(slPrice, close - riskAtr * ultTrailAtr)
+    slPrice := math.max(slPrice, close - atr * ultTrailAtr)
     curSlPx := slPrice
 if strategy.position_size < 0 and ultUseTrail and ultTradeOpen
-    slPrice := math.min(slPrice, close + riskAtr * ultTrailAtr)
+    slPrice := math.min(slPrice, close + atr * ultTrailAtr)
     curSlPx := slPrice
 
 if useSlTp and strategy.position_size > 0
