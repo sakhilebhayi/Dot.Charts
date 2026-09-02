@@ -110,7 +110,12 @@ jobs:
           pkill -u "$(id -un)" -f "uvicorn main:app" || true
           sleep 2
           ./run.sh
-          sleep 10
+          echo "== waiting for the service to bind (heavy imports take ~30s)"
+          for i in $(seq 1 30); do
+            curl -sf -m 3 http://127.0.0.1:8001/health >/dev/null && break
+            sleep 3
+          done
+          curl -sf -m 5 http://127.0.0.1:8001/health || { echo "service never came up"; tail -20 uvicorn.log; exit 1; }
           echo "== process: $(pgrep -u "$(id -un)" -f 'uvicorn main:app' | head -1 || echo NOT RUNNING)"
           echo "== OCR endpoint probe (tiny white png - engine load + inference)"
           PNG_B64="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
