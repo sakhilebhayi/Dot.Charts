@@ -1,18 +1,25 @@
-name: Maintenance — Purge Test Account
+name: Maintenance — Test Accounts
 
-# One-off production maintenance: permanently deletes a user account and
-# everything it owns via `php artisan user:purge` (which refuses platform
-# operators). Built for cleaning up QA/smoke-test fixtures like the
-# accounts E2E sweeps leave behind. Deliberately confirm-gated the same
-# way deploy/setup are.
+# Production account maintenance for QA/smoke-test fixtures, over the same
+# SSH channel as deploy:
+#   find  — read-only: lists accounts whose email contains the input
+#   purge — permanently deletes one account and everything it owns via
+#           `php artisan user:purge` (which refuses platform operators)
+# The confirm input must repeat the chosen action, mirroring the
+# deploy/setup confirm gates.
 on:
   workflow_dispatch:
     inputs:
+      action:
+        description: 'What to do'
+        required: true
+        type: choice
+        options: [find, purge]
       confirm:
-        description: 'Type "purge" to confirm the permanent deletion'
+        description: 'Type the action again ("find" or "purge") to confirm'
         required: true
       email:
-        description: 'Email of the account to purge'
+        description: 'purge: exact email to delete · find: email substring to search'
         required: true
 
 concurrency:
@@ -20,24 +27,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  purge:
+  maintain:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Refuse unconfirmed runs
-        if: ${{ github.event.inputs.confirm != 'purge' }}
+        if: ${{ github.event.inputs.confirm != github.event.inputs.action }}
         run: |
-          echo '::error::Confirmation input was not "purge" -- aborting.'
+          echo '::error::Confirmation input did not repeat the action -- aborting.'
           exit 1
 
-      - name: Refuse suspicious emails
+      - name: Refuse suspicious input
         env:
+          ACTION: ${{ github.event.inputs.action }}
           PURGE_EMAIL: ${{ github.event.inputs.email }}
         run: |
-          # The email is interpolated into a remote shell command below, so
+          # The value is interpolated into a remote shell command below, so
           # hold it to a strict shape first (also catches typos/paste junk).
-          if ! printf '%s' "$PURGE_EMAIL" | grep -Eq '^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+$'; then
-            echo '::error::Input does not look like a plain email address -- aborting.'
+          # find takes a substring; purge requires a full plain email.
+          if [ "$ACTION" = "purge" ]; then
+            PATTERN='^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+$'
+          else
+            PATTERN='^[A-Za-z0-9._+@-]+$'
+          fi
+          if ! printf '%s' "$PURGE_EMAIL" | grep -Eq "$PATTERN"; then
+            echo '::error::Input does not look like a plain email/substring -- aborting.'
             exit 1
           fi
 
@@ -48,14 +62,19 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
-      - name: Purge the account
+      - name: Run the maintenance action
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
               "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
               DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}" \
+              ACTION="${{ github.event.inputs.action }}" \
               PURGE_EMAIL="${{ github.event.inputs.email }}" \
-              'bash -s' <<'PURGE'
+              'bash -s' <<'MAINT'
           set -euo pipefail
           cd "$DEPLOY_PATH/backend"
-          php artisan user:purge "$PURGE_EMAIL" --force --no-interaction
-          PURGE
+          if [ "$ACTION" = "purge" ]; then
+            php artisan user:purge "$PURGE_EMAIL" --force --no-interaction
+          else
+            php artisan user:find "$PURGE_EMAIL" --no-interaction
+          fi
+          MAINT
