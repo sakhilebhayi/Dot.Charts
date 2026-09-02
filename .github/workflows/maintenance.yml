@@ -1,0 +1,61 @@
+name: Maintenance — Purge Test Account
+
+# One-off production maintenance: permanently deletes a user account and
+# everything it owns via `php artisan user:purge` (which refuses platform
+# operators). Built for cleaning up QA/smoke-test fixtures like the
+# accounts E2E sweeps leave behind. Deliberately confirm-gated the same
+# way deploy/setup are.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "purge" to confirm the permanent deletion'
+        required: true
+      email:
+        description: 'Email of the account to purge'
+        required: true
+
+concurrency:
+  group: charts-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Refuse unconfirmed runs
+        if: ${{ github.event.inputs.confirm != 'purge' }}
+        run: |
+          echo '::error::Confirmation input was not "purge" -- aborting.'
+          exit 1
+
+      - name: Refuse suspicious emails
+        env:
+          PURGE_EMAIL: ${{ github.event.inputs.email }}
+        run: |
+          # The email is interpolated into a remote shell command below, so
+          # hold it to a strict shape first (also catches typos/paste junk).
+          if ! printf '%s' "$PURGE_EMAIL" | grep -Eq '^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+$'; then
+            echo '::error::Input does not look like a plain email address -- aborting.'
+            exit 1
+          fi
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Purge the account
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}" \
+              PURGE_EMAIL="${{ github.event.inputs.email }}" \
+              'bash -s' <<'PURGE'
+          set -euo pipefail
+          cd "$DEPLOY_PATH/backend"
+          php artisan user:purge "$PURGE_EMAIL" --force --no-interaction
+          PURGE
