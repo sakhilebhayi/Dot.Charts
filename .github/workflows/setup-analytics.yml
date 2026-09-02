@@ -117,6 +117,12 @@ jobs:
           done
           curl -sf -m 5 http://127.0.0.1:8001/health || { echo "service never came up"; tail -20 uvicorn.log; exit 1; }
           echo "== process: $(pgrep -u "$(id -un)" -f 'uvicorn main:app' | head -1 || echo NOT RUNNING)"
+          echo "== memory budget (cgroup limit vs uvicorn RSS)"
+          cat /sys/fs/cgroup/memory.max 2>/dev/null || cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null || echo "no cgroup file"
+          ps -o rss= -p "$(pgrep -u "$(id -un)" -f 'uvicorn main:app' | head -1)" | awk '{print "uvicorn RSS: " $1/1024 " MB"}'
+          echo "== standalone OCR worker probe (subprocess memory profile)"
+          printf 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' | base64 -d > /tmp/ocrprobe.png
+          time ./.venv/bin/python analysis/ocr_cli.py /tmp/ocrprobe.png | tail -1
           echo "== OCR endpoint probe (tiny white png - engine load + inference)"
           PNG_B64="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
           curl -s -m 90 -X POST http://127.0.0.1:8001/ocr-symbol \

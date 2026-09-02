@@ -94,7 +94,6 @@ def extract_candidates(text: str, limit: int = 4) -> list[str]:
 
 def run_ocr_symbol(image_b64: str) -> dict:
     """Decode a base64 screenshot, OCR it, and return ticker candidates."""
-    global _engine
     payload = re.sub(r"^data:image/\w+;base64,", "", image_b64, flags=re.I)
     try:
         raw = base64.b64decode(payload, validate=True)
@@ -103,18 +102,35 @@ def run_ocr_symbol(image_b64: str) -> dict:
     if not raw:
         raise OcrUnavailable("empty image payload")
 
-    if _engine is None:
-        try:
-            from rapidocr_onnxruntime import RapidOCR
-            _engine = RapidOCR()
-        except Exception as exc:  # missing wheel, memory, ONNX failure
-            raise OcrUnavailable(f"OCR engine unavailable: {exc}") from exc
+    # The engine runs in a short-lived SUBPROCESS: on a shared host the
+    # account-wide memory ceiling cannot afford ONNX + OpenCV living inside
+    # the long-running service, and an engine crash must never take the
+    # service down. The child pays a few seconds of import cost per upload;
+    # the parent stays lean.
+    import subprocess
+    import sys
+    import tempfile
+    import os
 
+    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
     try:
-        result, _ = _engine(raw)
-    except Exception as exc:
-        raise OcrUnavailable(f"OCR inference failed: {exc}") from exc
-
-    lines = [item[1] for item in (result or []) if len(item) > 1]
-    text = "\n".join(lines)
-    return {"text": text, "candidates": extract_candidates(text)}
+        tmp.write(raw)
+        tmp.close()
+        cli = os.path.join(os.path.dirname(__file__), "ocr_cli.py")
+        proc = subprocess.run(
+            [sys.executable, cli, tmp.name],
+            capture_output=True, timeout=75, text=True)
+        try:
+            payload_out = __import__("json").loads(proc.stdout.strip().splitlines()[-1])
+        except Exception as exc:
+            raise OcrUnavailable(
+                f"OCR worker produced no result (exit {proc.returncode}): "
+                f"{proc.stderr[-200:]}") from exc
+        if not payload_out.get("ok"):
+            raise OcrUnavailable(f"OCR worker failed: {payload_out.get('error')}")
+        text = "\n".join(payload_out.get("lines", []))
+        return {"text": text, "candidates": extract_candidates(text)}
+    except subprocess.TimeoutExpired as exc:
+        raise OcrUnavailable("OCR worker timed out") from exc
+    finally:
+        os.unlink(tmp.name)
