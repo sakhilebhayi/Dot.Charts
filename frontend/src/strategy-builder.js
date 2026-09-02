@@ -1,5 +1,6 @@
-import { getToken, clearToken, isLoggedIn } from './auth.js';
+import { getToken, clearToken, isLoggedIn, logout } from './auth.js';
 import { renderBacktestResult } from './results-renderer.js';
+import { showFailure } from './ecosystem.js';
 
 const OPERAND_TYPES = [
   { value: 'close', label: 'Close' },
@@ -39,7 +40,10 @@ function defaultCondition() {
 }
 
 export let entryConditions = [defaultCondition()];
-export let exitConditions = [defaultCondition()];
+// The exit starts as the mirror of the entry, not a copy of it: an exit
+// identical to the entry can never fire after a position opens, so the
+// out-of-the-box Test Run would silently produce zero trades.
+export let exitConditions = [{ ...defaultCondition(), comparator: 'crosses_below' }];
 
 function operandToJSON(operand) {
   if (operand.type === 'value') {
@@ -200,9 +204,9 @@ const authStateEl = document.getElementById('authState');
 if (authStateEl) {
   if (isLoggedIn()) {
     authStateEl.innerHTML = '<a href="#" id="logoutLink" style="color:var(--accent)">Log out</a>';
-    document.getElementById('logoutLink').addEventListener('click', (e) => {
+    document.getElementById('logoutLink').addEventListener('click', async (e) => {
       e.preventDefault();
-      clearToken();
+      await logout();
       window.location.reload();
     });
   } else {
@@ -216,6 +220,7 @@ renderPanel('exit');
 import { API_BASE } from './api-base.js';
 
 document.getElementById('testRunButton').addEventListener('click', async () => {
+  let failStatus = null;
   const button = document.getElementById('testRunButton');
   const errorEl = document.getElementById('error');
   const resultsEl = document.getElementById('results');
@@ -246,6 +251,7 @@ document.getElementById('testRunButton').addEventListener('click', async () => {
       headers,
       body: JSON.stringify(payload),
     });
+    failStatus = response.status;
     const body = await response.json();
 
     if (!response.ok || body.success === false) {
@@ -254,8 +260,7 @@ document.getElementById('testRunButton').addEventListener('click', async () => {
 
     renderBacktestResult(body.result);
   } catch (err) {
-    errorEl.textContent = err.message;
-    errorEl.style.display = 'block';
+    showFailure(errorEl, err.message, failStatus);
   } finally {
     button.disabled = false;
     button.textContent = 'Test Run';
@@ -363,6 +368,7 @@ loadSelect.addEventListener('change', async () => {
 saveButton.addEventListener('click', async () => {
   const saveErrorEl = document.getElementById('saveError');
   saveErrorEl.style.display = 'none';
+  saveErrorEl.style.color = ''; // back to error styling after a green "Saved ✓"
 
   if (entryConditions.length === 0 || exitConditions.length === 0) {
     saveErrorEl.textContent = 'Both Entry and Exit need at least one condition.';
@@ -400,8 +406,16 @@ saveButton.addEventListener('click', async () => {
       throw new Error(body.error || 'Save failed');
     }
 
-    saveErrorEl.style.display = 'none';
-    alert(`Saved "${body.name}"`);
+    // Inline confirmation instead of a blocking alert(), and the saved
+    // strategy joins the "Load from saved" dropdown immediately.
+    saveErrorEl.textContent = `Saved "${body.name}" ✓`;
+    saveErrorEl.style.color = 'var(--success)';
+    saveErrorEl.style.display = 'block';
+    const opt = document.createElement('option');
+    opt.value = body.id;
+    opt.textContent = body.name;
+    loadSelect.appendChild(opt);
+    loadSelect.value = body.id;
   } catch (err) {
     saveErrorEl.textContent = err.message;
     saveErrorEl.style.display = 'block';

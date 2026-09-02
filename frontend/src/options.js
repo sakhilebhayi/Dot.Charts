@@ -1,4 +1,5 @@
 import { API_BASE } from './api-base.js';
+import { showFailure } from './ecosystem.js';
 
 const checkButton = document.getElementById('checkButton');
 const errorEl = document.getElementById('error');
@@ -7,6 +8,7 @@ const symbolInput = document.getElementById('symbol');
 const assetClassSelect = document.getElementById('assetClass');
 
 checkButton.addEventListener('click', async () => {
+  let failStatus = null;
   errorEl.style.display = 'none';
   resultsEl.style.display = 'none';
   checkButton.disabled = true;
@@ -20,6 +22,7 @@ checkButton.addEventListener('click', async () => {
       `${API_BASE}/options/vol-signal/${encodeURIComponent(symbol)}?asset_class=${encodeURIComponent(assetClass)}`,
       { headers: { Accept: 'application/json' } },
     );
+    failStatus = response.status;
     const body = await response.json();
 
     if (!response.ok || body.success === false) {
@@ -28,8 +31,7 @@ checkButton.addEventListener('click', async () => {
 
     renderVolSignal(body.result);
   } catch (err) {
-    errorEl.textContent = err.message;
-    errorEl.style.display = 'block';
+    showFailure(errorEl, err.message, failStatus);
   } finally {
     checkButton.disabled = false;
     checkButton.textContent = 'Check vol signal';

@@ -1,6 +1,7 @@
-import { getToken, clearToken, isLoggedIn } from './auth.js';
+import { getToken, clearToken, isLoggedIn, logout } from './auth.js';
 
 import { API_BASE } from './api-base.js';
+import { showFailure } from './ecosystem.js';
 
 const authStateEl = document.getElementById('authState');
 const loginNoticeEl = document.getElementById('loginNotice');
@@ -8,9 +9,9 @@ const formCardEl = document.getElementById('formCard');
 
 if (isLoggedIn()) {
   authStateEl.innerHTML = '<a href="#" id="logoutLink" style="color:var(--accent)">Log out</a>';
-  document.getElementById('logoutLink').addEventListener('click', (e) => {
+  document.getElementById('logoutLink').addEventListener('click', async (e) => {
     e.preventDefault();
-    clearToken();
+    await logout();
     window.location.reload();
   });
 } else {
@@ -123,10 +124,12 @@ function renderEntry(entry) {
 
 async function loadEntries(url, { reset }) {
   if (!isLoggedIn()) return;
+  let failStatus = null;
   errorEl.style.display = 'none';
 
   try {
     const response = await fetch(url, { headers: authHeaders() });
+    failStatus = response.status;
     if (response.status === 401) {
       await handleUnauthorized();
       return;
@@ -147,8 +150,7 @@ async function loadEntries(url, { reset }) {
     loadMoreButton.style.display = nextPageUrl ? 'block' : 'none';
     emptyEl.style.display = reset && body.data.length === 0 ? 'block' : 'none';
   } catch (err) {
-    errorEl.textContent = err.message;
-    errorEl.style.display = 'block';
+    showFailure(errorEl, err.message, failStatus);
   }
 }
 

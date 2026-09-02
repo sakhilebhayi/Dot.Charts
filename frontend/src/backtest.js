@@ -1,7 +1,8 @@
-import { getToken, clearToken, isLoggedIn } from './auth.js';
+import { getToken, clearToken, isLoggedIn, logout } from './auth.js';
 import { renderBacktestResult } from './results-renderer.js';
 
 import { API_BASE } from './api-base.js';
+import { showFailure } from './ecosystem.js';
 
 const runButton = document.getElementById('runButton');
 const errorEl = document.getElementById('error');
@@ -69,9 +70,9 @@ const authStateEl = document.getElementById('authState');
 if (authStateEl) {
   if (isLoggedIn()) {
     authStateEl.innerHTML = '<a href="#" id="logoutLink" style="color:var(--accent)">Log out</a>';
-    document.getElementById('logoutLink').addEventListener('click', (e) => {
+    document.getElementById('logoutLink').addEventListener('click', async (e) => {
       e.preventDefault();
-      clearToken();
+      await logout();
       window.location.reload();
     });
   } else {
@@ -137,6 +138,7 @@ if (rerunData) {
 }
 
 runButton.addEventListener('click', async () => {
+  let failStatus = null;
   errorEl.style.display = 'none';
   resultsEl.style.display = 'none';
   runButton.disabled = true;
@@ -171,6 +173,7 @@ runButton.addEventListener('click', async () => {
       headers,
       body: JSON.stringify(payload),
     });
+    failStatus = response.status;
     const body = await response.json();
 
     if (!response.ok || body.success === false) {
@@ -179,8 +182,7 @@ runButton.addEventListener('click', async () => {
 
     renderBacktestResult(body.result);
   } catch (err) {
-    errorEl.textContent = err.message;
-    errorEl.style.display = 'block';
+    showFailure(errorEl, err.message, failStatus);
   } finally {
     runButton.disabled = false;
     runButton.textContent = 'Run backtest';

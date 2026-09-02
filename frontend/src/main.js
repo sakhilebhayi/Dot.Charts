@@ -1,4 +1,5 @@
 import { API_BASE } from './api-base.js';
+import { ecosystemStrip, isHardFailure } from './ecosystem.js';
 document.addEventListener('DOMContentLoaded', () => {
   const uploadArea = document.getElementById('uploadArea');
   const fileInput = document.getElementById('fileInput');
@@ -54,14 +55,18 @@ document.addEventListener('DOMContentLoaded', () => {
             ...(symbolOverride ? { symbol: symbolOverride } : {}),
           })
         });
-        if (!response.ok) throw new Error('Backend analysis failed');
+        if (!response.ok) {
+          const failed = new Error('Backend analysis failed');
+          failed.status = response.status;
+          throw failed;
+        }
         const result = await response.json();
         displayResults(result.analysis, {
           isDemo: result.is_demo === true,
           disclaimer: result.disclaimer || null
         });
       } catch (error) {
-        showError(error.message);
+        showError(error.message, error.status ?? null);
       }
     };
     reader.readAsDataURL(file);
@@ -71,49 +76,16 @@ document.addEventListener('DOMContentLoaded', () => {
     analysisPanel.innerHTML = '<div class="spinner"></div><h3>Analyzing...</h3><p>Reading structure and computing the analysis</p>';
   }
 
-  function showError(message) {
+  function showError(message, status) {
     analysisPanel.innerHTML = `
       <div class="analysis-icon" style="color:var(--red)">❌</div>
       <h3>Analysis Failed</h3>
       <p style="color:var(--red)">${message}</p>
       <button class="primary-btn" onclick="location.reload()">Try Again</button>
     `;
-  }
-
-  function generateMockAnalysis() {
-    const signals = ['Strong Buy', 'Buy', 'Neutral', 'Sell', 'Strong Sell'];
-    const patterns = ['Ascending Channel', 'Bullish Consolidation', 'Triangle', 'Support Bounce', 'Double Top', 'Flag'];
-    const trends = ['Bullish', 'Bearish', 'Neutral'];
-    const supports = [
-      (48000 + Math.random() * 800).toFixed(0),
-      (47000 + Math.random() * 600).toFixed(0),
-      (45000 + Math.random() * 500).toFixed(0)
-    ];
-    const resistances = [
-      (49500 + Math.random() * 600).toFixed(0),
-      (51000 + Math.random() * 800).toFixed(0),
-      (53000 + Math.random() * 1200).toFixed(0)
-    ];
-
-    const signal = signals[Math.floor(Math.random() * signals.length)];
-    const confidence = Math.floor(Math.random() * 25 + 70); // 70-94%
-    const trend = trends[Math.floor(Math.random() * trends.length)];
-    const pattern = patterns.sort(() => 0.5 - Math.random()).slice(0, 3);
-
-    return {
-      signal,
-      confidence,
-      trend,
-      patterns: pattern,
-      supports,
-      resistances,
-      entryZone: `${supports[0]} – ${(parseInt(supports[0], 10) + 400).toFixed(0)}`,
-      stopLoss: (supports[1] - 500).toFixed(0),
-      takeProfits: [resistances[0], resistances[1], resistances[2]],
-      riskReward: (1.4 + Math.random() * 3.2).toFixed(1),
-      summary: `${trend} structure with ${signal.toLowerCase()} bias and clear liquidity sweeps. Momentum suggests follow-through if ${supports[0]} holds; watch reactions near ${resistances[0]}.`,
-      timestamp: new Date().toLocaleString()
-    };
+    if (isHardFailure(status)) {
+      analysisPanel.appendChild(ecosystemStrip());
+    }
   }
 
   function getSignalStyle(signal) {
