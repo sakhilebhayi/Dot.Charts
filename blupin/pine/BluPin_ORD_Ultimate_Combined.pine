@@ -778,6 +778,11 @@ var float  ultLastLvl   = na   // the level that sweep took
 var int    ultPubDir    = 0
 var float  ultPubLvl    = na
 var bool   ultCancelled = false
+// Signal-anchored entry/SL levels: set the bar the signal prints, cleared at
+// the day roll - so EVERY day's signal carries its lines from signal to day
+// end, for the entire chart history, independent of the strategy's position.
+var float  ultLnEntry   = na
+var float  ultLnSl      = na
 // Pending display: committed at the window close, shown after the delay
 var int    ultPendDir   = 0
 var string ultPendSrc   = "—"
@@ -814,6 +819,8 @@ if ultNewDay
     ultPendSrc   := "—"
     ultShowT     := na
     ultShown     := false
+    ultLnEntry   := na
+    ultLnSl      := na
 else
     ultDayHigh := math.max(nz(ultDayHigh, high), high)
     ultDayLow  := math.min(nz(ultDayLow,  low),  low)
@@ -947,6 +954,8 @@ if useUltimate and ultPendDir != 0 and not ultShown and not ultCancelled and
     ultDir    := ultPendDir
     ultSource := ultPendSrc
     ultSignal := ultPendDir
+    ultLnEntry := close
+    ultLnSl    := close - ultPendDir * ultSlPoints * ultPointVal
 
 ultBuy  = ultSignal ==  1
 ultSell = ultSignal == -1
@@ -1183,6 +1192,17 @@ if sPendDir != 0 and not na(sPendT) and time >= sPendT and barstate.isconfirmed
 
 plot(sConfFail, "Session Confirm Fails", display = display.data_window)
 
+// Session signals carry their own entry/SL levels too, from the signal bar
+// until the next session begins (the session engine's own flatten horizon).
+var float sesLnEntry = na
+var float sesLnSl    = na
+if anySessionStart
+    sesLnEntry := na
+    sesLnSl    := na
+if sessSignal != 0
+    sesLnEntry := close
+    sesLnSl    := close - sessSignal * ultSlPoints * ultPointVal
+
 plotshape(showLabels and sessSignal == 1, "Session Buy", style = shape.triangleup,
      location = location.belowbar,
      color = sessConfOk ? color.new(buyColor, 15) : color.new(buyColor, 65), size = size.tiny)
@@ -1299,20 +1319,18 @@ if ultNewDay and ultTradeOpen and strategy.position_size != 0
 if strategy.position_size == 0 and not (goLong or goShort)
     ultTradeOpen := false
 
-// Entry / SL / TP level plots, derived every bar from the strategy's OWN
-// state - a trade is live from its entry bar (order queued this close)
-// until the position is flat. Stateless by construction, so historical
-// recompute and realtime bars render identically: every past trade keeps
-// its segments, with style_linebr breaking the line between trades.
-bool trdLive = strategy.position_size != 0 or goLong or goShort
-float pxEntry = strategy.position_size != 0 ? strategy.position_avg_price : close
-
-plot(showLevels and trdLive ? pxEntry : na, title = "Entry Level", style = plot.style_linebr,
+// Every signal's entry/SL levels, anchored to the SIGNALS themselves (not
+// the tester's position): the ULTIMATE pair runs from its signal to the day
+// roll; each session pair runs from its signal to the next session start.
+// Pure plot() series - full chart history, identical on live and reload.
+plot(showLevels ? ultLnEntry : na, title = "ULT Entry Level", style = plot.style_linebr,
      color = neutralColor, linewidth = 1)
-plot(showLevels and trdLive ? slPrice : na, title = "SL Level",    style = plot.style_linebr,
+plot(showLevels ? ultLnSl : na,    title = "ULT SL Level",    style = plot.style_linebr,
      color = sellColor, linewidth = 1)
-plot(showLevels and trdLive ? tpPrice : na, title = "TP Level",    style = plot.style_linebr,
-     color = buyColor, linewidth = 1)
+plot(showLevels ? sesLnEntry : na, title = "Session Entry Level", style = plot.style_linebr,
+     color = color.new(neutralColor, 45), linewidth = 1)
+plot(showLevels ? sesLnSl : na,    title = "Session SL Level",    style = plot.style_linebr,
+     color = color.new(sellColor, 45), linewidth = 1)
 
 // ============================================================================
 // 6b. ULTIMATE PER-SOURCE STATISTICS  (Data Window only)
