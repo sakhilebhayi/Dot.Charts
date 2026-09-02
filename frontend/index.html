@@ -12,212 +12,301 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg:#020617;
-      --panel:#0a101f;
-      --panel-sunken:#070c18;
-      --line:rgba(148,163,184,.16);
-      --text:#e6e9ef;
-      --muted:#8fa0b8;
-      --signal:#f2a70b;            /* the logo's amber — control-room signal colour */
-      --signal-soft:rgba(242,167,11,.12);
+      --bg:#01040d;
+      --panel:#070d1c;
+      --panel-sunken:#040917;
+      --line:rgba(148,163,184,.18);
+      --text:#e8ebf2;
+      --muted:#8496b0;
+      --ghost:#3d4c66;
+      --signal:#f2a70b;            /* the logo's amber — the instrument's signal colour */
+      --signal-soft:rgba(242,167,11,.1);
       --blue:#8ec9dc;              /* the logo's powder blue — secondary */
-      --green:#34c26b;--green-soft:rgba(52,194,107,.12);
-      --red:#e5484d;--red-soft:rgba(229,72,77,.12);
+      --green:#2fd06d;--green-soft:rgba(47,208,109,.1);
+      --red:#ff4d55;--red-soft:rgba(255,77,85,.1);
       --font-display:'IBM Plex Sans Condensed',system-ui,sans-serif;
       --font-body:'IBM Plex Sans',system-ui,sans-serif;
       --font-mono:'IBM Plex Mono',ui-monospace,monospace;
     }
     *{box-sizing:border-box}
-    body{margin:0;min-height:100vh;color:var(--text);font-family:var(--font-body);font-size:15px;
-      background:var(--bg)}
-    .container{max-width:1200px;margin:0 auto;padding:48px 24px 40px}
+    /* CSS display on a class outranks the UA's [hidden] rule — restore it. */
+    [hidden]{display:none !important}
+    body{margin:0;min-height:100vh;color:var(--text);font-family:var(--font-body);
+      font-size:15px;background:var(--bg)}
+    .app{max-width:1280px;margin:0 auto;padding:0 24px 48px}
 
-    header{text-align:center;margin-bottom:36px}
-    .brand-logo{width:200px;height:auto;margin:0 auto;display:block}
-    .tagline{margin:6px 0 0;font-family:var(--font-mono);font-size:12px;letter-spacing:.14em;
-      text-transform:uppercase;color:var(--muted)}
-    nav{margin-top:22px;display:flex;justify-content:center;flex-wrap:wrap;gap:4px 26px}
-    nav a{font-family:var(--font-display);font-weight:600;font-size:13.5px;letter-spacing:.06em;
-      text-transform:uppercase;color:var(--blue);text-decoration:none;padding:4px 2px;
-      border-bottom:1px solid transparent}
-    nav a:hover{color:var(--text);border-bottom-color:var(--signal)}
-    .subtitle{margin:20px auto 0;max-width:620px;color:var(--muted);font-size:15.5px;line-height:1.65}
-    .subtitle strong{color:var(--text);font-weight:600}
+    .bar{display:flex;align-items:center;justify-content:space-between;gap:18px;
+      padding:14px 0;border-bottom:1px solid var(--line)}
+    .bar-logo{height:46px;width:auto;display:block}
+    .bar nav{display:flex;flex-wrap:wrap;gap:2px 22px}
+    .bar nav a{font-family:var(--font-display);font-weight:600;font-size:13px;
+      letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+      text-decoration:none;padding:4px 0}
+    .bar nav a:hover{color:var(--text)}
+    .bar nav a.login{color:var(--blue)}
 
-    /* Two bays sharing one ruled edge — a console, not floating cards. */
-    .console{display:grid;grid-template-columns:minmax(340px,430px) 1fr;gap:1px;
-      background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
-    .bay{background:var(--panel);display:flex;flex-direction:column;min-width:0}
-    .bay-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
-      padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel-sunken)}
-    .bay-title{font-family:var(--font-display);font-weight:700;font-size:12.5px;
-      letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-    .bay-note{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.08em;color:var(--muted)}
+    .hero{padding:64px 0 40px;max-width:860px}
+    .hero h1{margin:0;font-family:var(--font-display);font-weight:700;
+      font-size:clamp(44px,7.2vw,84px);line-height:.94;letter-spacing:-.01em;
+      text-transform:uppercase}
+    .hero h1 em{font-style:normal;color:var(--signal)}
+    .hero-sub{margin:22px 0 0;max-width:600px;font-size:16.5px;line-height:1.6;color:var(--muted)}
+    .hero-sub strong{color:var(--text);font-weight:600}
+    .specline{margin:22px 0 0;font-family:var(--font-mono);font-size:12px;
+      letter-spacing:.12em;text-transform:uppercase;color:var(--ghost)}
+    .specline b{color:var(--muted);font-weight:500}
+
+    /* ── The instrument: scan stage + signal readout, one shared edge ── */
+    .deck{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:1px;
+      background:var(--line);border:1px solid var(--line)}
+    .stage-col{background:var(--panel);display:flex;flex-direction:column;min-width:0}
+    .stage{position:relative;flex:1;min-height:440px;cursor:pointer;overflow:hidden;
+      background:var(--panel-sunken)}
+    .stage:hover .prompt-main,.stage.drag-over .prompt-main{color:var(--signal)}
+    .stage.drag-over{outline:1px solid var(--signal);outline-offset:-1px}
+    /* corner brackets — a crosshair frame, drawn not faked */
+    .tick{position:absolute;width:16px;height:16px;border:0 solid var(--ghost)}
+    .tick.tl{top:10px;left:10px;border-top-width:1px;border-left-width:1px}
+    .tick.tr{top:10px;right:10px;border-top-width:1px;border-right-width:1px}
+    .tick.bl{bottom:10px;left:10px;border-bottom-width:1px;border-left-width:1px}
+    .tick.br{bottom:10px;right:10px;border-bottom-width:1px;border-right-width:1px}
+    .stage.drag-over .tick,.stage:hover .tick{border-color:var(--signal)}
+    .plot-axes{position:absolute;inset:0;color:var(--ghost)}
+    .stage-empty{position:absolute;inset:0;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}
+    .prompt-main{font-family:var(--font-mono);font-weight:500;font-size:clamp(20px,3vw,30px);
+      letter-spacing:.22em;color:var(--muted)}
+    .prompt-sub{font-size:13.5px;color:var(--ghost)}
+    .stage-image{position:absolute;inset:0;display:flex;align-items:center;
+      justify-content:center;background:var(--panel-sunken)}
+    .stage-image img{max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in}
+    .scanline{position:absolute;inset:0;pointer-events:none;display:none;
+      background:linear-gradient(to bottom,transparent 0%,transparent 46%,
+        rgba(242,167,11,.16) 49%,var(--signal) 50%,rgba(242,167,11,.16) 51%,
+        transparent 54%,transparent 100%);
+      background-size:100% 220%;background-repeat:no-repeat;
+      animation:scan 1.5s linear infinite}
+    .stage.scanning .scanline{display:block}
+    @keyframes scan{from{background-position:0 -120%}to{background-position:0 120%}}
+    .stage-foot{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;
+      padding:14px 16px;border-top:1px solid var(--line)}
+    .stage-foot .fld{flex:1;min-width:150px}
+    .stage-foot label{display:block;font-family:var(--font-display);font-weight:600;
+      font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ghost);
+      margin-bottom:6px}
+    .stage-foot input,.stage-foot select{width:100%;padding:9px 11px;border-radius:0;
+      background:var(--panel-sunken);border:1px solid var(--line);color:var(--text);
+      font-family:var(--font-mono);font-size:13.5px}
+    .stage-foot input::placeholder{color:var(--ghost)}
+    .stage-foot input:focus,.stage-foot select:focus{outline:none;border-color:var(--signal)}
+    .stage-foot .note{flex-basis:100%;margin:0;font-size:12px;color:var(--ghost)}
+
+    .readout{background:var(--panel);display:flex;flex-direction:column;min-width:0}
+    .readout-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:11px 16px;border-bottom:1px solid var(--line);background:var(--panel-sunken)}
+    .readout-head span:first-child{font-family:var(--font-display);font-weight:700;
+      font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
     #panelStatus{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.12em}
     #panelStatus[data-state="idle"]{color:var(--muted)}
     #panelStatus[data-state="busy"]{color:var(--signal)}
     #panelStatus[data-state="good"]{color:var(--green)}
     #panelStatus[data-state="warn"]{color:var(--signal)}
     #panelStatus[data-state="bad"]{color:var(--red)}
-    .bay-body{padding:26px;flex:1;display:flex;flex-direction:column}
+    .readout-body{padding:20px 16px;flex:1;display:flex;flex-direction:column;min-width:0}
 
-    .upload .bay-body{cursor:pointer}
-    .dropzone{border:1px dashed rgba(148,163,184,.35);border-radius:4px;padding:34px 22px;
-      text-align:center;transition:border-color .15s ease,background .15s ease}
-    .upload:hover .dropzone{border-color:var(--signal)}
-    .upload.drag-over .dropzone{border-color:var(--signal);background:var(--signal-soft)}
-    .dropzone svg{color:var(--signal);margin-bottom:12px}
-    .dropzone h3{margin:0 0 8px;font-family:var(--font-display);font-weight:600;font-size:19px}
-    .dropzone p{margin:0;font-size:14px;color:var(--muted);line-height:1.6}
-    .symbol-field{margin-top:22px;padding-top:20px;border-top:1px solid var(--line);
-      text-align:left;cursor:default}
-    .symbol-field label{display:block;font-family:var(--font-display);font-weight:600;font-size:11.5px;
-      letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-    .symbol-field input,.symbol-field select{width:100%;padding:10px 12px;border-radius:4px;
-      background:var(--panel-sunken);border:1px solid var(--line);color:var(--text);
-      font-family:var(--font-mono);font-size:14px}
-    .symbol-field select{margin-top:8px;font-family:var(--font-body)}
-    .field-note{margin:7px 0 0;font-size:12.5px;color:var(--muted)}
-    .symbol-field input::placeholder{color:var(--muted)}
-    .symbol-field input:focus,.symbol-field select:focus{outline:none;border-color:var(--signal)}
-
-    .analysis{display:flex;flex-direction:column;align-items:center;justify-content:center;
-      text-align:center;min-height:340px;flex:1}
-    .analysis-icon{margin-bottom:14px;color:var(--muted)}
-    .analysis h3{margin:0 0 8px;font-family:var(--font-display);font-weight:600;font-size:19px}
-    .analysis p{font-size:14.5px;color:var(--muted);max-width:420px;line-height:1.6;margin:0}
-
-    /* Result readouts — flat panels, ruled apart, figures in mono. */
-    .analysis-results{display:grid;grid-template-columns:1fr 1fr;gap:1px;width:100%;
-      background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden}
-    .result-box{background:var(--panel-sunken);padding:16px 18px;text-align:left;font-size:14px;min-width:0}
-    .result-box label{display:block;font-family:var(--font-display);font-weight:600;font-size:11px;
-      letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
-    .result-box .value{color:var(--text);font-weight:600;font-size:15px}
-    .mono{font-family:var(--font-mono)}
-    .signal-card{border:1px solid var(--line);border-radius:4px;
-      padding:18px;text-align:left;background:var(--panel-sunken)}
-    .signal-card .readout-label{font-family:var(--font-display);font-weight:600;font-size:11px;
-      letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-    .signal-card .signal-value{font-family:var(--font-mono);font-size:24px;font-weight:600;
-      letter-spacing:.02em;text-transform:uppercase;margin:10px 0 0}
-    .progress{width:100%;height:4px;background:rgba(148,163,184,.18);overflow:hidden;margin-top:14px}
-    .progress span{display:block;height:100%}
-    .conf-line{margin-top:8px;font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;color:var(--muted)}
-    .tags{display:flex;flex-wrap:wrap;gap:8px}
-    .tag{display:inline-flex;align-items:center;padding:5px 10px;border-radius:3px;font-size:13px;
-      background:transparent;color:var(--text);border:1px solid var(--line)}
-    .tag.green{color:var(--green);border-color:rgba(52,194,107,.4);font-family:var(--font-mono)}
-    .tag.red{color:var(--red);border-color:rgba(229,72,77,.4);font-family:var(--font-mono)}
-    .setup-row{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:14px}
-    .setup-row .k{color:var(--muted);white-space:nowrap}
-    .setup-row .v{font-family:var(--font-mono);text-align:right}
-    .summary{font-size:14px;color:var(--muted);line-height:1.7;margin-top:4px}
-    .meta{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.06em;color:var(--muted);margin-top:12px}
-    .signal-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;align-items:stretch;margin-bottom:14px}
-    .preview-box{border:1px solid var(--line);border-radius:4px;padding:10px;text-align:center;
-      background:var(--panel-sunken);display:flex;align-items:center;justify-content:center}
-    .preview-thumb{max-width:100%;max-height:220px;border-radius:2px;cursor:zoom-in}
-    .spinner{width:34px;height:34px;border:2px solid var(--line);border-top-color:var(--signal);
-      border-radius:50%;animation:spin .9s linear infinite;margin-bottom:14px}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .primary-btn{margin-top:20px;padding:12px 22px;background:var(--signal);color:#211a06;border:none;
-      border-radius:4px;font-family:var(--font-display);font-weight:700;font-size:14px;
-      letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+    .ro-label{font-family:var(--font-display);font-weight:600;font-size:11px;
+      letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+    .ro-signal{font-family:var(--font-mono);font-weight:600;text-transform:uppercase;
+      font-size:clamp(38px,4vw,52px);line-height:1.05;letter-spacing:.01em;margin:8px 0 0}
+    .idle .ro-signal{color:var(--ghost)}
+    .segbar{position:relative;height:8px;margin-top:16px;
+      background:repeating-linear-gradient(90deg,rgba(132,150,176,.22) 0 6px,transparent 6px 10px)}
+    .segbar b{position:absolute;top:0;bottom:0;left:0;
+      background:repeating-linear-gradient(90deg,currentColor 0 6px,transparent 6px 10px)}
+    .ro-conf{margin-top:9px;font-family:var(--font-mono);font-size:12px;
+      letter-spacing:.1em;color:var(--muted)}
+    .ro-rows{margin-top:22px;border-top:1px solid var(--line)}
+    .ro-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+      padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+    .ro-row span{font-family:var(--font-display);font-weight:600;font-size:11px;
+      letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+    .ro-row b{font-family:var(--font-mono);font-weight:500;text-align:right;overflow-wrap:anywhere}
+    .idle .ro-row b{color:var(--ghost)}
+    .ro-note{margin:16px 0 0;font-size:13px;line-height:1.6;color:var(--muted)}
+    .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+    .tag{display:inline-flex;padding:4px 9px;font-size:12.5px;color:var(--text);
+      border:1px solid var(--line)}
+    .tag.green{color:var(--green);border-color:rgba(47,208,109,.4);font-family:var(--font-mono)}
+    .tag.red{color:var(--red);border-color:rgba(255,77,85,.4);font-family:var(--font-mono)}
+    .ro-section{margin-top:16px}
+    .summary{font-size:13px;color:var(--muted);line-height:1.65;margin-top:8px}
+    .meta{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--ghost);margin-top:12px}
+    .primary-btn{margin-top:18px;padding:12px 20px;background:var(--signal);color:#211a06;
+      border:none;border-radius:0;font-family:var(--font-display);font-weight:700;
+      font-size:13.5px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
     .primary-btn:hover{filter:brightness(1.08)}
     .primary-btn:active{transform:translateY(1px)}
     .fade-in{animation:fadeIn .25s ease forwards;opacity:0;width:100%}
     @keyframes fadeIn{to{opacity:1}}
-    .demo-banner{display:flex;flex-direction:column;gap:4px;text-align:left;margin-bottom:14px;
-      padding:12px 16px;border-radius:4px;background:var(--signal-soft);
-      border:1px solid rgba(242,167,11,.35);color:#f5c76a;font-size:13.5px;line-height:1.55}
-    .demo-banner strong{font-family:var(--font-display);letter-spacing:.04em;text-transform:uppercase;font-size:12.5px}
-    .disclaimer{margin-top:28px;padding:14px 18px;border-radius:4px;background:var(--signal-soft);
-      border:1px solid rgba(242,167,11,.3);color:#f5c76a;font-size:13.5px;line-height:1.6;
+    .spinner{width:26px;height:26px;border:2px solid var(--line);border-top-color:var(--signal);
+      border-radius:50%;animation:spin .9s linear infinite;margin-bottom:12px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .demo-banner{display:flex;flex-direction:column;gap:4px;text-align:left;margin-bottom:16px;
+      padding:11px 13px;background:var(--signal-soft);
+      border:1px solid rgba(242,167,11,.35);color:#f5c76a;font-size:12.5px;line-height:1.55}
+    .demo-banner strong{font-family:var(--font-display);letter-spacing:.06em;
+      text-transform:uppercase;font-size:11.5px}
+    .err-text{color:var(--red);font-size:13.5px;line-height:1.6;margin:10px 0 0}
+
+    /* ── the other instruments ── */
+    .modules{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:1px;
+      background:var(--line);border:1px solid var(--line);border-top:0}
+    .module{background:var(--panel);padding:18px 16px 16px;text-decoration:none;display:block}
+    .module:hover{background:var(--panel-sunken)}
+    .module h2{margin:0;font-family:var(--font-display);font-weight:700;font-size:14px;
+      letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+    .module p{margin:8px 0 0;font-size:12.5px;line-height:1.55;color:var(--muted)}
+    .module .go{display:inline-block;margin-top:12px;font-family:var(--font-mono);
+      font-size:11px;letter-spacing:.12em;color:var(--blue)}
+    .module:hover .go{color:var(--signal)}
+
+    .disclaimer{margin-top:28px;padding:13px 16px;background:var(--signal-soft);
+      border:1px solid rgba(242,167,11,.3);color:#f5c76a;font-size:13px;line-height:1.6;
       display:flex;gap:14px;align-items:baseline}
-    .disclaimer b{font-family:var(--font-display);font-weight:700;font-size:11.5px;
-      letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
-    .image-modal{position:fixed;inset:0;background:rgba(2,6,23,.85);display:none;
+    .disclaimer b{font-family:var(--font-display);font-weight:700;font-size:11px;
+      letter-spacing:.16em;text-transform:uppercase;white-space:nowrap}
+
+    .image-modal{position:fixed;inset:0;background:rgba(1,4,13,.88);display:none;
       align-items:center;justify-content:center;z-index:50;padding:24px}
     .image-modal.open{display:flex}
-    .image-modal img{max-width:90vw;max-height:90vh;border-radius:4px;border:1px solid var(--line)}
-    .modal-close{position:absolute;top:18px;right:18px;background:var(--panel);color:var(--text);
-      border:1px solid var(--line);border-radius:4px;padding:8px 12px;cursor:pointer;font-size:14px}
+    .image-modal img{max-width:92vw;max-height:92vh;border:1px solid var(--line)}
+    .modal-close{position:absolute;top:18px;right:18px;background:var(--panel);
+      color:var(--text);border:1px solid var(--line);padding:8px 12px;cursor:pointer;font-size:14px}
     .modal-close:hover{border-color:var(--signal)}
-    @media(max-width:900px){
-      .console{grid-template-columns:1fr}
-      .signal-row{grid-template-columns:1fr}
-      .brand-logo{width:140px}
+
+    @media(max-width:960px){
+      .deck{grid-template-columns:1fr}
+      .modules{grid-template-columns:1fr 1fr}
+      .hero{padding-top:44px}
+      .stage{min-height:320px}
+    }
+    @media(max-width:560px){
+      .modules{grid-template-columns:1fr}
+      .bar-logo{height:38px}
     }
   </style>
 </head>
 <body>
-<div class="container">
-<header>
-  <img src="/images/logo.png" alt="Dot.Charts" class="brand-logo" />
-  <p class="tagline">Market intelligence &middot; Part of the Dot ecosystem</p>
+<div class="app">
+<header class="bar">
+  <a href="/" aria-label="Dot.Charts home"><img src="/images/logo.png" alt="Dot.Charts" class="bar-logo" /></a>
   <nav>
     <a href="/backtest.html">Backtest</a>
     <a href="/strategy-builder.html">Strategy Builder</a>
     <a href="/journal.html">Journal</a>
     <a href="/options.html">Options Vol</a>
-    <a href="/login.html">Log in</a>
+    <a href="/login.html" class="login">Log in</a>
   </nav>
-  <p class="subtitle">
-    Drop in a chart screenshot. The analyzer reads the symbol off the image, pulls
-    <strong>real market data</strong>, and returns a structural read &mdash; trend,
-    support and resistance, and a signal.
-  </p>
 </header>
 
-<main class="console">
-  <section class="bay upload" id="uploadArea" role="button" aria-label="Upload chart">
-    <div class="bay-head">
-      <span class="bay-title">01 &middot; Upload</span>
-      <span class="bay-note">PNG / JPG</span>
-    </div>
-    <div class="bay-body">
-      <div class="dropzone">
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" x2="12" y1="3" y2="15"></line>
-        </svg>
-        <h3>Drop a chart here</h3>
-        <p>Drag &amp; drop a chart image, or click to browse.</p>
+<section class="hero">
+  <h1>Every chart<br>has a <em>signal</em>.</h1>
+  <p class="hero-sub">
+    Drop a screenshot on the stage. The engine reads the symbol off the image,
+    pulls the <strong>live market data behind it</strong>, and returns the
+    structural read &mdash; trend, levels, signal, confidence.
+  </p>
+  <p class="specline"><b>Engine</b> swing-structure &nbsp;&middot;&nbsp; <b>Data</b> live market feed &nbsp;&middot;&nbsp; <b>OCR</b> server-side chart read</p>
+</section>
+
+<main class="deck">
+  <section class="stage-col">
+    <div class="stage" id="uploadArea" role="button" aria-label="Upload chart">
+      <svg class="plot-axes" width="100%" height="100%" aria-hidden="true">
+        <g stroke="currentColor" stroke-width="1">
+          <line x1="10%" y1="100%" x2="10%" y2="97%"/><line x1="20%" y1="100%" x2="20%" y2="97%"/>
+          <line x1="30%" y1="100%" x2="30%" y2="97%"/><line x1="40%" y1="100%" x2="40%" y2="97%"/>
+          <line x1="50%" y1="100%" x2="50%" y2="97%"/><line x1="60%" y1="100%" x2="60%" y2="97%"/>
+          <line x1="70%" y1="100%" x2="70%" y2="97%"/><line x1="80%" y1="100%" x2="80%" y2="97%"/>
+          <line x1="90%" y1="100%" x2="90%" y2="97%"/>
+          <line x1="0" y1="20%" x2="1.2%" y2="20%"/><line x1="0" y1="40%" x2="1.2%" y2="40%"/>
+          <line x1="0" y1="60%" x2="1.2%" y2="60%"/><line x1="0" y1="80%" x2="1.2%" y2="80%"/>
+        </g>
+      </svg>
+      <div class="stage-empty" id="stageEmpty">
+        <span class="prompt-main">DROP CHART</span>
+        <span class="prompt-sub">or click to browse &mdash; PNG / JPG screenshot</span>
       </div>
-      <input type="file" id="fileInput" accept="image/*" hidden>
-      <div class="symbol-field" onclick="event.stopPropagation()">
-        <label for="symbolOverride">Symbol &mdash; optional</label>
-        <input id="symbolOverride" placeholder="AAPL, GC=F, BTC/USDT" autocomplete="off" />
-        <p class="field-note">A typed symbol beats reading one off the image.</p>
-        <select id="marketSelect" aria-label="Market">
+      <div class="stage-image" id="stageImage" hidden>
+        <img id="stageImg" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" alt="Uploaded chart" />
+        <div class="scanline"></div>
+      </div>
+      <i class="tick tl"></i><i class="tick tr"></i><i class="tick bl"></i><i class="tick br"></i>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" hidden>
+    <div class="stage-foot" onclick="event.stopPropagation()">
+      <div class="fld">
+        <label for="symbolOverride">Symbol override</label>
+        <input id="symbolOverride" placeholder="AAPL / GC=F / BTC-USDT" autocomplete="off" />
+      </div>
+      <div class="fld">
+        <label for="marketSelect">Market</label>
+        <select id="marketSelect">
           <option value="stocks" selected>Stocks / Commodities</option>
           <option value="crypto">Crypto</option>
           <option value="forex">Forex</option>
         </select>
       </div>
+      <p class="note">A typed symbol beats reading one off the image.</p>
     </div>
   </section>
 
-  <section class="bay">
-    <div class="bay-head">
-      <span class="bay-title">02 &middot; Analysis</span>
+  <aside class="readout">
+    <div class="readout-head">
+      <span>Signal readout</span>
       <span id="panelStatus" data-state="idle">READY</span>
     </div>
-    <div class="bay-body">
-      <div class="analysis" id="analysisPanel">
-        <div class="analysis-icon">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-          </svg>
+    <div class="readout-body" id="analysisPanel">
+      <div class="idle">
+        <span class="ro-label">Signal</span>
+        <div class="ro-signal">&ndash;&ndash;&ndash;&ndash;</div>
+        <div class="segbar"><b style="width:0%"></b></div>
+        <div class="ro-conf">CONFIDENCE &ndash;&ndash;%</div>
+        <div class="ro-rows">
+          <div class="ro-row"><span>Symbol</span><b>&ndash;&ndash;</b></div>
+          <div class="ro-row"><span>Trend</span><b>&ndash;&ndash;</b></div>
+          <div class="ro-row"><span>Entry</span><b>&ndash;&ndash;</b></div>
+          <div class="ro-row"><span>Stop</span><b>&ndash;&ndash;</b></div>
+          <div class="ro-row"><span>Targets</span><b>&ndash;&ndash;</b></div>
         </div>
-        <h3>No analysis yet</h3>
-        <p>Drop a chart in the upload bay and the read appears here.</p>
+        <p class="ro-note">The readout is armed. Drop a chart on the stage and the values light up.</p>
       </div>
     </div>
-  </section>
+  </aside>
 </main>
+
+<section class="modules">
+  <a class="module" href="/backtest.html">
+    <h2>Backtest</h2>
+    <p>Nine strategies against real market history &mdash; returns, drawdown, Sharpe, every trade counted.</p>
+    <span class="go">OPEN &rarr;</span>
+  </a>
+  <a class="module" href="/strategy-builder.html">
+    <h2>Strategy Builder</h2>
+    <p>Compose entry and exit rules from indicators, test them on real data, save what survives.</p>
+    <span class="go">OPEN &rarr;</span>
+  </a>
+  <a class="module" href="/options.html">
+    <h2>Options Vol</h2>
+    <p>Realized-vol rank and put-call skew, read live from the options chain.</p>
+    <span class="go">OPEN &rarr;</span>
+  </a>
+  <a class="module" href="/journal.html">
+    <h2>Journal</h2>
+    <p>Your reasoning, tied to the backtests and strategies it was about.</p>
+    <span class="go">OPEN &rarr;</span>
+  </a>
+</section>
 
 <footer class="disclaimer">
   <b>Disclaimer</b>

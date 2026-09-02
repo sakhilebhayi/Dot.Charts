@@ -1,22 +1,48 @@
 import { API_BASE } from './api-base.js';
 import { ecosystemStrip, isHardFailure } from './ecosystem.js';
+
 document.addEventListener('DOMContentLoaded', () => {
   const uploadArea = document.getElementById('uploadArea');
   const fileInput = document.getElementById('fileInput');
   const analysisPanel = document.getElementById('analysisPanel');
+  const stageEmpty = document.getElementById('stageEmpty');
+  const stageImage = document.getElementById('stageImage');
+  const stageImg = document.getElementById('stageImg');
   const imageModal = document.getElementById('imageModal');
   const modalImg = document.getElementById('modalImg');
   const modalClose = document.getElementById('modalClose');
   const panelStatus = document.getElementById('panelStatus');
 
+  // 1x1 transparent placeholder — an <img> must always hold a valid src.
+  const BLANK = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
   let previewSrc = '';
 
-  // The 02 - ANALYSIS bay header carries a one-word state readout.
+  // The SIGNAL READOUT header carries a one-word state readout.
   function setStatus(word, state) {
     if (!panelStatus) return;
     panelStatus.textContent = word;
     panelStatus.dataset.state = state;
   }
+
+  // Instrument at rest — mirrors the markup shipped in index.html so the
+  // "Analyze another chart" reset restores the exact same idle state.
+  const IDLE_HTML = `
+    <div class="idle">
+      <span class="ro-label">Signal</span>
+      <div class="ro-signal">&ndash;&ndash;&ndash;&ndash;</div>
+      <div class="segbar"><b style="width:0%"></b></div>
+      <div class="ro-conf">CONFIDENCE &ndash;&ndash;%</div>
+      <div class="ro-rows">
+        <div class="ro-row"><span>Symbol</span><b>&ndash;&ndash;</b></div>
+        <div class="ro-row"><span>Trend</span><b>&ndash;&ndash;</b></div>
+        <div class="ro-row"><span>Entry</span><b>&ndash;&ndash;</b></div>
+        <div class="ro-row"><span>Stop</span><b>&ndash;&ndash;</b></div>
+        <div class="ro-row"><span>Targets</span><b>&ndash;&ndash;</b></div>
+      </div>
+      <p class="ro-note">The readout is armed. Drop a chart on the stage and the values light up.</p>
+    </div>
+  `;
 
   uploadArea.addEventListener('click', () => fileInput.click());
 
@@ -42,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function handleFile(file) {
     if (!file.type.startsWith('image/')) {
-      alert('Please upload an image file');
+      showError('That file is not an image — drop a PNG or JPG chart screenshot.', 400);
       return;
     }
 
@@ -71,7 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = await response.json();
         displayResults(result.analysis, {
           isDemo: result.is_demo === true,
-          disclaimer: result.disclaimer || null
+          disclaimer: result.disclaimer || null,
+          symbol: result.symbol_detected || null,
         });
       } catch (error) {
         showError(error.message, error.status ?? null);
@@ -80,36 +107,54 @@ document.addEventListener('DOMContentLoaded', () => {
     reader.readAsDataURL(file);
   }
 
+  function showChartOnStage() {
+    stageImg.src = previewSrc;
+    stageEmpty.hidden = true;
+    stageImage.hidden = false;
+  }
+
+  function resetStage() {
+    uploadArea.classList.remove('scanning');
+    stageImage.hidden = true;
+    stageEmpty.hidden = false;
+    stageImg.src = BLANK;
+  }
+
   function showAnalyzing() {
-    setStatus('READING\u2026', 'busy');
-    analysisPanel.innerHTML = '<div class="spinner"></div><h3>Analyzing</h3><p>Reading the chart and computing the analysis from market data.</p>';
+    showChartOnStage();
+    uploadArea.classList.add('scanning');
+    setStatus('READING…', 'busy');
+    analysisPanel.innerHTML = `
+      <div class="idle">
+        <div class="spinner"></div>
+        <span class="ro-label">Reading the chart</span>
+        <p class="ro-note">Identifying the symbol, pulling the market data behind it, computing the structural read.</p>
+      </div>
+    `;
   }
 
   function showError(message, status) {
+    uploadArea.classList.remove('scanning');
     setStatus('FAILED', 'bad');
     analysisPanel.innerHTML = `
-      <div class="analysis-icon" style="color:var(--red)">
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 16.5H2.5L12 3z"/><path d="M12 10v4"/><circle cx="12" cy="17" r="0.2" fill="currentColor"/></svg>
+      <div class="fade-in">
+        <span class="ro-label">Signal</span>
+        <div class="ro-signal" style="color:var(--red)">FAULT</div>
+        <p class="err-text">${message}</p>
+        <button class="primary-btn" onclick="location.reload()">Try again</button>
       </div>
-      <h3>Analysis failed</h3>
-      <p style="color:var(--red)">${message}</p>
-      <button class="primary-btn" onclick="location.reload()">Try again</button>
     `;
     if (isHardFailure(status)) {
       analysisPanel.appendChild(ecosystemStrip());
     }
   }
 
-  function getSignalStyle(signal) {
+  function accentFor(signal) {
     const s = signal.toLowerCase();
-    if (s.includes('sell')) {
-      return { tint: 'var(--red-soft)', edge: 'var(--red)', accent: 'var(--red)' };
-    }
-    if (s.includes('buy')) {
-      return { tint: 'var(--green-soft)', edge: 'var(--green)', accent: 'var(--green)' };
-    }
+    if (s.includes('sell')) return 'var(--red)';
+    if (s.includes('buy')) return 'var(--green)';
     // hold / neutral / anything unrecognised: amber, the attention colour
-    return { tint: 'var(--signal-soft)', edge: 'var(--signal)', accent: 'var(--signal)' };
+    return 'var(--signal)';
   }
 
   function displayResults(analysis, meta = {}) {
@@ -130,68 +175,51 @@ document.addEventListener('DOMContentLoaded', () => {
       timestamp: new Date().toLocaleString(),
       ...analysis,
     };
-    const style = getSignalStyle(analysis.signal);
+    uploadArea.classList.remove('scanning');
     setStatus(meta.isDemo ? 'DEMO' : 'COMPLETE', meta.isDemo ? 'warn' : 'good');
+    const accent = accentFor(analysis.signal);
+    const trendColor = analysis.trend === 'Bullish' ? 'var(--green)'
+      : analysis.trend === 'Bearish' ? 'var(--red)' : 'var(--text)';
     const demoBanner = meta.isDemo
       ? `<div class="demo-banner" role="status">
           <strong>Demo result — not real analysis</strong>
           <span>${meta.disclaimer || 'This output is a fixed placeholder for UI development and is not generated from your chart or live market data. Do not use it to make trading decisions.'}</span>
         </div>`
       : '';
-    const signalCard = `
-      <div class="signal-card" style="background:${style.tint}">
-        <span class="readout-label">Signal</span>
-        <div class="signal-value" style="color:${style.accent}">${analysis.signal}</div>
-        <div class="progress"><span style="background:${style.accent};width:${analysis.confidence}%"></span></div>
-        <div class="conf-line">CONFIDENCE <span style="color:${style.accent}">${analysis.confidence}%</span></div>
-      </div>
-    `;
-
-    const previewHtml = previewSrc
-      ? `<div class="preview-box"><img src="${previewSrc}" class="preview-thumb" id="inlinePreview" alt="Chart preview"></div>`
-      : '';
-
-    const signalBlock = previewHtml
-      ? `<div class="signal-row">${previewHtml}${signalCard}</div>`
-      : `<div style="margin-bottom:14px">${signalCard}</div>`;
-
-    const trendColor = analysis.trend === 'Bullish' ? 'var(--green)'
-      : analysis.trend === 'Bearish' ? 'var(--red)' : 'var(--text)';
 
     analysisPanel.innerHTML = `
       <div class="fade-in">
         ${demoBanner}
-        ${signalBlock}
+        <span class="ro-label">Signal</span>
+        <div class="ro-signal" style="color:${accent}">${analysis.signal}</div>
+        <div class="segbar" style="color:${accent}"><b style="width:${analysis.confidence}%"></b></div>
+        <div class="ro-conf">CONFIDENCE <span style="color:${accent}">${analysis.confidence}%</span></div>
 
-        <div class="analysis-results">
-          <div class="result-box">
-            <label>Market trend</label>
-            <div class="value mono" style="color:${trendColor};font-size:18px">${analysis.trend}</div>
-          </div>
-          <div class="result-box">
-            <label>Trade setup</label>
-            <div class="setup-row"><span class="k">Entry</span><span class="v" style="color:var(--text)">${analysis.entryZone}</span></div>
-            <div class="setup-row"><span class="k">Stop loss</span><span class="v" style="color:var(--red)">${analysis.stopLoss}</span></div>
-            <div class="setup-row"><span class="k">Take profit</span><span class="v" style="color:var(--green)">${analysis.takeProfits.join(' / ')}</span></div>
-            <div class="setup-row"><span class="k">Risk/reward</span><span class="v">${analysis.riskReward}</span></div>
-          </div>
-          <div class="result-box" style="grid-column:1/-1">
-            <label>Detected patterns</label>
-            <div class="tags">${analysis.patterns.map(p => `<span class="tag">${p}</span>`).join('')}</div>
-          </div>
-          <div class="result-box">
-            <label>Support</label>
-            <div class="tags">${analysis.supports.map(v => `<span class="tag green">${v}</span>`).join('')}</div>
-          </div>
-          <div class="result-box">
-            <label>Resistance</label>
-            <div class="tags">${analysis.resistances.map(v => `<span class="tag red">${v}</span>`).join('')}</div>
-          </div>
-          <div class="result-box" style="grid-column:1/-1">
-            <label>Summary</label>
-            <div class="summary">${analysis.summary}</div>
-            <div class="meta">ANALYZED ${analysis.timestamp}</div>
-          </div>
+        <div class="ro-rows">
+          ${meta.symbol ? `<div class="ro-row"><span>Symbol</span><b>${meta.symbol}</b></div>` : ''}
+          <div class="ro-row"><span>Trend</span><b style="color:${trendColor}">${analysis.trend}</b></div>
+          <div class="ro-row"><span>Entry</span><b>${analysis.entryZone}</b></div>
+          <div class="ro-row"><span>Stop</span><b style="color:var(--red)">${analysis.stopLoss}</b></div>
+          <div class="ro-row"><span>Targets</span><b style="color:var(--green)">${analysis.takeProfits.join(' / ')}</b></div>
+          <div class="ro-row"><span>Risk/reward</span><b>${analysis.riskReward}</b></div>
+        </div>
+
+        <div class="ro-section">
+          <span class="ro-label">Detected patterns</span>
+          <div class="tags">${analysis.patterns.map(p => `<span class="tag">${p}</span>`).join('')}</div>
+        </div>
+        <div class="ro-section">
+          <span class="ro-label">Support</span>
+          <div class="tags">${analysis.supports.map(v => `<span class="tag green">${v}</span>`).join('')}</div>
+        </div>
+        <div class="ro-section">
+          <span class="ro-label">Resistance</span>
+          <div class="tags">${analysis.resistances.map(v => `<span class="tag red">${v}</span>`).join('')}</div>
+        </div>
+        <div class="ro-section">
+          <span class="ro-label">Summary</span>
+          <div class="summary">${analysis.summary}</div>
+          <div class="meta">ANALYZED ${analysis.timestamp}</div>
         </div>
 
         <button class="primary-btn" id="analyzeAgain">Analyze another chart</button>
@@ -200,25 +228,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const resetBtn = document.getElementById('analyzeAgain');
     resetBtn.addEventListener('click', () => {
+      resetStage();
       setStatus('READY', 'idle');
-      analysisPanel.innerHTML = `
-        <div class="analysis-icon">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-          </svg>
-        </div>
-        <h3>No analysis yet</h3>
-        <p>Drop a chart in the upload bay and the read appears here.</p>
-      `;
+      analysisPanel.innerHTML = IDLE_HTML;
       fileInput.value = '';
       previewSrc = '';
     });
-
-    const inlinePreview = document.getElementById('inlinePreview');
-    if (inlinePreview) {
-      inlinePreview.addEventListener('click', () => openModal(previewSrc));
-    }
   }
+
+  // Zooming the staged chart must not reopen the file picker.
+  stageImg.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openModal(previewSrc);
+  });
 
   function openModal(src) {
     if (!src) return;
@@ -235,6 +257,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function closeModal() {
     imageModal.classList.remove('open');
     imageModal.setAttribute('aria-hidden', 'true');
-    modalImg.removeAttribute('src');
+    modalImg.src = BLANK;
   }
 });
