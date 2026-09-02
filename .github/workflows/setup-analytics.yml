@@ -66,6 +66,16 @@ jobs:
           ./.venv/bin/pip install --upgrade --quiet pip wheel setuptools
           echo "== installing requirements (this is the heavy step)"
           ./.venv/bin/pip install --no-cache-dir --quiet -r requirements.txt
+          # Repair any numpy damage from earlier cohabitation attempts: the
+          # analytics stack is built against numpy 2; force a clean install
+          # of whatever requirements.txt resolves to.
+          ./.venv/bin/pip install --no-cache-dir --quiet --force-reinstall --no-deps numpy
+          echo "== OCR venv (separate: rapidocr pins numpy<2)"
+          if [ ! -x .venv-ocr/bin/python ]; then
+            "$PY" -m venv .venv-ocr
+          fi
+          ./.venv-ocr/bin/pip install --no-cache-dir --quiet --upgrade pip
+          ./.venv-ocr/bin/pip install --no-cache-dir --quiet -r requirements-ocr.txt
           # vectorbt (0.2x) registers plotly 'scattermapbox' templates that
           # plotly >=6 removed - import explodes without this pin
           ./.venv/bin/pip install --no-cache-dir --quiet 'plotly<6.0'
@@ -122,7 +132,8 @@ jobs:
           ps -o rss= -p "$(pgrep -u "$(id -un)" -f 'uvicorn main:app' | head -1)" | awk '{print "uvicorn RSS: " $1/1024 " MB"}'
           echo "== standalone OCR worker probe (subprocess memory profile)"
           printf 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' | base64 -d > /tmp/ocrprobe.png
-          time ./.venv/bin/python analysis/ocr_cli.py /tmp/ocrprobe.png | tail -1
+          time ./.venv-ocr/bin/python analysis/ocr_cli.py /tmp/ocrprobe.png | tail -1
+          ./.venv/bin/python -c "import numpy; print('main venv numpy OK:', numpy.__version__)"
           echo "== OCR endpoint probe (tiny white png - engine load + inference)"
           PNG_B64="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
           curl -s -m 90 -X POST http://127.0.0.1:8001/ocr-symbol \

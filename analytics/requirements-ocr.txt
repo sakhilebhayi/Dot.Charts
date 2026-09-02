@@ -1,0 +1,4 @@
+# Installed into .venv-ocr ONLY (see setup-analytics workflow): the OCR
+# stack pins numpy<2 and must never share a venv with the analytics
+# stack, whose wheels are built against numpy 2.
+rapidocr-onnxruntime>=1.3

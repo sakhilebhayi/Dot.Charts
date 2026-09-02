@@ -117,8 +117,13 @@ def run_ocr_symbol(image_b64: str) -> dict:
         tmp.write(raw)
         tmp.close()
         cli = os.path.join(os.path.dirname(__file__), "ocr_cli.py")
+        # The OCR stack lives in its own venv (.venv-ocr): it pins numpy<2,
+        # which must never be installed into the analytics venv (numpy 2 ABI).
+        ocr_py = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                              ".venv-ocr", "bin", "python")
+        interpreter = ocr_py if os.path.exists(ocr_py) else sys.executable
         proc = subprocess.run(
-            [sys.executable, cli, tmp.name],
+            [interpreter, cli, tmp.name],
             capture_output=True, timeout=75, text=True)
         try:
             payload_out = __import__("json").loads(proc.stdout.strip().splitlines()[-1])

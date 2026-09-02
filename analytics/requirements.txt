@@ -14,4 +14,3 @@ scikit-learn>=1.4
 scipy>=1.10
 pytest>=8.0
 pytest-mock>=3.14
-rapidocr-onnxruntime>=1.3
