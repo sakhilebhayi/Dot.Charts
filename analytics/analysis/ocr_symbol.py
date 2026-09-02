@@ -34,7 +34,7 @@ KNOWN_MAP = {
 
 # Chart furniture that matches the ticker shape but never is one.
 JUNK = {
-    "CFD", "CFDS", "THE", "AND", "FOR", "USD", "EUR", "GBP", "JPY", "ZAR",
+    "CFD", "CFDS", "THE", "AND", "FOR", "USD", "EUR", "GBP", "JPY", "ZAR", "US",
     "TVC", "OANDA", "FXCM", "NYSE", "AMEX", "CME", "COMEX", "NYMEX",
     "BUY", "SELL", "HIGH", "LOW", "OPEN", "CLOSE", "VOL", "VOLUME",
     "AM", "PM", "UTC", "GMT", "EST", "SAST", "CHART", "PRICE", "TIME",
