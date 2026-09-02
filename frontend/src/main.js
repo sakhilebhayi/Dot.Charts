@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             image: previewSrc,
-            market: 'crypto',
+            market: document.getElementById('marketSelect')?.value || 'stocks',
             ...(symbolOverride ? { symbol: symbolOverride } : {}),
           })
         });
@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showAnalyzing() {
-    analysisPanel.innerHTML = '<div class="spinner"></div><h3>Analyzing...</h3><p>Generating demo technical analysis</p>';
+    analysisPanel.innerHTML = '<div class="spinner"></div><h3>Analyzing...</h3><p>Reading structure and computing the analysis</p>';
   }
 
   function showError(message) {

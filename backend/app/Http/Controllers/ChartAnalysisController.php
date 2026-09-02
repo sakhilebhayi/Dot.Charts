@@ -100,21 +100,46 @@ class ChartAnalysisController extends Controller
         ]);
     }
 
+    /**
+     * Best-effort OCR ticker detection. Returns null - never throws - when
+     * OCR is unavailable or finds nothing: production hosts without a
+     * tesseract binary (or with exec() disabled) must degrade to the
+     * labeled placeholder path, not to a 500. The original implementation
+     * unlink()ed an output file tesseract never created, which is exactly
+     * what took the whole endpoint down on the shared host.
+     */
     protected function detectSymbolFromImage($base64Image)
     {
-        $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $base64Image));
-        $tmpFile = tempnam(sys_get_temp_dir(), 'chart_');
-        file_put_contents($tmpFile, $imageData);
-        $outputFile = $tmpFile . '_out';
-        $cmd = "tesseract $tmpFile $outputFile -l eng --oem 1 --psm 6";
-        exec($cmd);
-        $text = @file_get_contents($outputFile . '.txt');
-        unlink($tmpFile);
-        unlink($outputFile . '.txt');
-        if (!$text) return null;
-        if (preg_match('/\b([A-Z]{2,5})\b/', $text, $matches)) {
-            return $matches[1];
+        try {
+            $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $base64Image), true);
+            if ($imageData === false || $imageData === '') {
+                return null;
+            }
+            if (! function_exists('exec')) {
+                return null;
+            }
+
+            $tmpFile = tempnam(sys_get_temp_dir(), 'chart_');
+            file_put_contents($tmpFile, $imageData);
+            $outputFile = $tmpFile . '_out';
+            @exec('tesseract ' . escapeshellarg($tmpFile) . ' ' . escapeshellarg($outputFile)
+                . ' -l eng --oem 1 --psm 6 2>/dev/null');
+
+            $textPath = $outputFile . '.txt';
+            $text = is_file($textPath) ? (string) file_get_contents($textPath) : '';
+
+            @unlink($tmpFile);
+            if (is_file($textPath)) {
+                @unlink($textPath);
+            }
+
+            if ($text !== '' && preg_match('/\b([A-Z]{2,5})\b/', $text, $matches)) {
+                return $matches[1];
+            }
+        } catch (\Throwable) {
+            // OCR is a convenience, never a dependency.
         }
+
         return null;
     }
 }
