@@ -1,5 +1,6 @@
 import pandas as pd
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 from schemas import (
     AssetClass, BacktestRequest, BacktestResult, ChartAnalysisRequest, OptionsVolSignalResponse,
@@ -12,6 +13,7 @@ from strategies.custom_rules import evaluate_rule, InvalidStrategyParamsError
 from engines.vectorbt_engine import run_vectorbt, run_vectorbt_pairs
 from engines.backtrader_engine import run_backtrader
 from analysis.chart_analysis import compute_chart_analysis
+from analysis.ocr_symbol import OcrUnavailable, run_ocr_symbol
 from analysis.options_vol import compute_vol_signal, OptionsDataError
 
 
@@ -27,6 +29,10 @@ from analysis.options_vol import compute_vol_signal, OptionsDataError
 # leaving it implicit. /backtest's date-range cap (data/cache.py) still
 # applies regardless of who calls this directly -- that one IS enforced
 # here, independent of network config.
+class OcrSymbolRequest(BaseModel):
+    image_b64: str
+
+
 app = FastAPI(title="Dot.Charts Analytics Service")
 
 
@@ -99,6 +105,16 @@ def backtest(request: BacktestRequest):
         equity_curve=result["equity_curve"],
         trades=result["trades"],
     )
+
+
+@app.post("/ocr-symbol")
+def ocr_symbol(request: OcrSymbolRequest):
+    """OCR a chart screenshot into ordered ticker candidates. 503 when the
+    OCR engine cannot run on this host - the caller degrades gracefully."""
+    try:
+        return run_ocr_symbol(request.image_b64)
+    except OcrUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
 
 
 @app.post("/chart-analysis")

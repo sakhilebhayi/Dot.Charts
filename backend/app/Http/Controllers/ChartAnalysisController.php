@@ -42,17 +42,38 @@ class ChartAnalysisController extends Controller
 
         $image = $validated['image'];
         $market = $validated['market'];
-        $symbol = $validated['symbol'] ?? $this->detectSymbolFromImage($image);
+        $assetClass = self::MARKET_TO_ASSET_CLASS[$market];
 
-        if ($symbol !== null) {
-            $assetClass = self::MARKET_TO_ASSET_CLASS[$market];
+        // Candidate order: the caller's explicit symbol wins outright; then
+        // the analytics service's OCR read of the screenshot (tried against
+        // real market data, best guess first); then the legacy local
+        // tesseract path for dev machines that have it.
+        $candidates = [];
+        if (isset($validated['symbol'])) {
+            $candidates[] = $validated['symbol'];
+        } else {
+            try {
+                $ocr = $this->analyticsClient->ocrSymbol($image);
+                $candidates = array_slice($ocr['candidates'] ?? [], 0, 3);
+            } catch (RuntimeException) {
+                // OCR is a convenience, never a dependency.
+            }
+            if ($candidates === []) {
+                $local = $this->detectSymbolFromImage($image);
+                if ($local !== null) {
+                    $candidates[] = $local;
+                }
+            }
+        }
 
+        foreach ($candidates as $candidate) {
             try {
                 $analysis = $this->analyticsClient->analyzeChart([
-                    'symbol' => $symbol,
+                    'symbol' => $candidate,
                     'asset_class' => $assetClass,
                     'interval' => '1d',
                 ]);
+                $symbol = $candidate;
 
                 return response()->json([
                     'success' => true,
@@ -71,7 +92,7 @@ class ChartAnalysisController extends Controller
             }
         }
 
-        return $this->placeholderResponse($symbol, $market);
+        return $this->placeholderResponse($candidates[0] ?? null, $market);
     }
 
     private function placeholderResponse(?string $symbol, string $market): JsonResponse

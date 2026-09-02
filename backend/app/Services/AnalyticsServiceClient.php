@@ -81,6 +81,23 @@ class AnalyticsServiceClient
      *   since "the rule is invalid" is itself a successfully-answered question, not a service error
      * @throws RuntimeException on a non-2xx response or connection failure (an actual infrastructure problem)
      */
+    /**
+     * OCR a chart screenshot into ordered ticker candidates. Short timeout:
+     * OCR is a convenience on the upload path, never worth a long hang.
+     */
+    public function ocrSymbol(string $imageB64): array
+    {
+        $response = Http::timeout(25)
+            ->post("{$this->baseUrl}/ocr-symbol", ['image_b64' => $imageB64]);
+
+        if (! $response->successful()) {
+            throw new RuntimeException(
+                'Analytics OCR unavailable: HTTP '.$response->status());
+        }
+
+        return $response->json() ?? [];
+    }
+
     public function validateRule(array $rules): array
     {
         $response = Http::timeout(15)->post("{$this->baseUrl}/validate-rule", ['rules' => $rules]);
