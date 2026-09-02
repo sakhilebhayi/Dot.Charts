@@ -1205,15 +1205,6 @@ plotshape(showLabels and sessSignal == -1, "Session Sell", style = shape.triangl
 var float slPrice = na
 var float tpPrice = na
 
-// Entry / SL / TP level plots — native plot() series (always rendered, always
-// included in price-scale autofit, unlike line.new()/label.new() drawings).
-// Each series holds the live trade's level and goes na the instant the
-// position is flat, so with plot.style_linebr every past trade leaves its
-// own permanent horizontal segment in the chart's history.
-var float curEntryPx = na
-var float curSlPx    = na
-var float curTpPx    = na
-
 // The open position came from the Ultimate signal (drives the structure stop,
 // trail, session-flatten exemption, and cancel-close below).
 var bool ultTradeOpen = false
@@ -1259,9 +1250,6 @@ if goLong
         tpPrice := ultTpMode == "ATR Target" ? close + atr * ultTpAtrX : na
     if isUltEntry and ultStructSl and not na(ultPubLvl) and ultPubLvl < close
         slPrice := ultPubLvl - atr * ultSlBufAtr
-    curEntryPx := close
-    curSlPx    := slPrice
-    curTpPx    := tpPrice
     if showTag and not isUltEntry and sPendTag != ""
         label.new(bar_index, close, sPendTag,
              style = label.style_label_down, color = color.new(neutralColor, 0),
@@ -1278,9 +1266,6 @@ if goShort
         tpPrice := ultTpMode == "ATR Target" ? close - atr * ultTpAtrX : na
     if isUltEntry and ultStructSl and not na(ultPubLvl) and ultPubLvl > close
         slPrice := ultPubLvl + atr * ultSlBufAtr
-    curEntryPx := close
-    curSlPx    := slPrice
-    curTpPx    := tpPrice
     if showTag and not isUltEntry and sPendTag != ""
         label.new(bar_index, close, sPendTag,
              style = label.style_label_up, color = color.new(neutralColor, 0),
@@ -1288,10 +1273,8 @@ if goShort
 // --- Ultimate trail (tightening only) ----------------------------------------
 if strategy.position_size > 0 and ultUseTrail and ultTradeOpen
     slPrice := math.max(slPrice, close - atr * ultTrailAtr)
-    curSlPx := slPrice
 if strategy.position_size < 0 and ultUseTrail and ultTradeOpen
     slPrice := math.min(slPrice, close + atr * ultTrailAtr)
-    curSlPx := slPrice
 
 if useSlTp and strategy.position_size > 0
     strategy.exit("Long Exit",  from_entry = "Long",  stop = slPrice, limit = tpPrice)
@@ -1316,22 +1299,19 @@ if ultNewDay and ultTradeOpen and strategy.position_size != 0
 if strategy.position_size == 0 and not (goLong or goShort)
     ultTradeOpen := false
 
-// Once flat, break the plotted segments so each trade's levels render as its
-// own distinct horizontal run rather than connecting into the next trade's.
-// The entry-bar guard matters: with process_orders_on_close the position
-// still reads flat DURING the entry bar (the order fills on its close), so
-// clearing without it wiped the levels the moment they were set - the SL
-// line could never draw.
-if strategy.position_size == 0 and not (goLong or goShort)
-    curEntryPx := na
-    curSlPx    := na
-    curTpPx    := na
+// Entry / SL / TP level plots, derived every bar from the strategy's OWN
+// state - a trade is live from its entry bar (order queued this close)
+// until the position is flat. Stateless by construction, so historical
+// recompute and realtime bars render identically: every past trade keeps
+// its segments, with style_linebr breaking the line between trades.
+bool trdLive = strategy.position_size != 0 or goLong or goShort
+float pxEntry = strategy.position_size != 0 ? strategy.position_avg_price : close
 
-plot(showLevels ? curEntryPx : na, title = "Entry Level", style = plot.style_linebr,
+plot(showLevels and trdLive ? pxEntry : na, title = "Entry Level", style = plot.style_linebr,
      color = neutralColor, linewidth = 1)
-plot(showLevels ? curSlPx : na,    title = "SL Level",    style = plot.style_linebr,
+plot(showLevels and trdLive ? slPrice : na, title = "SL Level",    style = plot.style_linebr,
      color = sellColor, linewidth = 1)
-plot(showLevels ? curTpPx : na,    title = "TP Level",    style = plot.style_linebr,
+plot(showLevels and trdLive ? tpPrice : na, title = "TP Level",    style = plot.style_linebr,
      color = buyColor, linewidth = 1)
 
 // ============================================================================
