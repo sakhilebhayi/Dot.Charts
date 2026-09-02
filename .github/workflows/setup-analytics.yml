@@ -41,6 +41,10 @@ jobs:
               'bash -s' <<'SETUP'
           set -euo pipefail
           AN="$DEPLOY_PATH/analytics"
+          # Shared-host thread ceiling: math libs default to thread-per-CPU
+          # (32) and trip the account NPROC limit - crashes range from
+          # pthread errors to segfaults depending on timing. Cap everywhere.
+          export OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 NUMEXPR_NUM_THREADS=2
           PY=/opt/alt/python312/bin/python3.12
           [ -x "$PY" ] || PY=/opt/alt/python313/bin/python3.13
           echo "== python: $($PY --version)"
@@ -92,6 +96,7 @@ jobs:
           # kill a healthy process. Restarts for new code happen in the
           # setup workflow itself, below.
           cd "$(dirname "$0")"
+          export OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 NUMEXPR_NUM_THREADS=2
           if ! pgrep -u "$(id -un)" -f "uvicorn main:app" >/dev/null; then
             nohup ./.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8001 \
               >> uvicorn.log 2>&1 &
