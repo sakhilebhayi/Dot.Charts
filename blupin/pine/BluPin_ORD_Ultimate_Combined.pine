@@ -301,7 +301,10 @@ ultShowYestLines = input.bool(false, "Show Yesterday's Ultimate H/L Lines", grou
      tooltip = "Off by default. Yesterday's Ultimate High/Low still compete as a level pair - " +
                "this only controls whether their lines are drawn.")
 ultShowWindowBg = input.bool(true, "Highlight Observation Window", group = G_ULT)
-ultShowLabels = input.bool(true,  "Show Ultimate Signal Labels",      group = G_ULT)
+ultShowLabels = input.bool(false, "Show Ultimate Text Labels (optional)", group = G_ULT,
+     tooltip = "OFF (default): the day signal is the clean triangle - green up = BUY, " +
+               "red down = SELL - with the entry (grey) and stop (red) lines carrying the " +
+               "prices. ON: adds the full text ticket (source, entry, SL) as a label.")
 ultLabelSize  = input.string("Small", "Ultimate Label Size", group = G_ULT,
      options = ["Tiny", "Small", "Normal", "Large"],
      tooltip = "Size of the ULTIMATE BUY / SELL label. Default Small - one step larger than " +
@@ -413,8 +416,9 @@ showMarkers  = input.bool(true, "Show Vertical Session Markers", group = G_STYLE
 showHalfLine = input.bool(true, "Show Session Halfway Line", group = G_STYLE,
      tooltip = "Vertical line at the halfway point of each session (see 'Session Halfway Point' input " +
                "above), used to gate whether a Flip is trusted as a standalone signal.")
-showLabels   = input.bool(true, "Show BUY / SELL Labels",    group = G_STYLE,
-     tooltip = "Compact label: direction and entry price only (no confidence %, no other metadata).")
+showLabels   = input.bool(true, "Show Session Signal Triangles", group = G_STYLE,
+     tooltip = "Tiny triangles for session signals: green up = BUY, red down = SELL. " +
+               "Solid = the 15-min confirmation passed, faded = it failed.")
 showTag      = input.bool(true, "Show FLIP+RETEST Tag",      group = G_STYLE,
      tooltip = "A small tag label reading FLIP+RETEST, shown only when the full two-stage override " +
                "sequence actually fired. A plain Contrarian signal carries no tag.")
@@ -1179,6 +1183,13 @@ if sPendDir != 0 and not na(sPendT) and time >= sPendT and barstate.isconfirmed
 
 plot(sConfFail, "Session Confirm Fails", display = display.data_window)
 
+plotshape(showLabels and sessSignal == 1, "Session Buy", style = shape.triangleup,
+     location = location.belowbar,
+     color = sessConfOk ? color.new(buyColor, 15) : color.new(buyColor, 65), size = size.tiny)
+plotshape(showLabels and sessSignal == -1, "Session Sell", style = shape.triangledown,
+     location = location.abovebar,
+     color = sessConfOk ? color.new(sellColor, 15) : color.new(sellColor, 65), size = size.tiny)
+
 // ============================================================================
 // 6. STRATEGY EXECUTION & RISK MANAGEMENT  (both engines)
 // ============================================================================
@@ -1233,17 +1244,8 @@ goLong     = (sessTrades and sessSignal ==  1 and sPendTradable) or ultLong
 goShort    = (sessTrades and sessSignal == -1 and sPendTradable) or ultShort
 isUltEntry = ultLong or ultShort
 
-// One-trade mode: session signals remain visible as context (no orders)
-if oneTradeMode and showLabels and sessSignal == 1
-    label.new(bar_index, close, "BUY " + (sessConfOk ? "✓" : "✗") +
-         "\nEntry: " + str.tostring(close, format.mintick),
-         style = label.style_label_up, color = color.new(buyColor, sessConfOk ? 35 : 60),
-         textcolor = color.white, size = size.tiny)
-if oneTradeMode and showLabels and sessSignal == -1
-    label.new(bar_index, close, "SELL " + (sessConfOk ? "✓" : "✗") +
-         "\nEntry: " + str.tostring(close, format.mintick),
-         style = label.style_label_down, color = color.new(sellColor, sessConfOk ? 35 : 60),
-         textcolor = color.white, size = size.tiny)
+// Session signals display as clean tiny triangles: solid when the 15-min
+// confirmation passed, faded when it failed (the old checkmark, as opacity).
 
 if goLong
     strategy.entry("Long", strategy.long, comment = isUltEntry ? "L ULT" :
@@ -1260,10 +1262,6 @@ if goLong
     curEntryPx := close
     curSlPx    := slPrice
     curTpPx    := tpPrice
-    if showLabels and not isUltEntry
-        label.new(bar_index, close, "BUY\nEntry: " + str.tostring(close, format.mintick),
-             style = label.style_label_up, color = buyColor,
-             textcolor = color.white, size = size.tiny)
     if showTag and not isUltEntry and sPendTag != ""
         label.new(bar_index, close, sPendTag,
              style = label.style_label_down, color = color.new(neutralColor, 0),
@@ -1283,10 +1281,6 @@ if goShort
     curEntryPx := close
     curSlPx    := slPrice
     curTpPx    := tpPrice
-    if showLabels and not isUltEntry
-        label.new(bar_index, close, "SELL\nEntry: " + str.tostring(close, format.mintick),
-             style = label.style_label_down, color = sellColor,
-             textcolor = color.white, size = size.tiny)
     if showTag and not isUltEntry and sPendTag != ""
         label.new(bar_index, close, sPendTag,
              style = label.style_label_up, color = color.new(neutralColor, 0),
