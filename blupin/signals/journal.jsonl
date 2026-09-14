@@ -7,3 +7,5 @@
 {"kind": "signal", "date": "2026-09-10", "dir": 1, "src": "sweep", "skip": "bias", "lvl": 4444.2, "prev_day": 1, "sweep_hr": 2, "obs_close": 4444.5}
 {"kind": "outcome", "date": "2026-09-09", "dir": 1, "src": "sweep", "skip": null, "lvl": 4400.0, "prev_day": -1, "sweep_hr": 2, "obs_close": 4408.8, "entry": 4426.0, "atr": 19.99, "pnl": 21.2, "pnl_atr": 1.061, "exit": "dayend"}
 {"kind": "signal", "date": "2026-09-11", "dir": 1, "src": "sweep", "skip": null, "lvl": 4358.5, "prev_day": -1, "sweep_hr": 2, "obs_close": 4372.2, "entry": 4363.2, "atr": 19.3, "pnl": -16.2, "pnl_atr": -0.839, "exit": "cancel"}
+{"kind": "signal", "date": "2026-09-14", "dir": 1, "src": "sweep", "skip": "bias", "lvl": 4389.1, "prev_day": 1, "sweep_hr": 2, "obs_close": 4379.6}
+{"kind": "outcome", "date": "2026-09-11", "dir": 1, "src": "sweep", "skip": null, "lvl": 4358.5, "prev_day": -1, "sweep_hr": 2, "obs_close": 4372.2, "entry": 4363.2, "atr": 19.3, "pnl": -21.23, "pnl_atr": -1.1, "exit": "sl"}
