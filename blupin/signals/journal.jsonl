@@ -12,3 +12,5 @@
 {"kind": "signal", "date": "2026-09-15", "dir": 1, "src": "sweep", "skip": "noise", "lvl": 4324.1, "prev_day": -1, "sweep_hr": 2, "obs_close": 4333.6}
 {"kind": "signal", "date": "2026-09-16", "dir": 1, "src": "sweep", "skip": "suppressed", "lvl": 4333.4, "prev_day": -1, "sweep_hr": 2, "obs_close": 4317.1}
 {"kind": "signal", "date": "2026-09-17", "dir": 1, "src": "sweep", "skip": null, "lvl": 4301.0, "prev_day": -1, "sweep_hr": 1, "obs_close": 4318.5, "entry": 4315.2, "atr": 26.0, "pnl": 8.4, "pnl_atr": 0.323, "exit": "dayend"}
+{"kind": "signal", "date": "2026-09-18", "dir": 1, "src": "sweep", "skip": "bias", "lvl": 4380.6, "prev_day": 1, "sweep_hr": 1, "obs_close": 4394.9}
+{"kind": "outcome", "date": "2026-09-17", "dir": 1, "src": "sweep", "skip": null, "lvl": 4301.0, "prev_day": -1, "sweep_hr": 1, "obs_close": 4318.5, "entry": 4315.2, "atr": 26.0, "pnl": 65.4, "pnl_atr": 2.516, "exit": "dayend"}
