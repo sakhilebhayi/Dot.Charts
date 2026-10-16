@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\BackupSqliteDatabase;
 use App\Http\Controllers\SchedulerProbeController;
 use App\Services\ObservationPackGenerator;
 use Illuminate\Support\Facades\Artisan;
@@ -20,3 +21,8 @@ Schedule::call(function () {
 Schedule::call(fn () => Cache::forever(SchedulerProbeController::SCHEDULER_KEY, now()->toIso8601String()))
     ->everyMinute()
     ->name('scheduler-heartbeat');
+
+// Nightly copy of the SQLite file (strategies, journal entries and knowledge packs are user data with no other copy). The five SQLite-backed Dot apps
+// share one host, so each one backs up at its own minute. No-op on other
+// database drivers. See docs/superpowers or the deploy README for restore.
+Schedule::command(BackupSqliteDatabase::class)->dailyAt('02:30')->onOneServer();
