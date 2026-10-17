@@ -53,8 +53,19 @@ jobs:
               GUARDIAN_TOKEN="${{ secrets.GUARDIAN_TOKEN }}" \
               'bash -s' <<'PROVISION'
           set -euo pipefail
-          cd "$DEPLOY_PATH"
           PHP=php
+
+          # The first version of this workflow ran from the repo root, where
+          # `touch .env` created a stray file holding only the token line
+          # (the Laravel app lives in backend/). Remove it, but only when it
+          # contains nothing else, so a real .env there could never be lost.
+          if [ -f "$DEPLOY_PATH/.env" ] && ! grep -qv -e '^GUARDIAN_TOKEN=' -e '^$' "$DEPLOY_PATH/.env"; then
+            rm -f "$DEPLOY_PATH/.env"
+            echo "Removed stray $DEPLOY_PATH/.env (contained only GUARDIAN_TOKEN)."
+          fi
+
+          # Dot.Charts keeps the Laravel app in backend/ under the checkout.
+          cd "$DEPLOY_PATH/backend"
 
           # Idempotent upsert: drop any existing GUARDIAN_TOKEN line, append
           # the current one. Never echo the value.
