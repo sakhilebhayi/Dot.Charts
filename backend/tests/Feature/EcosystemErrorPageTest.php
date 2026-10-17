@@ -14,7 +14,7 @@ class EcosystemErrorPageTest extends TestCase
         $response->assertSee('the rest of the Dot Ecosystem', escape: false);
         // A sibling platform pill from the shared registry is present...
         $response->assertSee('Dot.Mines');
-        $response->assertSee('https://mines.infodot.app');
+        $response->assertSee('https://mines.infodot.co.za');
         // ...but Dot.Charts never advertises itself to itself: its own
         // registry URL must not appear as a discovery pill.
         $response->assertDontSee(config('ecosystem.platforms.charts.url'));
