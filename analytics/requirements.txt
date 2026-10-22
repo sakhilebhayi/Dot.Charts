@@ -7,6 +7,8 @@ yfinance>=0.2.40
 ccxt>=4.3
 pandas-ta>=0.3.14b0
 vectorbt>=0.26
+# vectorbt (1.0.0) fails at import on plotly 7 ("Bad property path: scattermapbox"); keep plotly below 7.
+plotly>=5,<7
 backtrader>=1.9.78.123
 quantstats>=0.0.62
 statsmodels>=0.14
