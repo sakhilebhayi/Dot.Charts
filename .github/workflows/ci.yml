@@ -63,8 +63,10 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
+      # Tests in the owner-machine group need the real, gitignored DKP signing
+      # key (server / owner machine only), so CI excludes them. Owner decision.
       - name: Tests
-        run: php artisan test --compact
+        run: php artisan test --compact --exclude-group=owner-machine
 
   analytics:
     name: Analytics tests (Python)
