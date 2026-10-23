@@ -56,6 +56,52 @@ jobs:
           cd "$DEPLOY_PATH/backend"
           PHP=php
           echo "== Current release: $(git -C "$DEPLOY_PATH" rev-parse --short HEAD)"
+          # ---- application-folder guard (tolerant: it can never fail the deploy)
+          # Layout (bootstrap.yml): the docroot is ~/charts.infodot.co.za, the repo checkout $DEPLOY_PATH is
+          # <docroot>/charts and the Laravel app is $DEPLOY_PATH/backend. The docroot .htaccess lets the web server
+          # hand out any file that exists, so without a deny file the whole checkout is downloadable:
+          # backend/.env, backend/database/database.sqlite, backend/storage/logs, backend/vendor, .git and the
+          # analytics/ folder. (Four other platforms were found doing this on 2026-10-20.) This makes sure
+          # $DEPLOY_PATH/.htaccess contains `Require all denied`, the same way the App Folder Guard workflow in
+          # InfoDot does. It goes on the checkout, not on backend/, so .git and analytics/ are covered too. Nothing
+          # in the checkout is meant to be fetched by URL: the built frontend is unpacked into the docroot, and
+          # /api reaches Laravel through the docroot index.php shim, which includes backend/public/index.php as PHP.
+          # The body is a subshell with `set +e`: every outcome, a failed write included, is one log line and the
+          # deploy carries on. It skips itself when the checkout looks like a docroot (its parent is $HOME, or it
+          # holds an index.php/index.html, or backend/ has index.php beside artisan and no public/index.php).
+          # It runs BEFORE maintenance mode. The file is untracked, so `git reset --hard` leaves it alone.
+          guard_app_folder() (
+            set +e
+            F="$DEPLOY_PATH/.htaccess"
+            if [ ! -f "$DEPLOY_PATH/backend/artisan" ]; then echo "== App-folder guard: skipped (no backend/artisan in $DEPLOY_PATH)"; exit 0; fi
+            PARENT="$(cd "$(dirname "$DEPLOY_PATH")" 2>/dev/null && pwd -P)"
+            HOME_REAL="$(cd "${HOME:-/nonexistent}" 2>/dev/null && pwd -P)"
+            if [ -z "$PARENT" ] || [ "$PARENT" = "$HOME_REAL" ]; then
+              echo "== App-folder guard: skipped (the checkout is directly in the home folder or its parent is unknown; it may be the docroot)"; exit 0
+            fi
+            if [ -f "$DEPLOY_PATH/index.php" ] || [ -f "$DEPLOY_PATH/index.html" ] \
+               || { [ -f "$DEPLOY_PATH/backend/index.php" ] && [ ! -f "$DEPLOY_PATH/backend/public/index.php" ]; }; then
+              echo "== App-folder guard: skipped (index file in the checkout: this looks like a docroot)"; exit 0
+            fi
+            if [ -f "$F" ] && grep -q 'Require all denied' "$F"; then
+              echo "== App-folder guard: already present"
+            elif [ -f "$F" ]; then
+              if cp "$F" "$F.before-guard" && printf '\n# Dot: the application folder is never served.\nRequire all denied\n' >> "$F"; then
+                echo "== App-folder guard: appended to the existing .htaccess (original kept as .htaccess.before-guard)"
+              else
+                echo "::warning::App-folder guard: could not append to $F (deploy continues)"
+              fi
+            else
+              if printf '# Dot: the application folder is never served.\nRequire all denied\n' > "$F"; then
+                echo "== App-folder guard: written (new .htaccess)"
+              else
+                echo "::warning::App-folder guard: could not write $F (deploy continues)"
+              fi
+            fi
+            exit 0
+          )
+          guard_app_folder || true
+
           git -C "$DEPLOY_PATH" fetch origin main
           $PHP artisan down --retry=30 || true
           git -C "$DEPLOY_PATH" reset --hard origin/main
@@ -148,3 +194,34 @@ jobs:
           sleep 3
           curl -s -o /dev/null -w "/: %{http_code}\n" https://charts.infodot.co.za/
           curl -s -o /dev/null -w "/api POST backtests: %{http_code}\n" -X POST https://charts.infodot.co.za/api/backtests
+
+      # The application folder must not answer over HTTP. Public requests only (no SSH, nothing is read), after
+      # `php artisan up`, so it can only turn a finished run red, never leave the site down. 200 is a leak;
+      # 301/302/403/404 are fine. The Laravel app is <docroot>/charts/backend, so the nine usual paths are asked
+      # for under /<checkout>/backend/; /<checkout>/.git/HEAD is added because the whole checkout sits in the docroot.
+      # Only status codes are printed.
+      - name: Probe the application folder from outside
+        if: ${{ !cancelled() }}
+        env:
+          SITE_URL: https://charts.infodot.co.za
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -uo pipefail
+          KEY="$(basename "$DEPLOY_PATH")"
+          [ -n "$KEY" ] && [ "$KEY" != "/" ] || { echo "::error::cannot work out the app folder name; the probe did not run"; exit 1; }
+          EXPOSED=0
+          UNREACHED=0
+          for P in backend/.env backend/.env.bak-secrets backend/artisan backend/composer.json backend/composer.lock backend/database/database.sqlite backend/storage/logs/laravel.log backend/vendor/autoload.php backend/phpunit.xml .git/HEAD; do
+            CODE=$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$SITE_URL/$KEY/$P" || true)
+            case "$CODE" in
+              200) echo "::error::EXPOSED /$KEY/$P answered 200"; EXPOSED=1 ;;
+              000|"") echo "000 /$KEY/$P (no answer)"; UNREACHED=$((UNREACHED + 1)) ;;
+              *) echo "$CODE /$KEY/$P" ;;
+            esac
+          done
+          [ "$UNREACHED" -eq 0 ] || echo "::warning::$UNREACHED probe request(s) got no answer; those paths are unverified."
+          if [ "$EXPOSED" -ne 0 ]; then
+            echo "::error::The application folder is readable over HTTP (database, logs, vendor/ or .git may be downloadable). Run the App Folder Guard workflow in InfoDot (mode apply) or add the deny file by hand, then re-run."
+            exit 1
+          fi
+          echo "== App-folder probe: no sensitive path answered 200 ($((10 - UNREACHED)) of 10 paths verified)."
