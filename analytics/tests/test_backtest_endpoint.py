@@ -47,6 +47,10 @@ def test_backtest_method_714_fetches_intraday_data(mocker):
     # window, silently producing zero trades. The endpoint must request an
     # intraday interval for this strategy specifically.
     fetch_mock = mocker.patch("main.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
+    # method_714 also fetches a higher-timeframe series through its own import
+    # of fetch_ohlcv_cached (strategies/method_714/mtf.py). Without this patch
+    # the test reached the live Binance API, which answers HTTP 451 from CI.
+    mocker.patch("strategies.method_714.mtf.fetch_ohlcv_cached", return_value=_synthetic_uptrend_df())
 
     response = client.post(
         "/backtest",
