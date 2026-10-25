@@ -1,0 +1,1582 @@
+{
+  "analysis_version": "1.0.0",
+  "checks": [
+    {
+      "dimension": "emotional_clarity_positioning",
+      "id": "d1.copy_profile_language_lint",
+      "status": "measured",
+      "title": "Copy against the profile's banned phrases and claims policy"
+    },
+    {
+      "dimension": "reliability_error_recovery",
+      "id": "d10.error_pages",
+      "status": "measured",
+      "title": "Designed error pages with a next step"
+    },
+    {
+      "dimension": "reliability_error_recovery",
+      "id": "d10.health_endpoint",
+      "status": "not_applicable",
+      "title": "Health endpoint exists and shows a failure path (static)"
+    },
+    {
+      "dimension": "brand_distinctiveness",
+      "id": "d2.font_palette_deny_list",
+      "status": "measured",
+      "title": "Fonts and palette against the deny-list of generic defaults"
+    },
+    {
+      "dimension": "usability_cognitive_load",
+      "id": "d3.field_counts",
+      "status": "not_measured",
+      "title": "Fields per form"
+    },
+    {
+      "dimension": "usability_cognitive_load",
+      "id": "d3.heading_structure",
+      "status": "measured",
+      "title": "One h1 and no skipped heading levels per screen"
+    },
+    {
+      "dimension": "usability_cognitive_load",
+      "id": "d3.nav_depth",
+      "status": "measured",
+      "title": "Navigation menu depth"
+    },
+    {
+      "dimension": "visual_interaction_craftsmanship",
+      "id": "d4.reduced_motion",
+      "status": "measured",
+      "title": "Animations and transitions respect prefers-reduced-motion (static)"
+    },
+    {
+      "dimension": "visual_interaction_craftsmanship",
+      "id": "d4.spacing_type_scale_conformance",
+      "status": "not_measured",
+      "title": "Spacing and type size on the declared scales"
+    },
+    {
+      "dimension": "functional_completeness",
+      "id": "d5.dead_links",
+      "status": "measured",
+      "title": "Internal links resolve"
+    },
+    {
+      "dimension": "functional_completeness",
+      "id": "d5.route_inventory_vs_claims",
+      "status": "not_measured",
+      "title": "Claimed features have a matching route"
+    },
+    {
+      "dimension": "functional_completeness",
+      "id": "d5.stubs_placeholders",
+      "status": "measured",
+      "title": "No stub or placeholder content on shipped surfaces"
+    },
+    {
+      "dimension": "trust_transparency",
+      "id": "d6.claim_lint",
+      "status": "measured",
+      "title": "Unsupported-claim lint over user-facing copy"
+    },
+    {
+      "dimension": "trust_transparency",
+      "id": "d6.honest_states",
+      "status": "not_measured",
+      "title": "Empty, error and unavailable state wording on list screens (presence only)"
+    },
+    {
+      "dimension": "trust_transparency",
+      "id": "d6.privacy_terms_present",
+      "status": "measured",
+      "title": "Privacy notice and terms present, real and linked"
+    },
+    {
+      "dimension": "accessibility_inclusion",
+      "id": "d8.focus_visible",
+      "status": "measured",
+      "title": "Focus indicators not removed; no positive tabindex (static)"
+    },
+    {
+      "dimension": "accessibility_inclusion",
+      "id": "d8.labels_alt_lang",
+      "status": "measured",
+      "title": "Labels, alternative text and language (static)"
+    },
+    {
+      "dimension": "accessibility_inclusion",
+      "id": "d8.token_pair_contrast",
+      "status": "measured",
+      "title": "Token pair contrast (WCAG 2.2) on both themes"
+    },
+    {
+      "dimension": "cross_platform_consistency",
+      "id": "d9.token_usage_vs_profile",
+      "status": "measured",
+      "title": "Values drawn from design tokens rather than hard-coded"
+    }
+  ],
+  "conflicts": [],
+  "counts": {
+    "by_severity": {
+      "blocker": 0,
+      "info": 12,
+      "major": 50,
+      "minor": 6
+    },
+    "checks": 19,
+    "evidence": 14,
+    "findings": 68,
+    "not_measured": 23,
+    "redactions": 0
+  },
+  "coverage": {
+    "skipped": [
+      {
+        "path": ".git",
+        "reason": "vendored_or_generated_directory"
+      }
+    ],
+    "skipped_total": 1
+  },
+  "engine_problems": [],
+  "engine_version": "0.3.0",
+  "evidence": [
+    {
+      "artifact_ref": "static-scan/d1.copy_profile_language_lint",
+      "check_id": "d1.copy_profile_language_lint",
+      "detail": "288 user-facing string(s) scanned against 6 banned phrase(s) of profile dot-ecosystem; 3 string(s) trip a banned phrase or an unsupported-claim pattern (claim hits are listed under d6.claim_lint).",
+      "origin": "check:d1.copy_profile_language_lint",
+      "result": "partial",
+      "source_class": "automated_check",
+      "value": 0.9896
+    },
+    {
+      "artifact_ref": "static-scan/d10.error_pages",
+      "check_id": "d10.error_pages",
+      "detail": "0 of 1 error statuses (404) have a custom page with a link or button. No Laravel views found: only 404 was checked. Rendering with the right status needs a running app and is not measured.",
+      "origin": "check:d10.error_pages",
+      "result": "fail",
+      "source_class": "automated_check",
+      "value": 0
+    },
+    {
+      "artifact_ref": "static-scan/d2.font_palette_deny_list",
+      "check_id": "d2.font_palette_deny_list",
+      "detail": "4 of 4 fonts/palette values are off the deny-list. Fonts found: IBM Plex Sans, IBM Plex Sans Condensed, IBM Plex Mono, Material Symbols Rounded; the profile writes no hex colour in its prohibited list, so the palette was not evaluated. Matching is by name only.",
+      "origin": "check:d2.font_palette_deny_list",
+      "result": "pass",
+      "source_class": "automated_check",
+      "value": 1
+    },
+    {
+      "artifact_ref": "frontend/journal.html",
+      "check_id": "d3.heading_structure",
+      "detail": "6 of 8 screens have exactly one <h1> and no skipped level; 7 layout(s) and page(s) that rely on a layout were left out because the outline is split between files. Headings rendered by components or inserted by scripts are not seen.",
+      "origin": "check:d3.heading_structure",
+      "result": "partial",
+      "source_class": "automated_check",
+      "value": 0.75
+    },
+    {
+      "artifact_ref": "static-scan/d3.nav_depth",
+      "check_id": "d3.nav_depth",
+      "detail": "33 of 33 navigation links are within 3 level(s) (engine default bound; the profile declares none) across 7 <nav> landmark(s). Click paths through pages are not measured.",
+      "origin": "check:d3.nav_depth",
+      "result": "pass",
+      "source_class": "automated_check",
+      "value": 1
+    },
+    {
+      "artifact_ref": "backend/resources/views/errors/_ecosystem-layout.blade.php",
+      "check_id": "d4.reduced_motion",
+      "detail": "0 of 5 motion declarations are covered by prefers-reduced-motion (no global override); utility classes counted per element. Motion from JavaScript is not scanned.",
+      "origin": "check:d4.reduced_motion",
+      "result": "fail",
+      "source_class": "automated_check",
+      "value": 0
+    },
+    {
+      "artifact_ref": "frontend/backtest.html",
+      "check_id": "d5.dead_links",
+      "detail": "10 of 47 checkable internal links resolve; 12 link(s) could not be judged statically and are not counted. No routes/ directory: links were matched to files.",
+      "origin": "check:d5.dead_links",
+      "result": "partial",
+      "source_class": "automated_check",
+      "value": 0.2128
+    },
+    {
+      "artifact_ref": "static-scan/d5.stubs_placeholders",
+      "check_id": "d5.stubs_placeholders",
+      "detail": "15 of 15 surfaces with static text are free of visible stub content. Surfaces whose text is all dynamic, and text produced by scripts, are not seen.",
+      "origin": "check:d5.stubs_placeholders",
+      "result": "pass",
+      "source_class": "automated_check",
+      "value": 1
+    },
+    {
+      "artifact_ref": "frontend/backtest.html",
+      "check_id": "d6.claim_lint",
+      "detail": "288 user-facing string(s) scanned; 3 carry a claim or figure and 3 of them are unsupported. Profile dot-ecosystem: 4 claims_policy rule(s), 2 with no pattern detector (no-certainty-theatre, no-unbuilt-features).",
+      "origin": "check:d6.claim_lint",
+      "result": "fail",
+      "source_class": "automated_check",
+      "value": 0
+    },
+    {
+      "artifact_ref": "resources/views",
+      "check_id": "d6.privacy_terms_present",
+      "detail": "0 of 6 conditions hold (privacy and terms: present, not a placeholder, linked from shared markup). \"Reachable from every public page\" is approximated by a link in a layout, footer or partial; content served from a database or a CMS is not seen.",
+      "origin": "check:d6.privacy_terms_present",
+      "result": "fail",
+      "source_class": "automated_check",
+      "value": 0
+    },
+    {
+      "artifact_ref": "static-scan/d8.focus_visible",
+      "check_id": "d8.focus_visible",
+      "detail": "2 of 2 outline removals or positive tabindex uses are safe (replaced by a visible indicator); the rest are listed. Rendered focus order and indicator visibility are not measured.",
+      "origin": "check:d8.focus_visible",
+      "result": "pass",
+      "source_class": "automated_check",
+      "value": 1
+    },
+    {
+      "artifact_ref": "frontend/backtest.html",
+      "check_id": "d8.labels_alt_lang",
+      "detail": "30/34 form fields labelled (reusable component files are skipped: their consumer supplies the label), 11/11 images with alt, 9/9 documents with lang; 0 element(s) with dynamic attributes and all components were skipped. Title, name, iframe, viewport and ARIA findings do not change this share.",
+      "origin": "check:d8.labels_alt_lang",
+      "result": "partial",
+      "source_class": "automated_check",
+      "value": 0.9259
+    },
+    {
+      "artifact_ref": "frontend/src/instrument.css",
+      "check_id": "d8.token_pair_contrast",
+      "detail": "15 of 15 pair/theme combinations meet their threshold (4.5:1 text; 3:1 large text and focus indicators); themes evaluated: light; pair sources: ground 7, usage 8; 7 combination(s) undetermined and not counted; translucent backgrounds are undetermined; panel backgrounds are tokens named bg/panel/surface/card/sunken.",
+      "origin": "check:d8.token_pair_contrast",
+      "result": "pass",
+      "source_class": "automated_check",
+      "value": 1
+    },
+    {
+      "artifact_ref": "backend/resources/views/errors/403.blade.php",
+      "check_id": "d9.token_usage_vs_profile",
+      "detail": "155 of 453 values come from tokens: colour 155 token / 32 literal / 0 framework-default utility; spacing and type size 0 token / 266 literal; 64 font-family declaration(s) not counted. The profile cites no token source, so any declared custom property counts.",
+      "origin": "check:d9.token_usage_vs_profile",
+      "result": "partial",
+      "source_class": "automated_check",
+      "value": 0.3422
+    }
+  ],
+  "findings": [
+    {
+      "check_id": "d10.error_pages",
+      "dimension": "reliability_error_recovery",
+      "fingerprint": "17030bce64f4",
+      "fix_hint": "Add a designed 404 page that says what happened and offers a next step (home, retry, contact).",
+      "id": "d10.error_pages.17030bce64f4",
+      "message": "No custom 404 page was found (404.html or public/404.html); visitors get the framework or server default.",
+      "origin": "check:d10.error_pages",
+      "severity": "major",
+      "source_id": "d10.error_pages.error-page-missing.001"
+    },
+    {
+      "check_id": "d4.reduced_motion",
+      "dimension": "visual_interaction_craftsmanship",
+      "fingerprint": "2be677c31dfd",
+      "fix_hint": "Add @media (prefers-reduced-motion: reduce) { ... animation: none } for it, or a global override.",
+      "id": "d4.reduced_motion.2be677c31dfd",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 88
+      },
+      "message": "An infinite animation on \".scanline\" has no prefers-reduced-motion override.",
+      "origin": "check:d4.reduced_motion",
+      "severity": "major",
+      "source_id": "d4.reduced_motion.motion-no-reduced-variant.002",
+      "wcag_criterion": "2.3.3",
+      "wcag_level": "AAA"
+    },
+    {
+      "check_id": "d4.reduced_motion",
+      "dimension": "visual_interaction_craftsmanship",
+      "fingerprint": "c3cac5d993e0",
+      "fix_hint": "Add @media (prefers-reduced-motion: reduce) { ... animation: none } for it, or a global override.",
+      "id": "d4.reduced_motion.c3cac5d993e0",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 152
+      },
+      "message": "An infinite animation on \".spinner\" has no prefers-reduced-motion override.",
+      "origin": "check:d4.reduced_motion",
+      "severity": "major",
+      "source_id": "d4.reduced_motion.motion-no-reduced-variant.004",
+      "wcag_criterion": "2.3.3",
+      "wcag_level": "AAA"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "02f8a1e927f5",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.02f8a1e927f5",
+      "location": {
+        "file": "frontend/options.html",
+        "line": 20
+      },
+      "message": "Dead internal link: /history.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.028"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "0ab180b8dd71",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.0ab180b8dd71",
+      "location": {
+        "file": "frontend/login.html",
+        "line": 29
+      },
+      "message": "Dead internal link: /register.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.025"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "166fed83b992",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.166fed83b992",
+      "location": {
+        "file": "frontend/strategy-builder.html",
+        "line": 20
+      },
+      "message": "Dead internal link: /history.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.035"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "1974bdff27a9",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.1974bdff27a9",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 205
+      },
+      "message": "Dead internal link: /strategy-builder.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.012"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "1974bdff27a9.1",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.1974bdff27a9.1",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 294
+      },
+      "message": "Dead internal link: /strategy-builder.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.017"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "20c4d003ac06",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.20c4d003ac06",
+      "location": {
+        "file": "frontend/history.html",
+        "line": 22
+      },
+      "message": "Dead internal link: /options.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.010"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "237d68a812d3",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.237d68a812d3",
+      "location": {
+        "file": "frontend/history.html",
+        "line": 20
+      },
+      "message": "Dead internal link: /history.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.008"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "365f6a5a132d",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.365f6a5a132d",
+      "location": {
+        "file": "frontend/options.html",
+        "line": 22
+      },
+      "message": "Dead internal link: /options.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.030"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "4403627d131e",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.4403627d131e",
+      "location": {
+        "file": "frontend/history.html",
+        "line": 18
+      },
+      "message": "Dead internal link: /backtest.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.006"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "445fb44ef59c",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.445fb44ef59c",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 208
+      },
+      "message": "Dead internal link: /login.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.015"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "464d19758c21",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.464d19758c21",
+      "location": {
+        "file": "frontend/options.html",
+        "line": 23
+      },
+      "message": "Dead internal link: /login.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.031"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "5bd225bcd9e8",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.5bd225bcd9e8",
+      "location": {
+        "file": "frontend/strategy-builder.html",
+        "line": 19
+      },
+      "message": "Dead internal link: /strategy-builder.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.034"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "65454ea221cc",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.65454ea221cc",
+      "location": {
+        "file": "frontend/backtest.html",
+        "line": 22
+      },
+      "message": "Dead internal link: /options.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.005"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "6a85ae1011ed",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.6a85ae1011ed",
+      "location": {
+        "file": "frontend/strategy-builder.html",
+        "line": 22
+      },
+      "message": "Dead internal link: /options.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.037"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "6d2323ce0476",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.6d2323ce0476",
+      "location": {
+        "file": "frontend/journal.html",
+        "line": 18
+      },
+      "message": "Dead internal link: /backtest.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.020"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "83e2dfd61afd",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.83e2dfd61afd",
+      "location": {
+        "file": "frontend/journal.html",
+        "line": 20
+      },
+      "message": "Dead internal link: /history.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.022"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "85676103aca8",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.85676103aca8",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 204
+      },
+      "message": "Dead internal link: /backtest.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.011"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "85676103aca8.1",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.85676103aca8.1",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 289
+      },
+      "message": "Dead internal link: /backtest.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.016"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "881d404f107a",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.881d404f107a",
+      "location": {
+        "file": "frontend/history.html",
+        "line": 21
+      },
+      "message": "Dead internal link: /journal.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.009"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "8f4c67a75944",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.8f4c67a75944",
+      "location": {
+        "file": "frontend/register.html",
+        "line": 31
+      },
+      "message": "Dead internal link: /login.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.032"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "9123453533e1",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.9123453533e1",
+      "location": {
+        "file": "frontend/history.html",
+        "line": 19
+      },
+      "message": "Dead internal link: /strategy-builder.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.007"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "9a66b0bac0a3",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.9a66b0bac0a3",
+      "location": {
+        "file": "frontend/journal.html",
+        "line": 22
+      },
+      "message": "Dead internal link: /options.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.024"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "a27cfb0ea610",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.a27cfb0ea610",
+      "location": {
+        "file": "frontend/backtest.html",
+        "line": 20
+      },
+      "message": "Dead internal link: /history.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.003"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "adee11b8379f",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.adee11b8379f",
+      "location": {
+        "file": "frontend/strategy-builder.html",
+        "line": 21
+      },
+      "message": "Dead internal link: /journal.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.036"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "afdf4adf1dc8",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.afdf4adf1dc8",
+      "location": {
+        "file": "frontend/strategy-builder.html",
+        "line": 18
+      },
+      "message": "Dead internal link: /backtest.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.033"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "c0447d1ca8bb",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.c0447d1ca8bb",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 207
+      },
+      "message": "Dead internal link: /options.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.014"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "c0447d1ca8bb.1",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.c0447d1ca8bb.1",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 299
+      },
+      "message": "Dead internal link: /options.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.018"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "c6cea55caa11",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.c6cea55caa11",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 206
+      },
+      "message": "Dead internal link: /journal.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.013"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "c6cea55caa11.1",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.c6cea55caa11.1",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 304
+      },
+      "message": "Dead internal link: /journal.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.019"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "c89650f86484",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.c89650f86484",
+      "location": {
+        "file": "frontend/journal.html",
+        "line": 19
+      },
+      "message": "Dead internal link: /strategy-builder.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.021"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "cad259368bcc",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.cad259368bcc",
+      "location": {
+        "file": "frontend/options.html",
+        "line": 18
+      },
+      "message": "Dead internal link: /backtest.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.026"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "d0b1561ba7d0",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.d0b1561ba7d0",
+      "location": {
+        "file": "frontend/backtest.html",
+        "line": 18
+      },
+      "message": "Dead internal link: /backtest.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.001"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "d5e6656dacb0",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.d5e6656dacb0",
+      "location": {
+        "file": "frontend/backtest.html",
+        "line": 21
+      },
+      "message": "Dead internal link: /journal.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.004"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "e2851c10e0df",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.e2851c10e0df",
+      "location": {
+        "file": "frontend/options.html",
+        "line": 19
+      },
+      "message": "Dead internal link: /strategy-builder.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.027"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "e5a7859be9ec",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.e5a7859be9ec",
+      "location": {
+        "file": "frontend/options.html",
+        "line": 21
+      },
+      "message": "Dead internal link: /journal.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.029"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "f3a5c55a34ea",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.f3a5c55a34ea",
+      "location": {
+        "file": "frontend/backtest.html",
+        "line": 19
+      },
+      "message": "Dead internal link: /strategy-builder.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.002"
+    },
+    {
+      "check_id": "d5.dead_links",
+      "dimension": "functional_completeness",
+      "fingerprint": "fff399be3bf7",
+      "fix_hint": "Point the link at an existing route, or remove it until the page exists.",
+      "id": "d5.dead_links.fff399be3bf7",
+      "location": {
+        "file": "frontend/journal.html",
+        "line": 21
+      },
+      "message": "Dead internal link: /journal.html matches no file in the checkout.",
+      "origin": "check:d5.dead_links",
+      "severity": "major",
+      "source_id": "d5.dead_links.dead-internal-link.023"
+    },
+    {
+      "check_id": "d6.claim_lint",
+      "dimension": "trust_transparency",
+      "fingerprint": "32781b154229",
+      "fix_hint": "Remove the claim. Outcome, return and performance statements need a cited, current source and must not be presented as likely.",
+      "id": "d6.claim_lint.32781b154229",
+      "location": {
+        "file": "frontend/history.html",
+        "line": 79
+      },
+      "message": "Unsupported claim (performance wording (win rate, track record)): \"Win rate\".",
+      "origin": "check:d6.claim_lint",
+      "severity": "major",
+      "source_id": "d6.claim_lint.performance-term.002"
+    },
+    {
+      "check_id": "d6.claim_lint",
+      "dimension": "trust_transparency",
+      "fingerprint": "4e8ca55ba158",
+      "fix_hint": "Remove the claim. Outcome, return and performance statements need a cited, current source and must not be presented as likely.",
+      "id": "d6.claim_lint.4e8ca55ba158",
+      "location": {
+        "file": "frontend/strategy-builder.html",
+        "line": 98
+      },
+      "message": "Unsupported claim (performance wording (win rate, track record)): \"Win rate\".",
+      "origin": "check:d6.claim_lint",
+      "severity": "major",
+      "source_id": "d6.claim_lint.performance-term.003"
+    },
+    {
+      "check_id": "d6.claim_lint",
+      "dimension": "trust_transparency",
+      "fingerprint": "55afcc499931",
+      "fix_hint": "Remove the claim. Outcome, return and performance statements need a cited, current source and must not be presented as likely.",
+      "id": "d6.claim_lint.55afcc499931",
+      "location": {
+        "file": "frontend/backtest.html",
+        "line": 94
+      },
+      "message": "Unsupported claim (performance wording (win rate, track record)): \"Win rate\".",
+      "origin": "check:d6.claim_lint",
+      "severity": "major",
+      "source_id": "d6.claim_lint.performance-term.001"
+    },
+    {
+      "check_id": "d6.privacy_terms_present",
+      "dimension": "trust_transparency",
+      "fingerprint": "3236a3c306ca",
+      "fix_hint": "Publish a real terms and link it from the footer.",
+      "id": "d6.privacy_terms_present.3236a3c306ca",
+      "location": {
+        "file": "resources/views",
+        "line": 1
+      },
+      "message": "No terms page was found (no route, view or static page named like \"terms\").",
+      "origin": "check:d6.privacy_terms_present",
+      "severity": "major",
+      "source_id": "d6.privacy_terms_present.terms-missing.001"
+    },
+    {
+      "check_id": "d6.privacy_terms_present",
+      "dimension": "trust_transparency",
+      "fingerprint": "f951f15dbb1e",
+      "fix_hint": "Publish a real privacy notice and link it from the footer.",
+      "id": "d6.privacy_terms_present.f951f15dbb1e",
+      "location": {
+        "file": "resources/views",
+        "line": 1
+      },
+      "message": "No privacy notice page was found (no route, view or static page named like \"privacy\").",
+      "origin": "check:d6.privacy_terms_present",
+      "severity": "major",
+      "source_id": "d6.privacy_terms_present.privacy-missing.001"
+    },
+    {
+      "check_id": "d8.labels_alt_lang",
+      "dimension": "accessibility_inclusion",
+      "fingerprint": "16ee56fdf252",
+      "fix_hint": "Use a native <button> or <a href>, or add tabindex=\"0\" and key handlers.",
+      "id": "d8.labels_alt_lang.16ee56fdf252",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 224
+      },
+      "message": "<div role=\"button\"> cannot be reached with the keyboard: it has no tabindex (WCAG 2.1.1).",
+      "origin": "check:d8.labels_alt_lang",
+      "severity": "major",
+      "source_id": "d8.labels_alt_lang.aria-role-not-focusable.001",
+      "wcag_criterion": "2.1.1",
+      "wcag_level": "A"
+    },
+    {
+      "check_id": "d8.labels_alt_lang",
+      "dimension": "accessibility_inclusion",
+      "fingerprint": "65ff9194448b",
+      "fix_hint": "Add a visible <label for=\"id\"> (preferred) or an aria-label. If the label lives in another file, this finding is a false positive.",
+      "id": "d8.labels_alt_lang.65ff9194448b",
+      "location": {
+        "file": "frontend/backtest.html",
+        "line": 36
+      },
+      "message": "A <select> has no associated label: no <label for>, no enclosing <label>, no aria-label or aria-labelledby (WCAG 1.3.1, 3.3.2, 4.1.2).",
+      "origin": "check:d8.labels_alt_lang",
+      "severity": "major",
+      "source_id": "d8.labels_alt_lang.control-no-label.001",
+      "wcag_criterion": "3.3.2",
+      "wcag_level": "A"
+    },
+    {
+      "check_id": "d8.labels_alt_lang",
+      "dimension": "accessibility_inclusion",
+      "fingerprint": "65ff9194448b.1",
+      "fix_hint": "Add a visible <label for=\"id\"> (preferred) or an aria-label. If the label lives in another file, this finding is a false positive.",
+      "id": "d8.labels_alt_lang.65ff9194448b.1",
+      "location": {
+        "file": "frontend/backtest.html",
+        "line": 42
+      },
+      "message": "A <select> has no associated label: no <label for>, no enclosing <label>, no aria-label or aria-labelledby (WCAG 1.3.1, 3.3.2, 4.1.2).",
+      "origin": "check:d8.labels_alt_lang",
+      "severity": "major",
+      "source_id": "d8.labels_alt_lang.control-no-label.002",
+      "wcag_criterion": "3.3.2",
+      "wcag_level": "A"
+    },
+    {
+      "check_id": "d8.labels_alt_lang",
+      "dimension": "accessibility_inclusion",
+      "fingerprint": "75dbbcc3811b",
+      "fix_hint": "Add a visible <label for=\"id\"> (preferred) or an aria-label. If the label lives in another file, this finding is a false positive.",
+      "id": "d8.labels_alt_lang.75dbbcc3811b",
+      "location": {
+        "file": "frontend/strategy-builder.html",
+        "line": 41
+      },
+      "message": "A <select> has no associated label: no <label for>, no enclosing <label>, no aria-label or aria-labelledby (WCAG 1.3.1, 3.3.2, 4.1.2).",
+      "origin": "check:d8.labels_alt_lang",
+      "severity": "major",
+      "source_id": "d8.labels_alt_lang.control-no-label.003",
+      "wcag_criterion": "3.3.2",
+      "wcag_level": "A"
+    },
+    {
+      "check_id": "d8.labels_alt_lang",
+      "dimension": "accessibility_inclusion",
+      "fingerprint": "75dbbcc3811b.1",
+      "fix_hint": "Add a visible <label for=\"id\"> (preferred) or an aria-label. If the label lives in another file, this finding is a false positive.",
+      "id": "d8.labels_alt_lang.75dbbcc3811b.1",
+      "location": {
+        "file": "frontend/strategy-builder.html",
+        "line": 52
+      },
+      "message": "A <select> has no associated label: no <label for>, no enclosing <label>, no aria-label or aria-labelledby (WCAG 1.3.1, 3.3.2, 4.1.2).",
+      "origin": "check:d8.labels_alt_lang",
+      "severity": "major",
+      "source_id": "d8.labels_alt_lang.control-no-label.004",
+      "wcag_criterion": "3.3.2",
+      "wcag_level": "A"
+    },
+    {
+      "check_id": "d3.heading_structure",
+      "dimension": "usability_cognitive_load",
+      "fingerprint": "56fe2da39f69",
+      "fix_hint": "Use h2 here, or restructure the headings.",
+      "id": "d3.heading_structure.56fe2da39f69",
+      "location": {
+        "file": "frontend/strategy-builder.html",
+        "line": 40
+      },
+      "message": "Heading level jumps from h1 to h3.",
+      "origin": "check:d3.heading_structure",
+      "severity": "minor",
+      "source_id": "d3.heading_structure.heading-skip.002",
+      "wcag_criterion": "1.3.1",
+      "wcag_level": "A"
+    },
+    {
+      "check_id": "d3.heading_structure",
+      "dimension": "usability_cognitive_load",
+      "fingerprint": "b21a15768569",
+      "fix_hint": "Use h2 here, or restructure the headings.",
+      "id": "d3.heading_structure.b21a15768569",
+      "location": {
+        "file": "frontend/journal.html",
+        "line": 34
+      },
+      "message": "Heading level jumps from h1 to h3.",
+      "origin": "check:d3.heading_structure",
+      "severity": "minor",
+      "source_id": "d3.heading_structure.heading-skip.001",
+      "wcag_criterion": "1.3.1",
+      "wcag_level": "A"
+    },
+    {
+      "check_id": "d4.reduced_motion",
+      "dimension": "visual_interaction_craftsmanship",
+      "fingerprint": "0ac5aac340bc",
+      "fix_hint": "Add one global @media (prefers-reduced-motion: reduce) rule that shortens transitions and animations, or per-selector overrides.",
+      "id": "d4.reduced_motion.0ac5aac340bc",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 149
+      },
+      "message": "1 transition/animation declaration(s) have no prefers-reduced-motion override; first: \".fade-in\".",
+      "origin": "check:d4.reduced_motion",
+      "severity": "minor",
+      "source_id": "d4.reduced_motion.motion-no-reduced-variant.003",
+      "wcag_criterion": "2.3.3",
+      "wcag_level": "AAA"
+    },
+    {
+      "check_id": "d4.reduced_motion",
+      "dimension": "visual_interaction_craftsmanship",
+      "fingerprint": "d245e3ce52b1",
+      "fix_hint": "Add one global @media (prefers-reduced-motion: reduce) rule that shortens transitions and animations, or per-selector overrides.",
+      "id": "d4.reduced_motion.d245e3ce52b1",
+      "location": {
+        "file": "backend/resources/views/errors/_ecosystem-layout.blade.php",
+        "line": 56
+      },
+      "message": "2 transition/animation declaration(s) have no prefers-reduced-motion override; first: \".press\".",
+      "origin": "check:d4.reduced_motion",
+      "severity": "minor",
+      "source_id": "d4.reduced_motion.motion-no-reduced-variant.001",
+      "wcag_criterion": "2.3.3",
+      "wcag_level": "AAA"
+    },
+    {
+      "check_id": "d9.token_usage_vs_profile",
+      "dimension": "cross_platform_consistency",
+      "fingerprint": "19fe16cdeec3",
+      "fix_hint": "Declare the colour as a design token (a custom property) and reference it with var(--name).",
+      "id": "d9.token_usage_vs_profile.19fe16cdeec3",
+      "location": {
+        "file": "frontend/src/instrument.css",
+        "line": 81
+      },
+      "message": "6 hard-coded colour literal(s) against 55 token reference(s); first: #211a06.",
+      "origin": "check:d9.token_usage_vs_profile",
+      "severity": "minor",
+      "source_id": "d9.token_usage_vs_profile.hardcoded-colours.009"
+    },
+    {
+      "check_id": "d9.token_usage_vs_profile",
+      "dimension": "cross_platform_consistency",
+      "fingerprint": "abc578790127",
+      "fix_hint": "Declare the colour as a design token (a custom property) and reference it with var(--name).",
+      "id": "d9.token_usage_vs_profile.abc578790127",
+      "location": {
+        "file": "frontend/index.html",
+        "line": 84
+      },
+      "message": "11 hard-coded colour literal(s) against 74 token reference(s); first: rgba(242,167,11,.16).",
+      "origin": "check:d9.token_usage_vs_profile",
+      "severity": "minor",
+      "source_id": "d9.token_usage_vs_profile.hardcoded-colours.008"
+    },
+    {
+      "check_id": "d3.field_counts",
+      "dimension": "usability_cognitive_load",
+      "fingerprint": "8c788c193dc2",
+      "fix_hint": "Supply what is missing, or accept that this check cannot judge this repository; it counts as zero in the score, visibly.",
+      "id": "d3.field_counts.8c788c193dc2",
+      "message": "Not measured: no <form> with fields was found in the templates.",
+      "origin": "check:d3.field_counts",
+      "severity": "info",
+      "source_id": "d3.field_counts.not-measured.001"
+    },
+    {
+      "check_id": "d4.spacing_type_scale_conformance",
+      "dimension": "visual_interaction_craftsmanship",
+      "fingerprint": "0a2ec7d2126e",
+      "fix_hint": "Supply what is missing, or accept that this check cannot judge this repository; it counts as zero in the score, visibly.",
+      "id": "d4.spacing_type_scale_conformance.0a2ec7d2126e",
+      "message": "Not measured: no spacing or type scale is declared (no --space-*, --spacing-*, --text-*, --font-size-* custom properties and no spacing/typography in DESIGN.md front matter), so there is nothing to conform to.",
+      "origin": "check:d4.spacing_type_scale_conformance",
+      "severity": "info",
+      "source_id": "d4.spacing_type_scale_conformance.not-measured.001"
+    },
+    {
+      "check_id": "d4.spacing_type_scale_conformance",
+      "dimension": "visual_interaction_craftsmanship",
+      "fingerprint": "84e88d578ca5",
+      "fix_hint": "Declare the scales as custom properties (--space-1.., --text-sm..) or in the DESIGN.md spacing and typography tables.",
+      "id": "d4.spacing_type_scale_conformance.84e88d578ca5",
+      "location": {
+        "file": "frontend/src/instrument.css",
+        "line": 1
+      },
+      "message": "No spacing scale and no type scale are declared as tokens, so spacing and type size cannot be checked for consistency.",
+      "origin": "check:d4.spacing_type_scale_conformance",
+      "severity": "info",
+      "source_id": "d4.spacing_type_scale_conformance.no-scale-declared.001"
+    },
+    {
+      "check_id": "d5.route_inventory_vs_claims",
+      "dimension": "functional_completeness",
+      "fingerprint": "9c0df7155a60",
+      "fix_hint": "Supply what is missing, or accept that this check cannot judge this repository; it counts as zero in the score, visibly.",
+      "id": "d5.route_inventory_vs_claims.9c0df7155a60",
+      "message": "Not measured: no feature list was found under a \"Features\"/\"Capabilities\"-style heading in README.md or PRODUCT.md.",
+      "origin": "check:d5.route_inventory_vs_claims",
+      "severity": "info",
+      "source_id": "d5.route_inventory_vs_claims.not-measured.001"
+    },
+    {
+      "check_id": "d6.honest_states",
+      "dimension": "trust_transparency",
+      "fingerprint": "15a6d3f83496",
+      "fix_hint": "Supply what is missing, or accept that this check cannot judge this repository; it counts as zero in the score, visibly.",
+      "id": "d6.honest_states.15a6d3f83496",
+      "message": "Not measured: no list screens (loops or tables) were found in the templates.",
+      "origin": "check:d6.honest_states",
+      "severity": "info",
+      "source_id": "d6.honest_states.not-measured.001"
+    },
+    {
+      "check_id": "d9.token_usage_vs_profile",
+      "dimension": "cross_platform_consistency",
+      "fingerprint": "35f04e126145",
+      "fix_hint": "Declare the colour as a design token (a custom property) and reference it with var(--name).",
+      "id": "d9.token_usage_vs_profile.35f04e126145",
+      "location": {
+        "file": "backend/resources/views/errors/429.blade.php",
+        "line": 4
+      },
+      "message": "2 hard-coded colour literal(s) against 2 token reference(s); first: #facc15.",
+      "origin": "check:d9.token_usage_vs_profile",
+      "severity": "info",
+      "source_id": "d9.token_usage_vs_profile.hardcoded-colours.004"
+    },
+    {
+      "check_id": "d9.token_usage_vs_profile",
+      "dimension": "cross_platform_consistency",
+      "fingerprint": "3f51302b25da",
+      "fix_hint": "Declare the colour as a design token (a custom property) and reference it with var(--name).",
+      "id": "d9.token_usage_vs_profile.3f51302b25da",
+      "location": {
+        "file": "backend/resources/views/errors/404.blade.php",
+        "line": 4
+      },
+      "message": "2 hard-coded colour literal(s) against 2 token reference(s); first: #22d3ee.",
+      "origin": "check:d9.token_usage_vs_profile",
+      "severity": "info",
+      "source_id": "d9.token_usage_vs_profile.hardcoded-colours.002"
+    },
+    {
+      "check_id": "d9.token_usage_vs_profile",
+      "dimension": "cross_platform_consistency",
+      "fingerprint": "4e9808ad3ab1",
+      "fix_hint": "Declare the colour as a design token (a custom property) and reference it with var(--name).",
+      "id": "d9.token_usage_vs_profile.4e9808ad3ab1",
+      "location": {
+        "file": "backend/resources/views/errors/500.blade.php",
+        "line": 4
+      },
+      "message": "3 hard-coded colour literal(s) against 1 token reference(s); first: #ef4444.",
+      "origin": "check:d9.token_usage_vs_profile",
+      "severity": "info",
+      "source_id": "d9.token_usage_vs_profile.hardcoded-colours.005"
+    },
+    {
+      "check_id": "d9.token_usage_vs_profile",
+      "dimension": "cross_platform_consistency",
+      "fingerprint": "61bba2dc7c8a",
+      "fix_hint": "Declare the colour as a design token (a custom property) and reference it with var(--name).",
+      "id": "d9.token_usage_vs_profile.61bba2dc7c8a",
+      "location": {
+        "file": "backend/resources/views/errors/403.blade.php",
+        "line": 4
+      },
+      "message": "2 hard-coded colour literal(s) against 2 token reference(s); first: #ef4444.",
+      "origin": "check:d9.token_usage_vs_profile",
+      "severity": "info",
+      "source_id": "d9.token_usage_vs_profile.hardcoded-colours.001"
+    },
+    {
+      "check_id": "d9.token_usage_vs_profile",
+      "dimension": "cross_platform_consistency",
+      "fingerprint": "83c33e256280",
+      "fix_hint": "Declare the colour as a design token (a custom property) and reference it with var(--name).",
+      "id": "d9.token_usage_vs_profile.83c33e256280",
+      "location": {
+        "file": "backend/resources/views/errors/_ecosystem-layout.blade.php",
+        "line": 46
+      },
+      "message": "2 hard-coded colour literal(s) against 15 token reference(s); first: rgba(34, 211, 238, 0.06).",
+      "origin": "check:d9.token_usage_vs_profile",
+      "severity": "info",
+      "source_id": "d9.token_usage_vs_profile.hardcoded-colours.007"
+    },
+    {
+      "check_id": "d9.token_usage_vs_profile",
+      "dimension": "cross_platform_consistency",
+      "fingerprint": "a66856afb935",
+      "fix_hint": "Declare the colour as a design token (a custom property) and reference it with var(--name).",
+      "id": "d9.token_usage_vs_profile.a66856afb935",
+      "location": {
+        "file": "backend/resources/views/errors/419.blade.php",
+        "line": 4
+      },
+      "message": "2 hard-coded colour literal(s) against 1 token reference(s); first: #facc15.",
+      "origin": "check:d9.token_usage_vs_profile",
+      "severity": "info",
+      "source_id": "d9.token_usage_vs_profile.hardcoded-colours.003"
+    },
+    {
+      "check_id": "d9.token_usage_vs_profile",
+      "dimension": "cross_platform_consistency",
+      "fingerprint": "fd68446bfd48",
+      "fix_hint": "Declare the colour as a design token (a custom property) and reference it with var(--name).",
+      "id": "d9.token_usage_vs_profile.fd68446bfd48",
+      "location": {
+        "file": "backend/resources/views/errors/503.blade.php",
+        "line": 4
+      },
+      "message": "2 hard-coded colour literal(s) against 1 token reference(s); first: #facc15.",
+      "origin": "check:d9.token_usage_vs_profile",
+      "severity": "info",
+      "source_id": "d9.token_usage_vs_profile.hardcoded-colours.006"
+    }
+  ],
+  "input": {
+    "commit": "6de2e69186ce7e8ee68fb85d3c46ff1e4f941422",
+    "commit_source": "git",
+    "repo": "sakhilebhayi/Dot.Charts"
+  },
+  "integrity": {
+    "sha256": "796eeab54a14b667a0fe7aa4acd7aeeaaaef11cec5bf0e119a8c0ea70aedde82"
+  },
+  "not_measured": [
+    {
+      "check_id": "d1.product_md_consistency",
+      "dimension": "emotional_clarity_positioning",
+      "reason": "no_check_registered"
+    },
+    {
+      "check_id": "d1.purpose_statement_present",
+      "dimension": "emotional_clarity_positioning",
+      "reason": "no_check_registered"
+    },
+    {
+      "check_id": "d10.error_copy_lint",
+      "dimension": "reliability_error_recovery",
+      "reason": "no_check_registered"
+    },
+    {
+      "adapters": [
+        "tests"
+      ],
+      "check_id": "d10.error_path_tests",
+      "dimension": "reliability_error_recovery",
+      "reason": "no_report_supplied"
+    },
+    {
+      "check_id": "d10.health_endpoint",
+      "dimension": "reliability_error_recovery",
+      "reason": "not_applicable"
+    },
+    {
+      "adapters": [
+        "detector"
+      ],
+      "check_id": "d2.impeccable_detect_findings",
+      "dimension": "brand_distinctiveness",
+      "reason": "no_report_supplied"
+    },
+    {
+      "check_id": "d2.token_uniqueness",
+      "dimension": "brand_distinctiveness",
+      "reason": "no_check_registered"
+    },
+    {
+      "check_id": "d3.field_counts",
+      "dimension": "usability_cognitive_load",
+      "reason": "check_not_measured"
+    },
+    {
+      "check_id": "d3.primary_action_per_screen",
+      "dimension": "usability_cognitive_load",
+      "reason": "no_check_registered"
+    },
+    {
+      "check_id": "d3.task_flow_step_counts",
+      "dimension": "usability_cognitive_load",
+      "reason": "no_check_registered"
+    },
+    {
+      "adapters": [
+        "detector"
+      ],
+      "check_id": "d4.detector_clean",
+      "dimension": "visual_interaction_craftsmanship",
+      "reason": "no_report_supplied"
+    },
+    {
+      "check_id": "d4.responsive_overflow",
+      "dimension": "visual_interaction_craftsmanship",
+      "reason": "no_check_registered"
+    },
+    {
+      "check_id": "d4.spacing_type_scale_conformance",
+      "dimension": "visual_interaction_craftsmanship",
+      "reason": "check_not_measured"
+    },
+    {
+      "check_id": "d5.route_inventory_vs_claims",
+      "dimension": "functional_completeness",
+      "reason": "check_not_measured"
+    },
+    {
+      "adapters": [
+        "tests"
+      ],
+      "check_id": "d5.test_pass_counts",
+      "dimension": "functional_completeness",
+      "reason": "no_report_supplied"
+    },
+    {
+      "check_id": "d6.consent_handling",
+      "dimension": "trust_transparency",
+      "reason": "no_check_registered"
+    },
+    {
+      "check_id": "d6.honest_states",
+      "dimension": "trust_transparency",
+      "reason": "check_not_measured"
+    },
+    {
+      "check_id": "d7.empty_state_guidance",
+      "dimension": "perceived_demonstrated_value",
+      "reason": "no_check_registered"
+    },
+    {
+      "check_id": "d7.time_to_first_result",
+      "dimension": "perceived_demonstrated_value",
+      "reason": "no_check_registered"
+    },
+    {
+      "check_id": "d7.value_above_fold",
+      "dimension": "perceived_demonstrated_value",
+      "reason": "no_check_registered"
+    },
+    {
+      "adapters": [
+        "axe",
+        "lighthouse"
+      ],
+      "check_id": "d8.axe_violations",
+      "dimension": "accessibility_inclusion",
+      "reason": "no_report_supplied"
+    },
+    {
+      "check_id": "d9.principle_diff",
+      "dimension": "cross_platform_consistency",
+      "reason": "no_check_registered"
+    },
+    {
+      "check_id": "d9.shared_components",
+      "dimension": "cross_platform_consistency",
+      "reason": "no_check_registered"
+    }
+  ],
+  "profile": {
+    "chain": [
+      "dot-ecosystem@0.1.0"
+    ],
+    "domain_overrides": [
+      {
+        "principle": "BXP-01",
+        "reason": "A calm or reassuring tone must never soften a safety, regulatory or loss-of-money alert. The alert wins.",
+        "yields_to": "domain_safety"
+      },
+      {
+        "principle": "BXP-03",
+        "reason": "Distinctive colour, type and motion yield to contrast, visible focus and reduced motion.",
+        "yields_to": "accessibility"
+      },
+      {
+        "principle": "BXP-05",
+        "reason": "Demonstrated value never overrides correctness: a polished wrong figure is worse than no figure.",
+        "yields_to": "functional_correctness"
+      },
+      {
+        "principle": "BXP-08",
+        "reason": "A faster first result must not skip identity verification, consent or security steps.",
+        "yields_to": "security"
+      }
+    ],
+    "effective_status": "draft",
+    "id": "dot-ecosystem",
+    "kind": "ecosystem",
+    "principle_refs": [
+      {
+        "non_negotiable": false,
+        "principle": "BXP-01",
+        "via": "experience_standard"
+      },
+      {
+        "non_negotiable": false,
+        "principle": "BXP-02",
+        "via": "experience_standard"
+      },
+      {
+        "non_negotiable": true,
+        "principle": "BXP-03",
+        "via": "behavioural_principle:own-functional-identity"
+      },
+      {
+        "non_negotiable": false,
+        "principle": "BXP-03",
+        "via": "experience_standard"
+      },
+      {
+        "non_negotiable": true,
+        "principle": "BXP-04",
+        "via": "behavioural_principle:error-recovery"
+      },
+      {
+        "non_negotiable": true,
+        "principle": "BXP-04",
+        "via": "behavioural_principle:honest-states"
+      },
+      {
+        "non_negotiable": true,
+        "principle": "BXP-04",
+        "via": "experience_standard"
+      },
+      {
+        "non_negotiable": false,
+        "principle": "BXP-05",
+        "via": "experience_standard"
+      },
+      {
+        "non_negotiable": false,
+        "principle": "BXP-06",
+        "via": "experience_standard"
+      },
+      {
+        "non_negotiable": false,
+        "principle": "BXP-07",
+        "via": "experience_standard"
+      },
+      {
+        "non_negotiable": false,
+        "principle": "BXP-08",
+        "via": "experience_standard"
+      },
+      {
+        "non_negotiable": true,
+        "principle": "BXP-09",
+        "via": "behavioural_principle:no-dark-patterns"
+      },
+      {
+        "non_negotiable": true,
+        "principle": "BXP-09",
+        "via": "experience_standard"
+      },
+      {
+        "non_negotiable": true,
+        "principle": "BXP-10",
+        "via": "experience_standard"
+      },
+      {
+        "non_negotiable": true,
+        "principle": "BXP-11",
+        "via": "behavioural_principle:accessibility-baseline"
+      },
+      {
+        "non_negotiable": true,
+        "principle": "BXP-11",
+        "via": "experience_standard"
+      },
+      {
+        "non_negotiable": true,
+        "principle": "BXP-12",
+        "via": "behavioural_principle:consistent-naming"
+      },
+      {
+        "non_negotiable": true,
+        "principle": "BXP-12",
+        "via": "behavioural_principle:token-interoperability"
+      },
+      {
+        "non_negotiable": true,
+        "principle": "BXP-12",
+        "via": "experience_standard"
+      }
+    ],
+    "sha256": "e21c37306843707affd13abbb1eca37c8b4102aafa79336411163dd88ca0dde0",
+    "source": "registry",
+    "version": "0.1.0"
+  },
+  "reports": {
+    "ingested": [],
+    "notes": [],
+    "skipped": [],
+    "superseded": []
+  },
+  "rubric": {
+    "id": "bxqs",
+    "sha256": "f5a4f8cb49b821bb41cb2ea3a5355089f87e60e6233cc6439a0f7ea680342bbd",
+    "version": "1.0.0"
+  },
+  "themes": [
+    "light",
+    "dark"
+  ]
+}
