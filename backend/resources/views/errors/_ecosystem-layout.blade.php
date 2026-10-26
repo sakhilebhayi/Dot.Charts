@@ -54,6 +54,7 @@
             a { color: inherit; }
             .mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
             .press { transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
+            @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
             .press:active { transform: scale(0.97); }
             .link-underline { background-image: linear-gradient(currentColor, currentColor); background-position: 0 100%; background-repeat: no-repeat; background-size: 0% 1px; transition: background-size 200ms cubic-bezier(0.23, 1, 0.32, 1); }
             @media (hover: hover) and (pointer: fine) {
