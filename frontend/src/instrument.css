@@ -173,3 +173,8 @@ button.danger:hover{background:var(--red-soft);filter:none}
   .metrics-grid{grid-template-columns:1fr 1fr}
   .bar-logo{height:38px}
 }
+
+/* Reduced motion (WCAG 2.3.3): no animation, transition or smooth scrolling for people who ask for less. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+ }
