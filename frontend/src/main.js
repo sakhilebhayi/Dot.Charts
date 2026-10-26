@@ -45,6 +45,12 @@ document.addEventListener('DOMContentLoaded', () => {
   `;
 
   uploadArea.addEventListener('click', () => fileInput.click());
+  uploadArea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
 
   uploadArea.addEventListener('dragover', (e) => {
     e.preventDefault();
