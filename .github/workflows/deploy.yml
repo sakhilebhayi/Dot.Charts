@@ -189,6 +189,53 @@ jobs:
               "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
               "cd '$DOCROOT_PARENT' && tar -xzf frontend.tgz && rm frontend.tgz"
 
+      # Security headers for the static frontend (R-22 Priority 5.2). The docroot already has an .htaccess, written once
+      # by bootstrap.yml: DirectoryIndex plus the rule that hands everything that is not a file to the index.php shim,
+      # and possibly lines the host added since. Shipping a whole new .htaccess with the frontend would replace it and
+      # could take /api down, so the headers are SPLICED in instead: the block between the two marker lines of
+      # frontend/security-headers.htaccess replaces the old copy of itself (or is appended on the first run) and every
+      # other line is left exactly as it is. The previous file is kept once as .htaccess.before-headers. This step can
+      # never fail the deploy: a problem is a warning. The same values are sent by the Laravel middleware.
+      - name: Apply security headers to the docroot .htaccess
+        run: |
+          DOCROOT_PARENT="$(dirname "${{ secrets.DEPLOY_PATH }}")"
+          scp -i ~/.ssh/deploy_key frontend/security-headers.htaccess \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$DOCROOT_PARENT/.security-headers.new" \
+            || { echo "::warning::could not upload the security-headers block (deploy continues, headers unchanged)"; exit 0; }
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              DOCROOT="$DOCROOT_PARENT" 'bash -s' <<'APPLY' || echo "::warning::the security-headers step failed on the server (deploy continues)"
+          set +e
+          cd "$DOCROOT" || { echo "::warning::docroot $DOCROOT not found; headers not applied"; exit 0; }
+          NEW=.security-headers.new
+          HT=.htaccess
+          BEGIN='# BEGIN dot-security-headers'
+          END='# END dot-security-headers'
+          if ! grep -qxF "$BEGIN" "$NEW" || ! grep -qxF "$END" "$NEW"; then
+            echo "::warning::the uploaded block has no BEGIN/END markers; headers not applied"; rm -f "$NEW"; exit 0
+          fi
+          if [ ! -f "$HT" ]; then
+            echo "::warning::no $HT in the docroot (has bootstrap.yml run?); headers not applied"; rm -f "$NEW"; exit 0
+          fi
+          if grep -qxF "$BEGIN" "$HT" && ! grep -qxF "$END" "$HT"; then
+            echo "::warning::$HT has a BEGIN marker but no END marker; left untouched"; rm -f "$NEW"; exit 0
+          fi
+          [ -f "$HT.before-headers" ] || cp -p "$HT" "$HT.before-headers"
+          # Old copy of the block out (and trailing blank lines, so they do not pile up), fresh block in at the end.
+          awk -v b="$BEGIN" -v e="$END" '$0==b{s=1;next} $0==e{s=0;next} !s{l[++n]=$0} END{while(n>0&&l[n]=="")n--; for(i=1;i<=n;i++)print l[i]}' "$HT" > "$HT.tmp" \
+            && { cat "$HT.tmp"; printf '\n'; cat "$NEW"; } > "$HT.merged" \
+            && { chmod --reference="$HT" "$HT.merged" 2>/dev/null || chmod 644 "$HT.merged"; } \
+            && mv "$HT.merged" "$HT" \
+            && echo "== docroot .htaccess: security-headers block applied" \
+            || echo "::warning::could not splice the security-headers block into $HT (left as it was)"
+          rm -f "$HT.tmp" "$HT.merged" "$NEW"
+          APPLY
+          sleep 3
+          HEADERS="$(curl -s -I -m 20 https://charts.infodot.co.za/ || true)"
+          for NAME in x-content-type-options x-frame-options referrer-policy permissions-policy strict-transport-security content-security-policy-report-only; do
+            if printf '%s' "$HEADERS" | grep -qi "^$NAME:"; then echo "== header on /: $NAME present"; else echo "::warning::header $NAME not seen on /"; fi
+          done
+
       - name: Verify
         run: |
           sleep 3

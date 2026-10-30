@@ -1,0 +1,20 @@
+# BEGIN dot-security-headers
+# Baseline security headers for the static frontend and everything the docroot index.php shim hands to Laravel
+# (fleet baseline, R-22 Priority 5.2). The Laravel app sends the same values from
+# backend/app/Http/Middleware/SecurityHeaders.php and backend/tests/Feature/SecurityHeadersTest.php fails if the
+# two drift apart. This block is NOT copied into the site: .github/workflows/deploy.yml splices it into the docroot
+# .htaccess between these two marker lines, leaving every other line of that file as it is. Remove the block by
+# deleting everything from the BEGIN line to the END line.
+#
+# Enforced: nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy, HSTS (HTTPS requests only; no
+# includeSubDomains, no preload, because sibling subdomains are not all HTTPS-only). Report-only: the CSP, which
+# reports to /csp-report and blocks nothing until its log has been reviewed.
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    Header always set Strict-Transport-Security "max-age=15552000" env=HTTPS
+    Header always set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' wss: https:; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; report-uri /csp-report"
+</IfModule>
+# END dot-security-headers
