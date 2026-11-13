@@ -174,4 +174,47 @@ class LandingPageTest extends TestCase
         $this->assertNotEmpty($matches[1]);
         $this->assertSame([], array_values(array_diff($matches[1], $liveNames)));
     }
+
+    public function test_the_frontend_registry_mirror_uses_the_same_addresses_as_the_registry(): void
+    {
+        $registry = array_column(config('ecosystem.platforms'), 'url', 'name');
+        preg_match_all("/name: '([^']+)', url: '([^']+)'/", $this->frontend('src/ecosystem.js'), $matches, PREG_SET_ORDER);
+
+        $this->assertNotEmpty($matches);
+        foreach ($matches as [, $name, $url]) {
+            $this->assertSame($registry[$name] ?? null, $url, "{$name} in frontend/src/ecosystem.js");
+        }
+    }
+
+    public function test_nothing_shipped_points_at_the_dead_infodot_app_domain(): void
+    {
+        $shipped = array_merge(
+            glob(base_path('../frontend/*.html')),
+            glob(base_path('../frontend/src/*')),
+            glob(base_path('config/*.php')),
+            glob(base_path('resources/views/errors/*.php')),
+            [base_path('.env.example')],
+        );
+
+        $this->assertGreaterThan(20, count($shipped));
+        foreach ($shipped as $file) {
+            $this->assertStringNotContainsString('infodot.app', (string) file_get_contents($file), $file);
+        }
+    }
+
+    public function test_every_page_with_the_app_bar_offers_the_way_back_to_the_landing(): void
+    {
+        // The markup keeps the signed-out destination; home-link.js swaps it for /home.html when a token is held.
+        $module = $this->frontend('src/home-link.js');
+        $this->assertStringContainsString("logo.href = '/home.html';", $module);
+        $this->assertStringNotContainsString('setToken', $module);
+        $this->assertStringNotContainsString('clearToken', $module);
+
+        foreach (['backtest', 'history', 'journal', 'options', 'strategy-builder', 'main'] as $script) {
+            $this->assertStringContainsString("import './home-link.js';", $this->frontend("src/{$script}.js"), $script);
+        }
+        foreach (['index', 'backtest', 'history', 'journal', 'options', 'strategy-builder'] as $page) {
+            $this->assertStringContainsString('<a href="/" aria-label="Dot.Charts home">', $this->frontend("{$page}.html"), $page);
+        }
+    }
 }

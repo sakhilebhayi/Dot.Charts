@@ -1,4 +1,5 @@
 import { getToken, clearToken, isLoggedIn, logout } from './auth.js';
+import './home-link.js';
 import { renderBacktestResult } from './results-renderer.js';
 import { showFailure } from './ecosystem.js';
 

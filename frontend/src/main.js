@@ -1,4 +1,5 @@
 import { API_BASE } from './api-base.js';
+import './home-link.js';
 import { ecosystemStrip, isHardFailure } from './ecosystem.js';
 
 document.addEventListener('DOMContentLoaded', () => {

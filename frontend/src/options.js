@@ -1,4 +1,5 @@
 import { API_BASE } from './api-base.js';
+import './home-link.js';
 import { showFailure } from './ecosystem.js';
 
 const checkButton = document.getElementById('checkButton');
