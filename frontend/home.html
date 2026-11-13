@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dot.Charts — Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/instrument.css" />
+</head>
+<body class="landing">
+<div class="container">
+<header class="bar">
+  <nav aria-label="Dot ecosystem">
+    <a href="https://infodot.co.za/home">InfoDot</a>
+    <a href="https://infodot.co.za/platforms">Platforms</a>
+  </nav>
+  <nav aria-label="Account">
+    <span id="authState"><a href="/login.html">Log in</a></span>
+  </nav>
+</header>
+
+<main>
+  <section class="landing-hero">
+    <div class="landing-lead">
+      <img class="landing-logo" src="/images/logo.png" alt="Dot.Charts" width="1181" height="886" />
+      <h1>Put an idea through market history.</h1>
+      <p class="landing-sub">
+        <strong id="welcome">Welcome to Dot.Charts.</strong>
+        Backtest a strategy on historical prices, read the structure off a chart screenshot,
+        and keep your notes beside the runs they are about. Educational analysis, not financial advice.
+      </p>
+      <a class="primary-action" data-primary-action href="/backtest.html">Run a backtest</a>
+    </div>
+
+    <section class="landing-panel" aria-labelledby="runsHead">
+      <div class="landing-panel-head">
+        <h2 id="runsHead">Your recent runs</h2>
+        <a href="/history.html" id="runsLink">Open history</a>
+      </div>
+      <ul class="landing-list" id="runsList" hidden></ul>
+      <p class="landing-empty" id="runsEmpty" data-empty-state>
+        No backtests on this account yet. Run one and it is kept here, with the inputs that produced it.
+      </p>
+    </section>
+  </section>
+
+  <div class="landing-pair">
+    <section class="landing-panel" aria-labelledby="strategiesHead">
+      <div class="landing-panel-head">
+        <h2 id="strategiesHead">Saved strategies</h2>
+        <a href="/strategy-builder.html">Open the builder</a>
+      </div>
+      <ul class="landing-list" id="strategiesList" hidden></ul>
+      <p class="landing-empty" id="strategiesEmpty" data-empty-state>
+        No saved strategies yet. Compose entry and exit rules in the strategy builder and save the ones worth keeping.
+      </p>
+    </section>
+    <section class="landing-panel" aria-labelledby="journalHead">
+      <div class="landing-panel-head">
+        <h2 id="journalHead">Journal</h2>
+        <a href="/journal.html">Open the journal</a>
+      </div>
+      <ul class="landing-list" id="journalList" hidden></ul>
+      <p class="landing-empty" id="journalEmpty" data-empty-state>
+        No journal entries yet. Write down why a run went the way it did while you still remember.
+      </p>
+    </section>
+  </div>
+
+  <nav class="landing-tools" aria-label="Instruments">
+    <ul>
+      <li><a href="/">Chart read</a><span>Trend and levels read off a chart screenshot.</span></li>
+      <li><a href="/strategy-builder.html">Strategy builder</a><span>Entry and exit rules composed from indicators.</span></li>
+      <li><a href="/history.html">History</a><span>Every run on this account, with its inputs.</span></li>
+      <li><a href="/journal.html">Journal</a><span>Notes tied to the runs and strategies they are about.</span></li>
+      <li><a href="/options.html">Options vol</a><span>Realized-vol rank and put-call skew for a symbol.</span></li>
+    </ul>
+  </nav>
+</main>
+
+<footer class="disclosure">
+  <strong>Disclaimer</strong>
+  Educational analysis, not financial advice. A backtest describes the past and does not predict
+  future results. Do your own research and never trade more than you can afford to lose.
+</footer>
+</div>
+<script type="module" src="/src/home.js"></script>
+</body>
+</html>

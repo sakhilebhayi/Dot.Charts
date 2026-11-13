@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Every generated pack's `signatures[]` is Ed25519 (`algorithm: "ed25519-jcs"`), never HMAC — I1's `DKP_SIGNING_KEY`/`services.dkp.signing_key` config is removed entirely (per spec's Rework section).
-- Every pack generation self-verifies its own output via `DkpSigner::verify()` before persisting; a verification failure throws `RuntimeException` rather than writing an unverifiable artifact (per spec's Canonicalization & Signing section — matches Dot.Billing's documented practice).
+- Every pack generation self-verifies its own output via `DkpSigner::verify()` before persisting; a verification failure throws `RuntimeException` rather than writing an unverifiable artifact (per spec's Canonicalization & Signing section — matches a sibling platform's documented practice).
 - Canonicalization is "RFC-8785-shaped" (recursive key-sort + compact JSON), not a certified strict-conformance JCS implementation — no such package exists in this stack (per spec's explicit scope note).
 - Loss-honesty is preserved structurally as **exactly 4 metric payloads always present** (`trading.strategy_mean_return_pct`, `trading.strategy_win_rate_pct`, `trading.strategy_max_drawdown_worst_pct`, `trading.strategy_losing_period_pct`) — no code path may emit fewer (per spec's Metric-Body Mapping section).
 - The real signing key file (`storage/app/private/dkp-ed25519.key`) is never committed — `.gitignore` must cover it before it's ever generated for real (per spec's Key Generation section).
@@ -1172,7 +1172,7 @@ git commit -m "test(knowledge-packs): switch StrategyPerformanceCycleEventTest t
 - Modify: `tests/Unit/PlatformManifestTest.php`
 
 **Interfaces:**
-- Consumes: the real signing key at `storage/app/private/dkp-ed25519.key`, generated for real in Step 1 of this task (not a test fixture) — this is the one place in the plan where the real production key must exist for a test to pass, matching Dot.Billing/Dot.Emall's precedent of a real, gitignored key backing a real, committed public key.
+- Consumes: the real signing key at `storage/app/private/dkp-ed25519.key`, generated for real in Step 1 of this task (not a test fixture) — this is the one place in the plan where the real production key must exist for a test to pass, matching Dot.Emall's precedent of a real, gitignored key backing a real, committed public key.
 
 - [ ] **Step 1: Generate the real key for this environment**
 

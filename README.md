@@ -14,7 +14,7 @@
 
 ## What this actually is right now
 
-A working product, not a prototype: a Laravel 12 API, a Python (FastAPI) analytics/backtesting engine, and a Vite frontend with eight wired pages, covered by 210 backend + 111 Python tests (all passing as of the last wiki review).
+A working product, not a prototype: a Laravel 12 API, a Python (FastAPI) analytics/backtesting engine, and a Vite frontend with nine wired pages, covered by 210 backend + 111 Python tests (all passing as of the last wiki review).
 
 - **Auth is real.** Sanctum-based register/login/logout/me, with rate limiting on `/register` (5/hour per IP) and `/login` (5/min by email+IP).
 - **Backtesting is real.** `POST /api/backtests` runs one of nine strategies — MA crossover, RSI mean-reversion, breakout, Bollinger mean-reversion, momentum, pairs trading (cointegration stat-arb), an ML signal (walk-forward gradient-boosted classifier), a custom rule engine, and the 714 Method (an SMC/ICT-style institutional-structure strategy) — against live-fetched OHLCV data (`yfinance` for equity/commodity/forex, `ccxt` for crypto), persisted per user, with pagination/filtering, detail, and delete. Every result carries a `disclosure` object (confidence band, attribution, risk text, drawdown) — never presented as a real signal without that context.
