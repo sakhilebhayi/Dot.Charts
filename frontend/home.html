@@ -9,80 +9,111 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/instrument.css" />
+  <link rel="stylesheet" href="/src/home.css" />
 </head>
-<body class="landing">
-<div class="container">
+<body class="home">
+<a class="skip" href="#region">Skip to the dashboard</a>
+
 <header class="bar">
-  <nav aria-label="Account">
-    <span id="authState"><a href="/login.html">Log in</a></span>
+  <a href="/" aria-label="Dot.Charts home"><img src="/images/logo.png" alt="Dot.Charts" class="bar-logo" width="1181" height="886" /></a>
+  <nav aria-label="Instruments">
+    <a href="/home.html" aria-current="page">Home</a>
+    <a href="/">Chart read</a>
+    <a href="/backtest.html">Backtest</a>
+    <a href="/strategy-builder.html">Strategy Builder</a>
+    <a href="/history.html">History</a>
+    <a href="/journal.html">Journal</a>
+    <a href="/options.html">Options Vol</a>
   </nav>
+  <div class="bar-end">
+    <span class="who" id="who"></span>
+    <span id="authState"><a class="linkish" href="/login.html">Log in</a></span>
+  </div>
 </header>
 
-<main>
-  <section class="landing-hero">
-    <div class="landing-lead">
-      <img class="landing-logo" src="/images/logo.png" alt="Dot.Charts" width="1181" height="886" />
-      <h1>Put an idea through market history.</h1>
-      <p class="landing-sub">
-        <strong id="welcome">Welcome to Dot.Charts.</strong>
-        Backtest a strategy on historical prices, read the structure off a chart screenshot,
-        and keep your notes beside the runs they are about. Educational analysis, not financial advice.
-      </p>
-      <a class="primary-action" data-primary-action href="/backtest.html">Run a backtest</a>
+<main id="region" tabindex="-1">
+  <section class="head" aria-labelledby="headline">
+    <svg class="scale" aria-hidden="true" focusable="false" width="100%" height="9">
+      <defs>
+        <pattern id="tickMinor" width="8" height="9" patternUnits="userSpaceOnUse"><path d="M.5 5v4" stroke="currentColor" stroke-width="1" fill="none" /></pattern>
+        <pattern id="tickMajor" width="40" height="9" patternUnits="userSpaceOnUse"><path d="M.5 0v9" stroke="currentColor" stroke-width="1" fill="none" /></pattern>
+      </defs>
+      <rect width="100%" height="9" fill="url(#tickMinor)" />
+      <rect width="100%" height="9" fill="url(#tickMajor)" />
+    </svg>
+    <div class="head-text">
+      <h1 id="headline">Your backtests.</h1>
+      <p id="headlineSub">Loading what is kept on your account.</p>
     </div>
-
-    <section class="landing-panel" aria-labelledby="runsHead">
-      <div class="landing-panel-head">
-        <h2 id="runsHead">Your recent runs</h2>
-        <a href="/history.html" id="runsLink">Open history</a>
-      </div>
-      <ul class="landing-list" id="runsList" hidden></ul>
-      <p class="landing-empty" id="runsEmpty" data-empty-state>
-        No backtests on this account yet. Run one and it is kept here, with the inputs that produced it.
-      </p>
-    </section>
+    <div class="head-act">
+      <a class="btn lead" data-primary-action href="/backtest.html">Run a backtest</a>
+    </div>
   </section>
 
-  <div class="landing-pair">
-    <section class="landing-panel" aria-labelledby="strategiesHead">
-      <div class="landing-panel-head">
-        <h2 id="strategiesHead">Saved strategies</h2>
-        <a href="/strategy-builder.html">Open the builder</a>
+  <div class="desk" id="desk" hidden>
+    <div class="ledger">
+      <div class="tools">
+        <h2 id="runsHead">Runs</h2>
+        <select id="filterStrategy" aria-label="Filter by strategy"><option value="">All strategies</option></select>
+        <select id="filterStatus" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          <option value="complete">Complete</option>
+          <option value="failed">Failed</option>
+          <option value="queued">Queued</option>
+        </select>
       </div>
-      <ul class="landing-list" id="strategiesList" hidden></ul>
-      <p class="landing-empty" id="strategiesEmpty" data-empty-state>
+      <table aria-labelledby="runsHead">
+        <colgroup><col /><col class="col-ret" /><col class="col-win" /><col class="col-dd" /><col class="col-n" /></colgroup>
+        <thead>
+          <tr>
+            <th scope="col" aria-sort="descending"><button type="button" data-k="created_at">Instrument</button></th>
+            <th scope="col" aria-sort="none"><button type="button" data-k="ret">Return</button></th>
+            <th scope="col" aria-sort="none" class="c-win"><button type="button" data-k="win">Win rate</button></th>
+            <th scope="col" aria-sort="none" class="c-dd"><button type="button" data-k="dd">Max DD</button></th>
+            <th scope="col" aria-sort="none" class="c-n"><button type="button" data-k="n">Trades</button></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="more" id="more"></div>
+    </div>
+    <aside class="stage" id="stage" aria-label="Selected run"></aside>
+  </div>
+
+  <div id="firstRun" hidden>
+    <p class="empty-row" id="runsEmpty" data-empty-state>
+      No backtests on this account yet. Run one and it is kept here, with the inputs that produced it.
+    </p>
+  </div>
+
+  <ul class="tools-list" id="instruments" hidden>
+    <li><a href="/">Chart read</a><span>Trend and levels read off a chart screenshot.</span></li>
+    <li><a href="/strategy-builder.html">Strategy builder</a><span>Entry and exit rules composed from indicators.</span></li>
+    <li><a href="/history.html">History</a><span>Every run on this account, with its inputs.</span></li>
+    <li><a href="/journal.html">Journal</a><span>Notes tied to the runs and strategies they are about.</span></li>
+    <li><a href="/options.html">Options Vol</a><span>Realized-vol rank and put-call skew for a symbol.</span></li>
+  </ul>
+
+  <div class="pair" id="pair">
+    <section aria-labelledby="strategiesHead">
+      <div class="lh"><h2 id="strategiesHead">Saved strategies</h2><a href="/strategy-builder.html">Open the builder</a></div>
+      <div class="list" id="strategiesList" hidden></div>
+      <p class="empty-row" id="strategiesEmpty" data-empty-state>
         No saved strategies yet. Compose entry and exit rules in the strategy builder and save the ones worth keeping.
       </p>
     </section>
-    <section class="landing-panel" aria-labelledby="journalHead">
-      <div class="landing-panel-head">
-        <h2 id="journalHead">Journal</h2>
-        <a href="/journal.html">Open the journal</a>
-      </div>
-      <ul class="landing-list" id="journalList" hidden></ul>
-      <p class="landing-empty" id="journalEmpty" data-empty-state>
+    <section aria-labelledby="journalHead">
+      <div class="lh"><h2 id="journalHead">Journal</h2><a href="/journal.html">Open the journal</a></div>
+      <div class="list" id="journalList" hidden></div>
+      <p class="empty-row" id="journalEmpty" data-empty-state>
         No journal entries yet. Write down why a run went the way it did while you still remember.
       </p>
     </section>
   </div>
-
-  <nav class="landing-tools" aria-label="Instruments">
-    <ul>
-      <li><a href="/">Chart read</a><span>Trend and levels read off a chart screenshot.</span></li>
-      <li><a href="/strategy-builder.html">Strategy builder</a><span>Entry and exit rules composed from indicators.</span></li>
-      <li><a href="/history.html">History</a><span>Every run on this account, with its inputs.</span></li>
-      <li><a href="/journal.html">Journal</a><span>Notes tied to the runs and strategies they are about.</span></li>
-      <li><a href="/options.html">Options vol</a><span>Realized-vol rank and put-call skew for a symbol.</span></li>
-    </ul>
-  </nav>
 </main>
 
-<footer class="disclosure">
-  <strong>Disclaimer</strong>
-  Educational analysis, not financial advice. A backtest describes the past and does not predict
-  future results. Do your own research and never trade more than you can afford to lose.
-</footer>
-</div>
+<p class="disc" id="disclaimer"><strong>Disclaimer.</strong> Educational analysis, not financial advice. A backtest describes the past and does not predict future results. Do your own research and never trade more than you can afford to lose.</p>
+<footer class="foot" id="foot" aria-label="Counts on this account" hidden></footer>
 <script type="module" src="/src/home.js"></script>
 </body>
 </html>

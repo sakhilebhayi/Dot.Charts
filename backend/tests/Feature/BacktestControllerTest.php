@@ -466,6 +466,59 @@ class BacktestControllerTest extends TestCase
         $this->assertSame('ma_crossover', $response->json('data.0.strategy'));
     }
 
+    public function test_index_omits_the_equity_curve_and_show_still_returns_it(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $token = $user->createToken('api')->plainTextToken;
+
+        $curve = [
+            ['time' => '2023-01-02T00:00:00', 'equity' => 10000.0],
+            ['time' => '2023-01-03T00:00:00', 'equity' => 10120.5],
+        ];
+        $withCurve = \App\Models\BacktestRun::factory()->create([
+            'user_id' => $user->id,
+            'results' => [
+                'metrics' => ['total_return_pct' => 1.2, 'win_rate_pct' => 50.0, 'max_drawdown_pct' => -2.0, 'sharpe_ratio' => null, 'trade_count' => 4, 'losing_trade_count' => 2],
+                'equity_curve' => $curve,
+                'disclosure' => ['confidence_band' => 'low'],
+            ],
+        ]);
+        $failed = \App\Models\BacktestRun::factory()->create([
+            'user_id' => $user->id, 'status' => 'failed', 'results' => null, 'error' => 'No data',
+        ]);
+
+        $list = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/backtests')->assertOk();
+
+        $rows = collect($list->json('data'))->keyBy('id');
+        $this->assertArrayNotHasKey('equity_curve', $rows[$withCurve->id]['results']);
+        $this->assertSame(1.2, $rows[$withCurve->id]['results']['metrics']['total_return_pct']);
+        $this->assertSame('low', $rows[$withCurve->id]['results']['disclosure']['confidence_band']);
+        $this->assertTrue($rows[$withCurve->id]['has_equity_curve']);
+        // A run without results is still listed, and says it has no curve to fetch.
+        $this->assertNull($rows[$failed->id]['results']);
+        $this->assertFalse($rows[$failed->id]['has_equity_curve']);
+        $this->assertStringNotContainsString('10120.5', $list->getContent());
+
+        $this->withHeader('Authorization', "Bearer {$token}")->getJson("/api/backtests/{$withCurve->id}")
+            ->assertOk()
+            ->assertJsonPath('results.equity_curve.1.equity', 10120.5)
+            ->assertJsonCount(2, 'results.equity_curve');
+    }
+
+    public function test_show_does_not_return_another_accounts_curve(): void
+    {
+        $owner = \App\Models\User::factory()->create();
+        $other = \App\Models\User::factory()->create();
+        $run = \App\Models\BacktestRun::factory()->create([
+            'user_id' => $owner->id,
+            'results' => ['equity_curve' => [['time' => '2023-01-02T00:00:00', 'equity' => 10000.0]]],
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$other->createToken('api')->plainTextToken)
+            ->getJson("/api/backtests/{$run->id}")
+            ->assertNotFound();
+    }
+
     public function test_index_requires_authentication(): void
     {
         $response = $this->getJson('/api/backtests');

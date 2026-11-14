@@ -72,7 +72,9 @@ class LandingPageTest extends TestCase
         $this->assertFileExists($logo);
         $this->assertSame(self::LOGO_SHA256, hash_file('sha256', $logo), 'the logo artwork must not change');
 
-        $images = $this->landing()->query('//main//img[@src="/images/logo.png"]');
+        // The dashboard has no body logo: the original file sits once, in the app bar.
+        $this->assertSame(0, $this->landing()->query('//main//img')->length);
+        $images = $this->landing()->query('//header[@class="bar"]//img[@src="/images/logo.png"]');
         $this->assertSame(1, $images->length);
         $this->assertSame('Dot.Charts', $images->item(0)->getAttribute('alt'));
     }
@@ -81,15 +83,50 @@ class LandingPageTest extends TestCase
     {
         $xpath = $this->landing();
 
-        // Each panel starts on its empty state and with its list hidden; the script only swaps them when the API
-        // returns that account's own records.
+        // The dashboard (runs table and selected-run panel) starts hidden and the runs empty state is the shipped
+        // copy; the two lower lists start on their empty states and hidden lists. The script only swaps them when the
+        // API returns that account's own records.
+        $this->assertTrue($xpath->query("//*[@id='desk']")->item(0)->hasAttribute('hidden'));
         foreach (['runs', 'strategies', 'journal'] as $panel) {
             $empty = $xpath->query("//*[@id='{$panel}Empty'][@data-empty-state]");
             $this->assertSame(1, $empty->length, "{$panel} has an empty state");
-            $this->assertFalse($empty->item(0)->hasAttribute('hidden'));
             $this->assertNotSame('', trim($empty->item(0)->textContent));
+        }
+        foreach (['strategies', 'journal'] as $panel) {
+            $this->assertFalse($xpath->query("//*[@id='{$panel}Empty']")->item(0)->hasAttribute('hidden'));
             $this->assertTrue($xpath->query("//*[@id='{$panel}List']")->item(0)->hasAttribute('hidden'));
         }
+    }
+
+    public function test_the_full_disclaimer_is_always_in_the_page_and_never_shortened(): void
+    {
+        $disclaimer = $this->landing()->query("//*[@id='disclaimer']");
+        $this->assertSame(1, $disclaimer->length);
+        $this->assertSame(
+            'Disclaimer. Educational analysis, not financial advice. A backtest describes the past and does not predict future results. Do your own research and never trade more than you can afford to lose.',
+            trim(preg_replace('/\s+/', ' ', $disclaimer->item(0)->textContent)),
+        );
+        // It sits outside the scrolling region, so it is on screen whatever the person has scrolled to.
+        $this->assertSame(0, $this->landing()->query("//main//*[@id='disclaimer']")->length);
+    }
+
+    public function test_the_dashboard_keeps_no_inline_styles_or_scripts_and_no_search_pill(): void
+    {
+        $html = $this->frontend('home.html');
+        $this->assertDoesNotMatchRegularExpression('/\sstyle\s*=/i', $html);
+        $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\ssrc=)/i', $html);
+        $this->assertSame(0, $this->landing()->query('//input[@type="search"] | //*[@role="search"]')->length);
+    }
+
+    public function test_the_selected_run_is_validated_and_the_curve_is_fetched_for_that_run_only(): void
+    {
+        $script = $this->frontend('src/home.js');
+        // ?run= is only honoured when it names a run that is in the loaded rows.
+        $this->assertStringContainsString('state.runs.some((r) => r.id === id)', $script);
+        $this->assertStringContainsString("state.runs.find((r) => r.id === wanted)", $script);
+        // The list carries no curve; the one selected run is fetched.
+        $this->assertStringContainsString('get(`/backtests/${run.id}`)', $script);
+        $this->assertStringNotContainsString('results.equity_curve', str_replace('full.results && full.results.equity_curve', '', $script));
     }
 
     public function test_the_shipped_page_states_no_figures_of_its_own(): void
@@ -97,9 +134,10 @@ class LandingPageTest extends TestCase
         $text = $this->landing()->query('//body')->item(0)->textContent;
 
         // Every number a person can see on the landing is written by the script from an API record. The markup
-        // itself carries none, so there is nothing to go stale and nothing that could read as a claim.
+        // itself carries none, so there is nothing to go stale and nothing that could read as a claim. (The runs table's
+        // column headings, such as Win rate, are labels of stored fields, not statements, so that phrase is allowed.)
         $this->assertDoesNotMatchRegularExpression('/\d/', $text);
-        $this->assertDoesNotMatchRegularExpression('/guarantee|profit|outperform|win rate|returns of/i', $text);
+        $this->assertDoesNotMatchRegularExpression('/guarantee|profit|outperform|returns of/i', $text);
         $this->assertStringContainsString('not financial advice', $text);
     }
 

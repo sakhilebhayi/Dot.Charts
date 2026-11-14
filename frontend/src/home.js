@@ -1,16 +1,16 @@
-// The signed-in landing (home.html). The page is complete without this
-// script: the markup ships the logo, the headline, the one primary action
-// and the empty states. This only fills in what the API knows about the
-// person: their name and their own most recent records. Nothing here is
-// computed or invented; every value shown is a field of a stored record.
+// The signed-in Home (home.html): the account's own backtests as a master-detail dashboard. The page is complete
+// without this script (headline, primary action, empty states ship in the markup); this fills in what the API knows
+// about the person. Every figure is a field of a stored record: nothing is computed across runs and nothing is
+// invented. The equity curve is NOT in the list response; it is fetched for the one selected run.
 import './dot-switcher-mount.js';
+import './home-link.js';
 import { getToken, clearToken, isLoggedIn, logout } from './auth.js';
 import { API_BASE } from './api-base.js';
+import { drawEquityChart, money, day } from './equity-chart.js';
 
 const SHOWN = 3;
 
-// Display names for the server's strategy enum, as the Backtest page's own
-// <select> words them.
+// Display names for the server's strategy enum, as the Backtest page's own <select> words them.
 const STRATEGY_NAMES = {
   ma_crossover: 'MA Crossover',
   rsi_mean_reversion: 'RSI Mean-Reversion',
@@ -22,43 +22,80 @@ const STRATEGY_NAMES = {
   method_714: '714 Method',
   custom: 'Custom Strategy',
 };
+const ASSET_NAMES = { equity: 'Equity', crypto: 'Crypto', commodity: 'Commodity', forex: 'Forex' };
+const BAND = { high: 'High, 30 or more trades', medium: 'Medium, 10 to 29 trades', low: 'Low, fewer than 10 trades' };
+const NS = 'http://www.w3.org/2000/svg';
+const motion = () => !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const welcomeEl = document.getElementById('welcome');
-const authStateEl = document.getElementById('authState');
+const $ = (id) => document.getElementById(id);
+const headline = $('headline');
+const headlineSub = $('headlineSub');
+const primary = document.querySelector('[data-primary-action]');
+const headAct = document.querySelector('.head-act');
+const desk = $('desk');
+const stage = $('stage');
+const rowsEl = $('rows');
 
-function el(tag, className, text) {
+function el(tag, className, content) {
   const node = document.createElement(tag);
   if (className) node.className = className;
-  if (text !== undefined) node.textContent = text; // records are user text: never innerHTML
+  if (content !== undefined) node.textContent = content; // records are user text: never innerHTML
+  return node;
+}
+const link = (label, href, className) => Object.assign(el('a', className, label), { href });
+const mon = (v) => {
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+};
+const sgn = (n, d = 2) => `${n > 0 ? '+' : ''}${n.toFixed(d)}`;
+const instrument = (r) => `${r.symbol}${r.strategy === 'pairs_trading' && r.params?.symbol_b ? ` vs. ${r.params.symbol_b}` : ''}`;
+const metrics = (r) => (r && r.results && r.results.metrics) || null;
+
+// A figure that counts up to its true value. The visible text animates; screen readers get the final text only.
+function figure(value, format, className) {
+  const final = format(value);
+  const node = el('span', className || 'num');
+  const shown = el('span', null, final);
+  shown.setAttribute('aria-hidden', 'true');
+  node.append(shown, el('span', 'sr', final));
+  if (motion() && Number.isFinite(value)) {
+    const began = performance.now();
+    const duration = 380;
+    const tick = (now) => {
+      const t = Math.min(1, (now - began) / duration);
+      shown.textContent = t < 1 ? format(value * (1 - (1 - t) ** 3)) : final;
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    shown.textContent = format(0);
+    requestAnimationFrame(tick);
+  }
   return node;
 }
 
-function day(value) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? ''
-    : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+/* ---------- account chrome ---------- */
+function setSignedOut(message) {
+  $('authState').replaceChildren(link('Log in', '/login.html', 'linkish'));
+  $('who').textContent = '';
+  headline.textContent = message;
+  headlineSub.textContent = 'Log in to see the runs, strategies and notes kept on your account. The chart read works without an account.';
+  primary.textContent = 'Log in';
+  primary.href = '/login.html';
+  if (!headAct.querySelector('.second')) headAct.append(link('Create account', '/register.html', 'btn second'));
+  desk.hidden = true;
+  $('firstRun').hidden = true;
+  $('pair').hidden = true;
+  $('foot').hidden = true;
+  $('instruments').hidden = false;
 }
 
-function showSignedOut(message) {
-  authStateEl.replaceChildren(Object.assign(el('a', null, 'Log in'), { href: '/login.html' }));
-  welcomeEl.textContent = message;
-  ['runs', 'strategies', 'journal'].forEach((name) => {
-    document.getElementById(`${name}List`).hidden = true;
-    const empty = document.getElementById(`${name}Empty`);
-    empty.hidden = false;
-    empty.textContent = 'Log in to see what is saved on your account.';
-  });
-}
-
-function showSignedIn() {
-  const link = Object.assign(el('a', null, 'Log out'), { href: '#' });
-  link.addEventListener('click', async (event) => {
+function setSignedIn() {
+  const out = Object.assign(el('a', 'linkish', 'Log out'), { href: '#' });
+  out.addEventListener('click', async (event) => {
     event.preventDefault();
     await logout();
     window.location.href = '/login.html';
   });
-  authStateEl.replaceChildren(link);
+  $('authState').replaceChildren(out);
 }
 
 async function get(path) {
@@ -70,93 +107,457 @@ async function get(path) {
   return response.json();
 }
 
-// Fills one panel from one paginated list. An empty list leaves the
-// shipped empty state in place; a failed request says so instead of
-// pretending there is nothing.
-function fill(name, result, renderItem) {
-  const list = document.getElementById(`${name}List`);
-  const empty = document.getElementById(`${name}Empty`);
+/* ---------- state ---------- */
+const state = {
+  account: { total: 0, latest: null }, // unfiltered: the headline and the foot
+  runs: [],
+  total: 0, // for the current filters
+  sel: null,
+  order: 'created_at',
+  dir: 'descending',
+  strategy: '',
+  status: '',
+  curves: new Map(),
+  token: 0,
+  first: true,
+};
 
+function setHeadline(total, latest) {
+  headline.textContent = `${total} backtest${total === 1 ? '' : 's'} kept on this account.`;
+  headlineSub.replaceChildren();
+  if (!latest) return;
+  if (latest.status === 'failed') {
+    headlineSub.append(`The latest run, ${instrument(latest)}, failed: ${latest.error || 'no reason was recorded'}.`);
+    return;
+  }
+  const m = metrics(latest);
+  headlineSub.append(`Latest: ${instrument(latest)}, ${STRATEGY_NAMES[latest.strategy] || latest.strategy}, run on ${day(latest.created_at)}${m ? ', total return ' : '.'}`);
+  if (m) headlineSub.append(figure(m.total_return_pct, (v) => `${sgn(v)}%`, `num${m.total_return_pct < 0 ? ' loss' : ''}`), '.');
+}
+
+function renderFoot(counts) {
+  const foot = $('foot');
+  foot.replaceChildren(...counts.filter((c) => c[1] != null).map(([label, n]) => {
+    const s = el('span', null, label);
+    s.append(el('b', null, String(n)));
+    return s;
+  }));
+  foot.hidden = false;
+}
+
+/* ---------- the runs table ---------- */
+const valueOf = (r, k) => {
+  if (k === 'created_at') return r.created_at;
+  const m = metrics(r);
+  if (!m) return null;
+  return { ret: m.total_return_pct, win: m.win_rate_pct, dd: m.max_drawdown_pct, n: m.trade_count }[k];
+};
+function sorted() {
+  return state.runs.slice().sort((a, b) => {
+    const p = valueOf(a, state.order);
+    const q = valueOf(b, state.order);
+    if (p == null && q == null) return 0;
+    if (p == null) return 1;
+    if (q == null) return -1;
+    const c = p > q ? 1 : p < q ? -1 : 0;
+    return state.dir === 'ascending' ? c : -c;
+  });
+}
+function figureCell(r, k, format, cls) {
+  const v = valueOf(r, k);
+  const td = el('td', `num ${cls || ''}`.trim());
+  if (v == null) td.append(el('span', 'dash', '—'));
+  else {
+    td.textContent = format(v);
+    if ((k === 'ret' || k === 'dd') && v < 0) td.classList.add('neg');
+  }
+  return td;
+}
+function drawRows() {
+  rowsEl.replaceChildren();
+  const list = sorted();
+  if (!list.length) {
+    const td = Object.assign(el('td', 'rows-note', 'No run matches these filters.'), { colSpan: 5 });
+    const tr = el('tr');
+    tr.append(td);
+    rowsEl.append(tr);
+  }
+  list.forEach((r, i) => {
+    const tr = el('tr');
+    tr.id = `r${r.id}`;
+    tr.setAttribute('aria-selected', String(r.id === state.sel));
+    tr.style.setProperty('--i', String(Math.min(i, 9)));
+    const cell = el('td');
+    const wrap = el('span', 'inst');
+    const a = Object.assign(el('a', null, instrument(r)), { href: `?run=${r.id}` });
+    a.dataset.id = String(r.id);
+    if (r.status === 'failed') a.append(el('span', 'st failed', 'Failed'));
+    if (r.status === 'queued') a.append(el('span', 'st', 'Queued'));
+    const period = `${mon(r.start_date)} to ${mon(r.end_date)}`;
+    wrap.append(a, el('small', null, [STRATEGY_NAMES[r.strategy] || r.strategy, period].join(', ')));
+    cell.append(wrap);
+    tr.append(
+      cell,
+      figureCell(r, 'ret', (v) => `${sgn(v)}%`),
+      figureCell(r, 'win', (v) => `${v.toFixed(1)}%`, 'c-win'),
+      figureCell(r, 'dd', (v) => `${v.toFixed(2)}%`, 'c-dd'),
+      figureCell(r, 'n', String, 'c-n'),
+    );
+    rowsEl.append(tr);
+  });
+  $('more').replaceChildren(
+    el('span', null, `Showing ${list.length} of ${state.total} runs`),
+    link('Open history', '/history.html'),
+  );
+}
+
+/* ---------- the stage: the selected run ---------- */
+function fact(dl, k, v, cls) {
+  const row = el('div');
+  const dd = el('dd', cls || null);
+  if (v instanceof Node) dd.append(v); else dd.textContent = v;
+  row.append(el('dt', null, k), dd);
+  dl.append(row);
+}
+function plate() {
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'plate');
+  svg.setAttribute('viewBox', '0 0 400 160');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  [20, 60, 100, 140].forEach((y) => {
+    const l = document.createElementNS(NS, 'line');
+    [['x1', 0], ['x2', 400], ['y1', y], ['y2', y], ['class', 'g'], ['vector-effect', 'non-scaling-stroke']].forEach(([k, v]) => l.setAttribute(k, v));
+    svg.append(l);
+  });
+  const b = document.createElementNS(NS, 'line');
+  [['x1', 0], ['x2', 400], ['y1', 80], ['y2', 80], ['class', 'b'], ['vector-effect', 'non-scaling-stroke']].forEach(([k, v]) => b.setAttribute(k, v));
+  svg.append(b);
+  return svg;
+}
+function rerun(run) {
+  sessionStorage.setItem('chartsense_rerun', JSON.stringify({
+    symbol: run.symbol, asset_class: run.asset_class, strategy: run.strategy, params: run.params,
+    start_date: run.start_date, end_date: run.end_date,
+  }));
+  window.location.href = '/backtest.html';
+}
+
+function paintChart(run, host, animate) {
+  const curve = state.curves.get(run.id);
+  if (!curve) return;
+  drawEquityChart(host, curve, instrument(run), { animate: animate && motion() });
+}
+
+async function loadCurve(run, host, foot, tview) {
+  const mine = (state.token += 1);
+  if (state.curves.has(run.id)) {
+    paintChart(run, host, true);
+    return;
+  }
+  host.replaceChildren(el('p', 'chart-wait', 'Loading the curve.'));
+  try {
+    const full = await get(`/backtests/${run.id}`);
+    const points = full.results && full.results.equity_curve;
+    if (mine !== state.token) return; // another run was picked meanwhile
+    if (!Array.isArray(points) || points.length < 2) {
+      host.replaceChildren(plate(), el('p', 'note', 'This run recorded no equity curve.'));
+      host.className = '';
+      foot.hidden = true;
+      return;
+    }
+    state.curves.set(run.id, points);
+    paintChart(run, host, true);
+    const body = el('tbody');
+    points.forEach((p) => { const tr = el('tr'); tr.append(el('td', null, p.time), el('td', null, money(p.equity))); body.append(tr); });
+    const table = el('table');
+    const head = el('thead');
+    const hr = el('tr');
+    ['Date', 'Equity'].forEach((h) => hr.append(Object.assign(el('th', null, h), { scope: 'col' })));
+    head.append(hr);
+    table.append(head, body);
+    tview.replaceChildren(table);
+    foot.querySelector('.span').textContent = `Equity, ${day(points[0].time)} to ${day(points[points.length - 1].time)}`;
+  } catch (error) {
+    if (mine !== state.token) return;
+    if (error.status === 401) { clearToken(); setSignedOut('Your session has expired.'); return; }
+    host.replaceChildren(el('p', 'chart-wait', 'The curve could not be loaded just now. Pick the run again to retry.'));
+  }
+}
+
+function confirmDelete(run, acts) {
+  if (stage.querySelector('.confirm')) return;
+  const box = el('div', 'confirm');
+  box.setAttribute('role', 'alertdialog');
+  box.setAttribute('aria-label', 'Delete this run');
+  const message = el('p', null, 'Delete this backtest run? This cannot be undone.');
+  const keep = el('button', 'btn', 'Keep it');
+  keep.type = 'button';
+  const go = el('button', 'btn warn', 'Delete run');
+  go.type = 'button';
+  const row = el('div', 'acts');
+  row.append(keep, go);
+  box.append(message, row);
+  acts.closest('.stage-head').after(box);
+  keep.focus();
+  keep.addEventListener('click', () => { box.remove(); acts.querySelector('.warn').focus(); });
+  go.addEventListener('click', async () => {
+    go.disabled = true;
+    try {
+      const response = await fetch(`${API_BASE}/backtests/${run.id}`, {
+        method: 'DELETE', headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
+      });
+      if (response.status === 401) { clearToken(); setSignedOut('Your session has expired.'); return; }
+      if (!response.ok) throw new Error('failed');
+      state.curves.delete(run.id);
+      state.sel = null;
+      await loadAll({ keepSelection: false });
+    } catch {
+      go.disabled = false;
+      message.textContent = 'This run could not be deleted just now. Nothing was changed.';
+    }
+  });
+}
+
+function drawStage() {
+  stage.replaceChildren();
+  stage.classList.remove('settle');
+  state.token += 1;
+  const run = state.runs.find((r) => r.id === state.sel);
+  if (!run) {
+    stage.append(el('p', 'note', 'Select a run to see it here.'));
+    return;
+  }
+  stage.classList.add('settle');
+  const head = el('div', 'stage-head');
+  const titles = el('div');
+  titles.append(
+    el('h2', null, instrument(run)),
+    el('p', 'sub', `${[STRATEGY_NAMES[run.strategy] || run.strategy, ASSET_NAMES[run.asset_class] || run.asset_class].join(', ')}, run on ${day(run.created_at)}`),
+  );
+  const acts = el('div', 'acts');
+  const again = el('button', 'btn', 'Re-run');
+  again.type = 'button';
+  again.addEventListener('click', () => rerun(run));
+  const params = new URLSearchParams({ backtest_run_id: run.id, symbol: run.symbol });
+  const del = el('button', 'btn quiet warn', 'Delete');
+  del.type = 'button';
+  del.addEventListener('click', () => confirmDelete(run, acts));
+  acts.append(again, link('Add to journal', `/journal.html?${params.toString()}`, 'btn quiet'), del);
+  head.append(titles, acts);
+  stage.append(head);
+
+  const m = metrics(run);
+  if (run.status !== 'complete' || !m) {
+    const dl = el('dl', 'rows');
+    fact(dl, 'Status', run.status === 'failed' ? 'Failed' : 'Queued');
+    fact(dl, 'Period', `${day(run.start_date)} to ${day(run.end_date)}`, 'num');
+    stage.append(plate(), el('p', 'note', `This run did not produce results.${run.error ? ` Reason recorded: ${run.error}.` : ''}`), dl);
+    return;
+  }
+
+  const host = el('div', 'chart');
+  const foot = el('div', 'chart-foot');
+  const caption = el('span', 'span', 'Equity');
+  const toggle = el('button', null, 'View as table');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', 'false');
+  foot.append(caption, toggle);
+  const tview = el('div', 'tview');
+  tview.hidden = true;
+  toggle.addEventListener('click', () => {
+    tview.hidden = !tview.hidden;
+    toggle.setAttribute('aria-expanded', String(!tview.hidden));
+    toggle.textContent = tview.hidden ? 'View as table' : 'Hide table';
+  });
+  const dl = el('dl', 'rows');
+  fact(dl, 'Total return', figure(m.total_return_pct, (v) => `${sgn(v)}%`), `num${m.total_return_pct < 0 ? ' neg' : ''}`);
+  fact(dl, 'Win rate', `${m.win_rate_pct.toFixed(1)}%`, 'num');
+  fact(dl, 'Max drawdown', `${m.max_drawdown_pct.toFixed(2)}%`, `num${m.max_drawdown_pct < 0 ? ' neg' : ''}`);
+  fact(dl, 'Sharpe ratio', m.sharpe_ratio == null ? '—' : m.sharpe_ratio.toFixed(2), 'num');
+  fact(dl, 'Trades', `${m.trade_count} (${m.losing_trade_count} losing)`, 'num');
+  const band = run.results.disclosure && run.results.disclosure.confidence_band;
+  if (band) fact(dl, 'Confidence', BAND[band] || band);
+  stage.append(host, foot, tview, dl, el('p', 'note', 'A backtest describes the past and does not predict future results.'));
+
+  if (run.has_equity_curve === false) {
+    host.replaceChildren(plate(), el('p', 'note', 'This run recorded no equity curve.'));
+    host.className = '';
+    foot.hidden = true;
+    return;
+  }
+  loadCurve(run, host, foot, tview);
+}
+
+function select(id, { focus = false } = {}) {
+  if (!state.runs.some((r) => r.id === id)) return; // only ids that are in the loaded rows
+  state.sel = id;
+  rowsEl.querySelectorAll('tr[id]').forEach((tr) => tr.setAttribute('aria-selected', String(tr.id === `r${id}`)));
+  const url = new URL(window.location.href);
+  url.searchParams.set('run', String(id));
+  window.history.replaceState(null, '', url);
+  drawStage();
+  if (focus) rowsEl.querySelector(`#r${id} a`)?.focus();
+}
+
+/* ---------- the lower lists ---------- */
+function fillList(name, result, row) {
+  const list = $(`${name}List`);
+  const empty = $(`${name}Empty`);
   if (result.status === 'rejected') {
     empty.textContent = 'This could not be loaded just now. Reload the page to try again.';
     return;
   }
-
   const items = (result.value.data || []).slice(0, SHOWN);
-  if (items.length === 0) return;
-
-  list.replaceChildren(...items.map(renderItem));
+  if (!items.length) return;
+  list.replaceChildren(...items.map((item, i) => { const li = row(item); li.style.setProperty('--i', String(i)); return li; }));
   list.hidden = false;
   empty.hidden = true;
 }
-
-function runItem(run) {
-  const item = el('li');
-  const head = el('div', 'landing-item-title mono');
-  const pair = run.strategy === 'pairs_trading' && run.params?.symbol_b ? ` vs. ${run.params.symbol_b}` : '';
-  head.append(el('span', null, `${run.symbol}${pair}`), el('span', `status ${run.status}`, run.status));
-  const period = [day(run.start_date), day(run.end_date)].filter(Boolean).join(' to ');
-  item.append(
-    head,
-    el('div', 'landing-item-meta', [STRATEGY_NAMES[run.strategy] || run.strategy, period].filter(Boolean).join(', ')),
-    el('div', 'landing-item-meta', `Run on ${day(run.created_at)}`),
-  );
-  return item;
+function item(title, sub, when) {
+  const row = el('div', 'li');
+  const left = el('div');
+  left.append(el('b', null, title));
+  if (sub) left.append(el('small', null, sub));
+  row.append(left, el('time', null, when));
+  return row;
 }
 
-function strategyItem(strategy) {
-  const item = el('li');
-  item.append(el('div', 'landing-item-title', strategy.name));
-  if (strategy.description) item.append(el('div', 'landing-item-meta', strategy.description));
-  item.append(el('div', 'landing-item-meta', `Saved on ${day(strategy.created_at)}`));
-  return item;
+/* ---------- loading ---------- */
+function query() {
+  const p = new URLSearchParams();
+  if (state.strategy) p.set('strategy', state.strategy);
+  if (state.status) p.set('status', state.status);
+  const q = p.toString();
+  return `/backtests${q ? `?${q}` : ''}`;
 }
+const filtered = () => Boolean(state.strategy || state.status);
 
-function journalItem(entry) {
-  const item = el('li');
-  item.append(
-    el('div', 'landing-item-title', entry.title),
-    el('div', 'landing-item-meta', [entry.symbol, `Written on ${day(entry.created_at)}`].filter(Boolean).join(', ')),
-  );
-  return item;
-}
-
-async function load() {
-  if (!isLoggedIn()) {
-    showSignedOut('You are not logged in.');
-    return;
-  }
-
-  showSignedIn();
-
-  const [me, runs, strategies, journal] = await Promise.allSettled([
-    get('/me'),
-    get('/backtests'),
-    get('/strategies'),
-    get('/journal-entries'),
+async function loadAll({ keepSelection = true } = {}) {
+  const [me, runs, strategies, journal, everything] = await Promise.allSettled([
+    get('/me'), get(query()), get('/strategies'), get('/journal-entries'), filtered() ? get('/backtests') : Promise.resolve(null),
   ]);
 
-  // A stale token is handled the way the other pages handle it: drop the
-  // local copy and show the logged-out state.
-  if ([me, runs, strategies, journal].some((r) => r.status === 'rejected' && r.reason.status === 401)) {
+  if ([me, runs, strategies, journal, everything].some((r) => r.status === 'rejected' && r.reason.status === 401)) {
     clearToken();
-    showSignedOut('Your session has expired.');
+    setSignedOut('Your session has expired.');
+    return;
+  }
+  if (me.status === 'fulfilled' && me.value.name) {
+    $('who').textContent = String(me.value.name).trim().split(/\s+/)[0] || '';
+  }
+
+  const unfiltered = filtered() ? (everything.status === 'fulfilled' ? everything.value : null) : (runs.status === 'fulfilled' ? runs.value : null);
+  if (unfiltered) state.account = { total: unfiltered.total, latest: (unfiltered.data || [])[0] || null };
+
+  renderFoot([
+    ['Runs', unfiltered ? state.account.total : null],
+    ['Strategies', strategies.status === 'fulfilled' ? strategies.value.total : null],
+    ['Journal entries', journal.status === 'fulfilled' ? journal.value.total : null],
+  ]);
+
+  const pair = $('pair');
+  pair.hidden = false;
+  fillList('strategies', strategies, (s) => item(s.name, s.description || '', day(s.created_at)));
+  fillList('journal', journal, (j) => item(j.title, j.symbol || '', day(j.created_at)));
+  if (state.first) pair.classList.add('arrive');
+
+  if (runs.status === 'rejected') {
+    headline.textContent = 'Your backtests.';
+    headlineSub.textContent = '';
+    desk.hidden = true;
+    $('instruments').hidden = false;
+    const note = $('runsEmpty');
+    note.textContent = 'This could not be loaded just now. Reload the page to try again.';
+    note.hidden = false;
+    $('firstRun').hidden = false;
     return;
   }
 
-  if (me.status === 'fulfilled' && me.value.name) {
-    const firstName = String(me.value.name).trim().split(/\s+/)[0];
-    if (firstName) welcomeEl.textContent = `Welcome, ${firstName}.`;
+  state.runs = runs.value.data || [];
+  state.total = runs.value.total || 0;
+
+  if (!state.account.total && !filtered()) {
+    // First run: the headline says so, the instruments are the rows.
+    headline.textContent = 'No backtests on this account yet.';
+    headlineSub.textContent = 'Run one and it is kept here, with the inputs that produced it.';
+    desk.hidden = true;
+    $('runsEmpty').hidden = true;
+    const first = $('firstRun');
+    if (!first.querySelector('.plate')) first.prepend(plate());
+    first.hidden = false;
+    $('instruments').hidden = false;
+    return;
   }
 
-  fill('runs', runs, runItem);
-  fill('strategies', strategies, strategyItem);
-  fill('journal', journal, journalItem);
+  setHeadline(state.account.total, state.account.latest);
+  $('instruments').hidden = true;
+  $('firstRun').hidden = true;
+  desk.hidden = false;
 
-  // The only count on the page: the account's own total, as the API reports it.
-  if (runs.status === 'fulfilled' && runs.value.total > SHOWN) {
-    document.getElementById('runsLink').textContent = `All ${runs.value.total} runs`;
+  if (!keepSelection || !state.runs.some((r) => r.id === state.sel)) {
+    const wanted = Number(new URLSearchParams(window.location.search).get('run'));
+    const fromUrl = state.first && state.runs.find((r) => r.id === wanted);
+    state.sel = (fromUrl || state.runs.find((r) => r.results) || state.runs[0] || {}).id ?? null;
+  }
+  if (state.first) desk.classList.add('arrive');
+  drawRows();
+  drawStage();
+  if (state.first) {
+    state.first = false;
+    // the arrival is one orchestrated move; remove its hooks once it has played so later redraws stay quiet
+    window.setTimeout(() => { desk.classList.remove('arrive'); $('pair').classList.remove('arrive'); }, 1400);
   }
 }
 
-load();
+/* ---------- wiring ---------- */
+const filterStrategy = $('filterStrategy');
+Object.entries(STRATEGY_NAMES).forEach(([k, v]) => filterStrategy.append(Object.assign(el('option', null, v), { value: k })));
+filterStrategy.addEventListener('change', () => { state.strategy = filterStrategy.value; loadAll({ keepSelection: true }); });
+$('filterStatus').addEventListener('change', (e) => { state.status = e.target.value; loadAll({ keepSelection: true }); });
+
+rowsEl.addEventListener('click', (e) => {
+  const a = e.target.closest('a');
+  if (!a) return;
+  e.preventDefault();
+  select(Number(a.dataset.id));
+  if (window.matchMedia('(max-width: 1100px)').matches) stage.scrollIntoView({ block: 'start', behavior: motion() ? 'smooth' : 'auto' });
+});
+rowsEl.addEventListener('keydown', (e) => {
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  const rows = [...rowsEl.querySelectorAll('tr[id]')];
+  const i = rows.findIndex((tr) => tr.contains(document.activeElement));
+  const next = rows[i + (e.key === 'ArrowDown' ? 1 : -1)];
+  if (next) {
+    e.preventDefault();
+    select(Number(next.id.slice(1)), { focus: true });
+  }
+});
+document.querySelectorAll('thead button').forEach((b) => b.addEventListener('click', () => {
+  const k = b.dataset.k;
+  state.dir = state.order === k && state.dir === 'descending' ? 'ascending' : 'descending';
+  state.order = k;
+  document.querySelectorAll('thead th').forEach((th) => th.setAttribute('aria-sort', 'none'));
+  b.parentNode.setAttribute('aria-sort', state.dir);
+  drawRows();
+}));
+let resizing;
+window.addEventListener('resize', () => {
+  window.clearTimeout(resizing);
+  resizing = window.setTimeout(() => {
+    const run = state.runs.find((r) => r.id === state.sel);
+    const host = stage.querySelector('.chart');
+    if (run && host && state.curves.has(run.id)) paintChart(run, host, false);
+  }, 120);
+});
+
+async function start() {
+  if (!isLoggedIn()) {
+    setSignedOut('You are not logged in.');
+    return;
+  }
+  setSignedIn();
+  await loadAll();
+}
+start();
