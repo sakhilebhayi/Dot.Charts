@@ -72,11 +72,13 @@ class LandingPageTest extends TestCase
         $this->assertFileExists($logo);
         $this->assertSame(self::LOGO_SHA256, hash_file('sha256', $logo), 'the logo artwork must not change');
 
-        // The dashboard has no body logo: the original file sits once, in the app bar.
+        // The dashboard has no body logo: the original file sits once, in the shared app header (R-52: printed by
+        // src/app-header.js; the brand link's aria-label names it, so the image itself has an empty alt).
         $this->assertSame(0, $this->landing()->query('//main//img')->length);
-        $images = $this->landing()->query('//header[@class="bar"]//img[@src="/images/logo.png"]');
-        $this->assertSame(1, $images->length);
-        $this->assertSame('Dot.Charts', $images->item(0)->getAttribute('alt'));
+        $header = $this->frontend('src/app-header.js');
+        $this->assertSame(1, substr_count($header, "img.src = '/images/logo.png';"));
+        $this->assertStringContainsString("label: 'Dot.Charts home'", $header);
+        $this->assertSame(1, $this->landing()->query('//*[@id="app-header"]')->length);
     }
 
     public function test_the_empty_states_are_what_the_page_ships_with(): void
@@ -144,8 +146,9 @@ class LandingPageTest extends TestCase
     public function test_the_way_back_to_infodot_is_the_shared_switcher(): void
     {
         // The two plain links ("InfoDot", "Platforms") were superseded by the shared Dot Apps switcher, which the
-        // landing's script mounts into the app bar. InfoDot is its first tile and "See all platforms" is its link.
-        $this->assertStringContainsString("import './dot-switcher-mount.js';", $this->frontend('src/home.js'));
+        // header module mounts into the app header's tools area (R-52). InfoDot is its first tile and "See all platforms" is its link.
+        $this->assertStringContainsString("from './app-header.js';", $this->frontend('src/home.js'));
+        $this->assertStringContainsString('mountSwitcher(switcherRoot, m,', $this->frontend('src/app-header.js'));
         $this->assertStringNotContainsString('infodot.co.za', $this->frontend('home.html'));
         $this->assertSame('InfoDot', config('ecosystem.platforms.infodot.name'));
     }
@@ -227,19 +230,20 @@ class LandingPageTest extends TestCase
         }
     }
 
-    public function test_every_page_with_the_app_bar_offers_the_way_back_to_the_landing(): void
+    public function test_every_page_with_the_app_header_offers_the_way_back_to_the_landing(): void
     {
-        // The markup keeps the signed-out destination; home-link.js swaps it for /home.html when a token is held.
-        $module = $this->frontend('src/home-link.js');
-        $this->assertStringContainsString("logo.href = '/home.html';", $module);
+        // R-52: one header module for every page. The brand link keeps the signed-out destination ("/", the public
+        // console) and leads to /home.html when a token is held; the old per-page swap module is gone.
+        $module = $this->frontend('src/app-header.js');
+        $this->assertStringContainsString("href: signedIn ? '/home.html' : '/'", $module);
         $this->assertStringNotContainsString('setToken', $module);
-        $this->assertStringNotContainsString('clearToken', $module);
+        $this->assertFileDoesNotExist(base_path('../frontend/src/home-link.js'));
 
-        foreach (['backtest', 'history', 'journal', 'options', 'strategy-builder', 'main'] as $script) {
-            $this->assertStringContainsString("import './home-link.js';", $this->frontend("src/{$script}.js"), $script);
+        foreach (['backtest', 'history', 'journal', 'options', 'strategy-builder', 'main', 'home'] as $script) {
+            $this->assertStringContainsString("'./app-header.js'", $this->frontend("src/{$script}.js"), $script);
         }
-        foreach (['index', 'backtest', 'history', 'journal', 'options', 'strategy-builder'] as $page) {
-            $this->assertStringContainsString('<a href="/" aria-label="Dot.Charts home">', $this->frontend("{$page}.html"), $page);
+        foreach (['index', 'home', 'backtest', 'history', 'journal', 'options', 'strategy-builder'] as $page) {
+            $this->assertStringContainsString('<div id="app-header" data-page="', $this->frontend("{$page}.html"), $page);
         }
     }
 }

@@ -58,7 +58,8 @@ class SecurityHeaders
         return implode('; ', [
             "default-src 'self'",
             "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-            // fonts.googleapis.com: IBM Plex Mono, IBM Plex Sans (Condensed) and the error pages' Material Symbols.
+            // fonts.googleapis.com / fonts.gstatic.com: only the Blade error pages' Material Symbols icon font. The app's own type (Roboto) is
+            // self-hosted since R-52, so the frontend pages never ask Google for anything.
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "font-src 'self' data: https://fonts.gstatic.com",
             // data: and blob: cover the chart screenshot preview (FileReader) on the analysis page.

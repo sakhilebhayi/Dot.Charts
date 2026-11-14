@@ -8,6 +8,7 @@ use App\Http\Controllers\EcosystemSwitcherController;
 use App\Http\Controllers\JournalEntryController;
 use App\Http\Controllers\KnowledgePackController;
 use App\Http\Controllers\OptionsVolController;
+use App\Http\Controllers\SearchController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register'])
@@ -18,6 +19,8 @@ Route::post('/login', [AuthController::class, 'login'])
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    // Header search over the account's own backtests, journal entries and strategies (account-scoped, limited).
+    Route::get('/search', SearchController::class)->middleware('throttle:search');
     Route::get('/backtests', [BacktestController::class, 'index']);
     Route::get('/backtests/{id}', [BacktestController::class, 'show']);
     Route::delete('/backtests/{id}', [BacktestController::class, 'destroy']);
