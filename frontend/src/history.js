@@ -1,22 +1,9 @@
-import './dot-switcher-mount.js';
-import { getToken, clearToken, isLoggedIn, logout } from './auth.js';
-import './home-link.js';
+import './app-header.js';
+import { getToken } from './auth.js';
 import { renderBacktestResult } from './results-renderer.js';
 
 import { API_BASE } from './api-base.js';
 import { showFailure } from './ecosystem.js';
-
-const authStateEl = document.getElementById('authState');
-if (isLoggedIn()) {
-  authStateEl.innerHTML = '<a href="#" id="logoutLink" style="color:var(--accent)">Log out</a>';
-  document.getElementById('logoutLink').addEventListener('click', async (e) => {
-    e.preventDefault();
-    await logout();
-    window.location.reload();
-  });
-} else {
-  authStateEl.innerHTML = '<a href="/login.html" style="color:var(--accent)">Log in</a>';
-}
 
 const errorEl = document.getElementById('error');
 const emptyEl = document.getElementById('empty');

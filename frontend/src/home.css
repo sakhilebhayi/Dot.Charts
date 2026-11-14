@@ -20,51 +20,23 @@ body.home {
   --ease-out: cubic-bezier(.16, 1, .3, 1);
   color-scheme: dark;
   height: 100%;
+  height: 100dvh;
   margin: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  overflow: clip;
   font: 14px/1.5 var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 html:has(body.home) { height: 100%; }
+body.home #app-header { z-index: 40; }
+/* the foot's row is kept (invisible) until the counts arrive, so the disclaimer above it does not jump */
+body.home .foot[data-pending] { display: flex !important; visibility: hidden; }
 body.home ::selection { background: var(--signal); color: var(--on-signal); }
 body.home a { color: inherit; }
 body.home :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
-body.home .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-body.home .skip {
-  position: absolute; left: 8px; top: -60px; z-index: 9; padding: 10px 14px;
-  background: var(--signal); color: var(--on-signal); text-decoration: none;
-  font: 700 13px var(--font-display); letter-spacing: .06em; text-transform: uppercase;
-}
-body.home .skip:focus { top: 8px; }
-
-/* ---------- row 1: the bar (chrome: never animates) ---------- */
-body.home .bar {
-  display: flex; align-items: center; justify-content: flex-start; gap: var(--s5);
-  height: 56px; margin: 0; padding: 0 var(--gut); border-bottom: 1px solid var(--rule);
-}
-body.home .bar-logo { display: block; height: 44px; width: auto; }
-body.home .bar > nav { display: flex; flex-wrap: nowrap; align-items: center; gap: 0 var(--s5); margin: 0 0 0 var(--s2); min-width: 0; }
-body.home .bar nav a {
-  display: inline-flex; align-items: center; height: 56px; padding: 0; white-space: nowrap;
-  font: 600 13px var(--font-display); letter-spacing: .08em; text-transform: uppercase;
-  color: var(--soft); text-decoration: none;
-}
-body.home .bar nav a:hover { color: var(--ink); }
-body.home .bar nav a[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
-body.home .bar-end { margin-left: auto; display: flex; align-items: center; gap: var(--s4); }
-body.home .bar > .dsw { margin-left: 0; }
-body.home .who { color: var(--soft); font-size: 13px; white-space: nowrap; }
-body.home .linkish {
-  display: inline-flex; align-items: center; min-height: var(--ctl); padding: 0; margin: 0;
-  background: none; border: 0; cursor: pointer; text-decoration: none;
-  font: 600 13px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--soft);
-}
-body.home .linkish:hover { color: var(--ink); }
-
-/* ---------- row 2: the one scrolling region ---------- */
+body.home .num { font-family: var(--font-body); font-variant-numeric: tabular-nums; }
+/* ---------- row 1 is the shared app header (src/app-header.js, dot-ui); row 2: the one scrolling region ---------- */
 body.home main { overflow: auto; min-height: 0; scrollbar-color: var(--ghost) var(--bg); }
 body.home main:focus { outline: none; }
 body.home main::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -78,7 +50,7 @@ body.home .head {
   padding: var(--s5) var(--gut) var(--s5); border-bottom: 1px solid var(--rule);
 }
 body.home .head h1 {
-  margin: 0; max-width: 26ch; text-wrap: balance;
+  margin: 0; max-width: 26ch; min-height: 2.2em; text-wrap: balance;
   font: 700 clamp(24px, 2.6vw, 32px)/1.1 var(--font-display); letter-spacing: .01em; text-transform: uppercase;
 }
 body.home .head p { margin: var(--s2) 0 0; max-width: 62ch; color: var(--soft); font-size: 14px; }
@@ -105,7 +77,7 @@ body.home .desk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(38
 body.home .ledger { min-width: 0; border-right: 1px solid var(--rule); }
 body.home .tools { display: flex; align-items: center; gap: var(--s3); height: var(--row-list); padding: 0 var(--gut); border-bottom: 1px solid var(--rule); }
 body.home .tools h2, body.home .lh h2 {
-  margin: 0 auto 0 0; font: 700 12px var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--soft);
+  margin: 0 auto 0 0; font: 700 12px var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--soft);
 }
 body.home .lh h2 { margin: 0; }
 body.home select {
@@ -117,7 +89,7 @@ body.home select:focus { outline: 2px solid var(--signal); outline-offset: 0; bo
 body.home table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 body.home thead th {
   height: var(--row-head); padding: 0 var(--s3); border-bottom: 1px solid var(--rule); white-space: nowrap; text-align: right;
-  font: 600 11px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--soft);
+  font: 600 12px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--soft);
 }
 body.home thead th:first-child { text-align: left; padding-left: var(--gut); }
 body.home thead th:last-child, body.home tbody td:last-child { padding-right: var(--gut); }
@@ -137,21 +109,19 @@ body.home tbody tr[aria-selected="true"] { background: var(--wash); }
 body.home tbody td { padding: 0 var(--s3); text-align: right; font-size: 13px; white-space: nowrap; }
 body.home tbody td:first-child { text-align: left; padding-left: var(--gut); min-width: 0; }
 body.home .inst { display: block; min-width: 0; }
-body.home .inst a {
-  display: block; overflow: hidden; text-overflow: ellipsis; text-decoration: none;
-  font: 600 15px/1.2 var(--font-mono); color: var(--ink);
-}
+body.home .inst a { display: block; min-height: 44px; padding: var(--s2) 0; text-decoration: none; color: var(--ink); }
+body.home .inst .sym { display: block; overflow: hidden; text-overflow: ellipsis; font: 600 15px/1.2 var(--font-mono); }
 body.home .inst a::after { content: ""; position: absolute; inset: 0; }
 body.home .inst a:focus-visible { outline: none; }
 body.home tbody tr:has(a:focus-visible) { outline: 2px solid var(--signal); outline-offset: -2px; }
-body.home .inst small { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; font: 400 12px/1.3 var(--font-body); color: var(--soft); }
-body.home .st { margin-left: var(--s2); font: 600 11px var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--soft); }
+body.home .inst small { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; font: 400 12px/1.3 var(--font-body); color: var(--soft); white-space: nowrap; }
+body.home .st { margin-left: var(--s2); font: 600 12px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--soft); }
 body.home .st.failed { color: var(--loss); }
 body.home .neg { color: var(--loss); }
 body.home .dash { color: var(--ghost); }
 body.home .rows-note { margin: 0; padding: var(--s4) var(--gut); color: var(--soft); font-size: 13px; }
 body.home .more { display: flex; align-items: center; justify-content: space-between; height: var(--row-list); padding: 0 var(--gut); border-bottom: 1px solid var(--rule); color: var(--soft); font-size: 13px; }
-body.home .more a { color: var(--ink); text-underline-offset: 3px; }
+body.home .more a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); text-underline-offset: 3px; }
 
 /* the stage: the selected run */
 body.home .stage { min-width: 0; padding: var(--s5) var(--gut); background: var(--panel-sunken); }
@@ -164,7 +134,7 @@ body.home .chart > svg { display: block; width: 100%; height: 100%; overflow: vi
 body.home .chart > svg:focus-visible { outline: 2px solid var(--signal); outline-offset: 4px; }
 body.home .chart .grid { stroke: var(--rule); stroke-width: 1; }
 body.home .chart .base { stroke: var(--soft); stroke-width: 1; opacity: .55; }
-body.home .chart text { fill: var(--soft); font: 11px var(--font-mono); }
+body.home .chart text { fill: var(--soft); font: 11px var(--font-body); font-variant-numeric: tabular-nums; }
 body.home .chart text.end { fill: var(--ink); }
 body.home .chart .ln { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 body.home .chart .dot { fill: var(--series); stroke: var(--panel-sunken); stroke-width: 2; }
@@ -173,7 +143,7 @@ body.home .chart-wait, body.home .note { margin: var(--s3) 0 0; color: var(--sof
 body.home .chart-wait { display: flex; align-items: center; height: 100%; margin: 0; font-size: 13px; }
 body.home .tip {
   position: absolute; z-index: 2; pointer-events: none; white-space: nowrap;
-  padding: var(--s2) var(--s3); background: var(--panel); border: 1px solid var(--rule); font: 12px/1.4 var(--font-mono);
+  padding: var(--s2) var(--s3); background: var(--panel); border: 1px solid var(--rule); font: 12px/1.4 var(--font-body); font-variant-numeric: tabular-nums;
 }
 body.home .tip b { display: block; font-weight: 500; color: var(--soft); }
 body.home .chart-foot { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); margin-top: var(--s2); color: var(--soft); font-size: 12px; }
@@ -185,9 +155,9 @@ body.home .chart-foot button:hover { color: var(--ink); }
 body.home .chart-foot button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 body.home .tview { max-height: 168px; overflow: auto; margin-top: var(--s2); border-top: 1px solid var(--rule); }
 body.home .tview table { table-layout: auto; }
-body.home .tview th, body.home .tview td { height: 30px; padding: 0 var(--s2); border-bottom: 1px solid var(--rule); text-align: right; font: 12px var(--font-mono); }
+body.home .tview th, body.home .tview td { height: 30px; padding: 0 var(--s2); border-bottom: 1px solid var(--rule); text-align: right; font: 12px var(--font-body); font-variant-numeric: tabular-nums; }
 body.home .tview th:first-child, body.home .tview td:first-child { text-align: left; padding-left: 0; }
-body.home .tview th { position: sticky; top: 0; background: var(--panel-sunken); font: 600 11px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--soft); }
+body.home .tview th { position: sticky; top: 0; background: var(--panel-sunken); font: 600 12px var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--soft); }
 
 body.home dl.rows { margin: var(--s4) calc(var(--gut) * -1) 0; padding: 0; }
 body.home dl.rows > div {
@@ -230,44 +200,50 @@ body.home .tools-list span { color: var(--soft); font-size: 13px; }
 body.home .disc { margin: 0; padding: var(--s2) var(--gut); border-top: 1px solid var(--rule); background: var(--bg); color: var(--soft); font-size: 12px; line-height: 1.5; }
 body.home .disc strong { color: var(--ink); font-weight: 600; }
 body.home .foot { display: flex; align-items: center; gap: var(--s5); min-height: 36px; padding: 0 var(--gut); border-top: 1px solid var(--rule); background: var(--bg); color: var(--soft); font-size: 12px; }
-body.home .foot span b { margin-left: 4px; color: var(--ink); font: 500 12px var(--font-mono); }
+body.home .foot span b { margin-left: 4px; color: var(--ink); font: 500 12px var(--font-body); font-variant-numeric: tabular-nums; }
 
 /* ---------- tablet ---------- */
 @media (max-width: 1100px) {
-  body.home .col-n, body.home .col-win, body.home .c-n, body.home .c-win { display: none; }
+  /* touch-sized controls from here down; every column stays (the table has the whole width once the stage drops below it) */
+  body.home { --row-head: 44px; --ctl: 44px; }
+  body.home select { height: 44px; }
+  body.home .chart-foot button { min-height: 44px; }
   body.home .desk { grid-template-columns: minmax(0, 1fr); }
   body.home .ledger { border-right: 0; }
   body.home .stage { border-top: 1px solid var(--rule); }
 }
-@media (max-width: 900px) { body.home .who { display: none; } }
-@media (max-width: 1000px) {
-  body.home .bar { height: auto; flex-wrap: wrap; padding-top: var(--s2); gap: 0 var(--s3); }
-  body.home .bar-end { order: 2; margin-left: auto; }
-  body.home .bar > .dsw { order: 2; }
-  body.home .bar > nav {
-    order: 3; flex: 1 0 100%; margin: 0 calc(var(--gut) * -1); padding: 0 var(--gut);
-    overflow-x: auto; scrollbar-width: none; gap: 0 var(--s5);
-  }
-  body.home .bar > nav::-webkit-scrollbar { display: none; }
-  body.home .bar nav a { height: 44px; }
-}
 /* ---------- phone ---------- */
 @media (max-width: 760px) {
   body.home { --gut: 16px; }
-  body.home .bar-logo { height: 40px; }
-  body.home .bar-end { gap: var(--s3); }
-  body.home .linkish { min-height: 44px; }
   body.home .head { flex-direction: column; align-items: stretch; gap: var(--s4); }
   body.home .head h1 { font-size: 26px; }
+  body.home .head p { min-height: 3em; }
   body.home .head-act { flex-direction: column; align-items: stretch; }
   body.home .btn.lead { width: 100%; height: 52px; }
   body.home .btn { min-height: 44px; }
-  body.home select { height: 44px; }
-  body.home .col-dd, body.home .c-dd { display: none; }
-  body.home .col-ret { width: 84px; }
-  body.home thead th, body.home tbody td { padding: 0 var(--s2); }
-  body.home tbody td:first-child { padding-left: var(--gut); }
-  body.home thead th:last-child, body.home tbody td:last-child { padding-right: var(--gut); }
+  body.home .tools { flex-wrap: wrap; height: auto; min-height: var(--row-list); padding: var(--s3) var(--gut); }
+  body.home .tools h2 { flex: 1 0 100%; margin: 0; }
+  body.home select { flex: 1 1 120px; max-width: none; height: 44px; }
+
+  /* The runs table becomes a stack of run cards: every figure stays (labelled), the sort buttons stay in a row on top. */
+  body.home .ledger table, body.home .ledger thead, body.home .ledger tbody, body.home .ledger tr, body.home .ledger th, body.home .ledger td { display: block; }
+  body.home .ledger colgroup { display: none; }
+  body.home .ledger thead tr { display: flex; flex-wrap: wrap; padding: 0 var(--s2); border-bottom: 1px solid var(--rule); }
+  body.home .ledger thead th, body.home .ledger thead th:first-child { height: auto; padding: 0; border: 0; text-align: left; }
+  body.home .ledger thead th button { min-height: 44px; padding: 0 var(--s3); }
+  body.home .ledger tbody tr {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s1) var(--s3);
+    height: auto; padding: var(--s3) var(--gut);
+  }
+  body.home .ledger tbody td, body.home .ledger tbody td:first-child, body.home .ledger tbody td:last-child { padding: 0; text-align: left; }
+  body.home .ledger tbody td:first-child { grid-column: 1 / -1; }
+  body.home .ledger tbody td.rows-note { grid-column: 1 / -1; }
+  body.home .ledger tbody td[data-label]::before {
+    content: attr(data-label); display: block; margin-bottom: 2px; color: var(--soft);
+    font: 600 12px var(--font-body); letter-spacing: .06em; text-transform: uppercase;
+  }
+  body.home .inst a { min-height: 0; padding: 0; }
+  body.home .inst small { white-space: normal; }
   body.home .stage-head .acts { width: 100%; }
   body.home .acts .btn { flex: 1 1 auto; }
   body.home .chart { height: 190px; }

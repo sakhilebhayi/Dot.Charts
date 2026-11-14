@@ -1,30 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dot-roboto">
 <head>
   <meta charset="UTF-8" />
   <title>Dot.Charts — Backtest</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/instrument.css" />
 </head>
 <body>
-<div class="container">
-<header class="bar">
-  <a href="/" aria-label="Dot.Charts home"><img src="/images/logo.png" alt="Dot.Charts" class="bar-logo" /></a>
-  <nav>
-    <a href="/home.html">Home</a>
-    <a href="/">Chart read</a>
-    <a href="/backtest.html" aria-current="page">Backtest</a>
-    <a href="/strategy-builder.html">Strategy Builder</a>
-    <a href="/history.html">History</a>
-    <a href="/journal.html">Journal</a>
-    <a href="/options.html">Options Vol</a>
-    <span id="authState"></span>
-  </nav>
-</header>
+<div id="app-header" data-page="backtest"></div>
+<main class="container" id="main" tabindex="-1">
 <div class="page-head">
   <h1>Backtest</h1>
   <p class="sub">Real historical data, real metrics &mdash; nine strategies from MA crossover to the 714 Method.</p>
@@ -35,13 +20,13 @@
       <div>
         <label for="symbol">Symbol</label>
         <input id="symbol" placeholder="AAPL or BTC/USDT" value="AAPL" />
-        <select id="symbolCommodity" aria-label="Commodity symbol" style="display:none">
+        <select id="symbolCommodity" aria-label="Commodity symbol" hidden>
           <option value="GC=F">Gold</option>
           <option value="SI=F">Silver</option>
           <option value="CL=F">Oil (WTI)</option>
           <option value="^GDAXI">GER30 / GER40 (DAX)</option>
         </select>
-        <select id="symbolForex" aria-label="Forex symbol" style="display:none">
+        <select id="symbolForex" aria-label="Forex symbol" hidden>
           <option value="EURUSD=X">EUR/USD</option>
           <option value="GBPUSD=X">GBP/USD</option>
           <option value="USDJPY=X">USD/JPY</option>
@@ -80,7 +65,7 @@
       <option value="method_714">714 Method</option>
     </select>
 
-    <div id="symbolBRow" style="display:none">
+    <div id="symbolBRow" hidden>
       <label for="symbolB">Symbol B (paired against Symbol above)</label>
       <input id="symbolB" placeholder="MSFT" />
     </div>
@@ -103,10 +88,10 @@
     <div class="disclosure">
       <strong id="dConfidence"></strong>
       <div id="dAttribution"></div>
-      <div id="dRisk" style="margin-top:8px"></div>
+      <div id="dRisk" class="mt-8"></div>
     </div>
   </div>
-</div>
+</main>
 <script type="module" src="/src/backtest.js"></script>
 </body>
 </html>

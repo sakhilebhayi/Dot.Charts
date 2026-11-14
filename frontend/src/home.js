@@ -2,26 +2,14 @@
 // without this script (headline, primary action, empty states ship in the markup); this fills in what the API knows
 // about the person. Every figure is a field of a stored record: nothing is computed across runs and nothing is
 // invented. The equity curve is NOT in the list response; it is fetched for the one selected run.
-import './dot-switcher-mount.js';
-import './home-link.js';
-import { getToken, clearToken, isLoggedIn, logout } from './auth.js';
+import { refreshHeader } from './app-header.js';
+import { STRATEGY_NAMES } from './labels.js';
+import { getToken, clearToken, isLoggedIn } from './auth.js';
 import { API_BASE } from './api-base.js';
 import { drawEquityChart, money, day } from './equity-chart.js';
 
 const SHOWN = 3;
 
-// Display names for the server's strategy enum, as the Backtest page's own <select> words them.
-const STRATEGY_NAMES = {
-  ma_crossover: 'MA Crossover',
-  rsi_mean_reversion: 'RSI Mean-Reversion',
-  breakout: 'Breakout (Donchian)',
-  bollinger_mean_reversion: 'Bollinger Mean-Reversion',
-  momentum: 'Momentum',
-  pairs_trading: 'Pairs Trading (Stat-Arb)',
-  ml_signal: 'ML Signal (Explainable)',
-  method_714: '714 Method',
-  custom: 'Custom Strategy',
-};
 const ASSET_NAMES = { equity: 'Equity', crypto: 'Crypto', commodity: 'Commodity', forex: 'Forex' };
 const BAND = { high: 'High, 30 or more trades', medium: 'Medium, 10 to 29 trades', low: 'Low, fewer than 10 trades' };
 const NS = 'http://www.w3.org/2000/svg';
@@ -74,8 +62,7 @@ function figure(value, format, className) {
 
 /* ---------- account chrome ---------- */
 function setSignedOut(message) {
-  $('authState').replaceChildren(link('Log in', '/login.html', 'linkish'));
-  $('who').textContent = '';
+  refreshHeader(); // the bar stops offering the account
   headline.textContent = message;
   headlineSub.textContent = 'Log in to see the runs, strategies and notes kept on your account. The chart read works without an account.';
   primary.textContent = 'Log in';
@@ -84,18 +71,9 @@ function setSignedOut(message) {
   desk.hidden = true;
   $('firstRun').hidden = true;
   $('pair').hidden = true;
+  $('foot').removeAttribute('data-pending');
   $('foot').hidden = true;
   $('instruments').hidden = false;
-}
-
-function setSignedIn() {
-  const out = Object.assign(el('a', 'linkish', 'Log out'), { href: '#' });
-  out.addEventListener('click', async (event) => {
-    event.preventDefault();
-    await logout();
-    window.location.href = '/login.html';
-  });
-  $('authState').replaceChildren(out);
 }
 
 async function get(path) {
@@ -142,6 +120,7 @@ function renderFoot(counts) {
     s.append(el('b', null, String(n)));
     return s;
   }));
+  foot.removeAttribute('data-pending');
   foot.hidden = false;
 }
 
@@ -163,9 +142,11 @@ function sorted() {
     return state.dir === 'ascending' ? c : -c;
   });
 }
+const LABELS = { ret: 'Return', win: 'Win rate', dd: 'Max DD', n: 'Trades' }; // the stacked cards on a phone name each figure
 function figureCell(r, k, format, cls) {
   const v = valueOf(r, k);
   const td = el('td', `num ${cls || ''}`.trim());
+  td.dataset.label = LABELS[k];
   if (v == null) td.append(el('span', 'dash', '—'));
   else {
     td.textContent = format(v);
@@ -189,12 +170,14 @@ function drawRows() {
     tr.style.setProperty('--i', String(Math.min(i, 9)));
     const cell = el('td');
     const wrap = el('span', 'inst');
-    const a = Object.assign(el('a', null, instrument(r)), { href: `?run=${r.id}` });
+    const a = Object.assign(el('a'), { href: `?run=${r.id}` });
     a.dataset.id = String(r.id);
-    if (r.status === 'failed') a.append(el('span', 'st failed', 'Failed'));
-    if (r.status === 'queued') a.append(el('span', 'st', 'Queued'));
+    const sym = el('span', 'sym', instrument(r));
+    if (r.status === 'failed') sym.append(el('span', 'st failed', 'Failed'));
+    if (r.status === 'queued') sym.append(el('span', 'st', 'Queued'));
     const period = `${mon(r.start_date)} to ${mon(r.end_date)}`;
-    wrap.append(a, el('small', null, [STRATEGY_NAMES[r.strategy] || r.strategy, period].join(', ')));
+    a.append(sym, el('small', null, [STRATEGY_NAMES[r.strategy] || r.strategy, period].join(', ')));
+    wrap.append(a);
     cell.append(wrap);
     tr.append(
       cell,
@@ -444,9 +427,6 @@ async function loadAll({ keepSelection = true } = {}) {
     setSignedOut('Your session has expired.');
     return;
   }
-  if (me.status === 'fulfilled' && me.value.name) {
-    $('who').textContent = String(me.value.name).trim().split(/\s+/)[0] || '';
-  }
 
   const unfiltered = filtered() ? (everything.status === 'fulfilled' ? everything.value : null) : (runs.status === 'fulfilled' ? runs.value : null);
   if (unfiltered) state.account = { total: unfiltered.total, latest: (unfiltered.data || [])[0] || null };
@@ -498,7 +478,11 @@ async function loadAll({ keepSelection = true } = {}) {
 
   if (!keepSelection || !state.runs.some((r) => r.id === state.sel)) {
     const wanted = Number(new URLSearchParams(window.location.search).get('run'));
-    const fromUrl = state.first && state.runs.find((r) => r.id === wanted);
+    let fromUrl = state.first && state.runs.find((r) => r.id === wanted);
+    if (state.first && wanted && !fromUrl) {
+      // a run linked from the header search can be older than the 20 loaded: fetch that one run (the API scopes it to the account)
+      try { fromUrl = await get(`/backtests/${wanted}`); state.runs.unshift(fromUrl); } catch { fromUrl = null; }
+    }
     state.sel = (fromUrl || state.runs.find((r) => r.results) || state.runs[0] || {}).id ?? null;
   }
   if (state.first) desk.classList.add('arrive');
@@ -557,7 +541,6 @@ async function start() {
     setSignedOut('You are not logged in.');
     return;
   }
-  setSignedIn();
   await loadAll();
 }
 start();

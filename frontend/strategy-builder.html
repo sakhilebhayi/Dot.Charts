@@ -1,30 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dot-roboto">
 <head>
   <meta charset="UTF-8" />
   <title>Dot.Charts — Strategy Builder</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/instrument.css" />
 </head>
 <body>
-<div class="container">
-<header class="bar">
-  <a href="/" aria-label="Dot.Charts home"><img src="/images/logo.png" alt="Dot.Charts" class="bar-logo" /></a>
-  <nav>
-    <a href="/home.html">Home</a>
-    <a href="/">Chart read</a>
-    <a href="/backtest.html">Backtest</a>
-    <a href="/strategy-builder.html" aria-current="page">Strategy Builder</a>
-    <a href="/history.html">History</a>
-    <a href="/journal.html">Journal</a>
-    <a href="/options.html">Options Vol</a>
-    <span id="authState"></span>
-  </nav>
-</header>
+<div id="app-header" data-page="strategy"></div>
+<main class="container" id="main" tabindex="-1">
 <div class="page-head">
   <h1>Strategy Builder</h1>
   <p class="sub">Compose entry and exit rules from indicators, test them on real data, save what survives.</p>
@@ -36,7 +21,7 @@
       <option value="">— start from scratch —</option>
     </select>
 
-    <div class="panels" style="margin-top:20px">
+    <div class="panels mt-20">
       <div class="panel">
         <div class="panel-header">
           <h3>Entry</h3>
@@ -63,15 +48,15 @@
   </div>
 
   <div class="card">
-    <h3 style="margin-top:0">Test Run</h3>
+    <h3 class="flush">Test Run</h3>
     <div class="row">
       <div>
         <label for="symbol">Symbol</label>
-        <input id="symbol" placeholder="AAPL or BTC/USDT" value="AAPL" style="width:100%" />
+        <input id="symbol" placeholder="AAPL or BTC/USDT" value="AAPL" />
       </div>
       <div>
         <label for="assetClass">Asset class</label>
-        <select id="assetClass" style="width:100%">
+        <select id="assetClass">
           <option value="equity">Equity</option>
           <option value="crypto">Crypto</option>
           <option value="commodity">Commodity</option>
@@ -82,14 +67,14 @@
     <div class="row">
       <div>
         <label for="startDate">Start date</label>
-        <input id="startDate" type="date" value="2023-01-01" style="width:100%" />
+        <input id="startDate" type="date" value="2023-01-01" />
       </div>
       <div>
         <label for="endDate">End date</label>
-        <input id="endDate" type="date" value="2026-01-01" style="width:100%" />
+        <input id="endDate" type="date" value="2026-01-01" />
       </div>
     </div>
-    <button id="testRunButton" style="margin-top:16px">Test Run</button>
+    <button id="testRunButton" class="mt-16">Test Run</button>
     <div id="error"></div>
   </div>
 
@@ -107,21 +92,21 @@
     <div class="disclosure">
       <strong id="dConfidence"></strong>
       <div id="dAttribution"></div>
-      <div id="dRisk" style="margin-top:8px"></div>
+      <div id="dRisk" class="mt-8"></div>
     </div>
   </div>
 
   <div class="card">
-    <h3 style="margin-top:0">Save Strategy</h3>
+    <h3 class="flush">Save Strategy</h3>
     <label for="strategyName">Name</label>
-    <input id="strategyName" placeholder="My EMA Crossover" style="width:100%" />
+    <input id="strategyName" placeholder="My EMA Crossover" />
     <label for="strategyDescription">Description (optional)</label>
-    <input id="strategyDescription" placeholder="" style="width:100%" />
-    <button id="saveButton" style="margin-top:16px">Save Strategy</button>
-    <span id="loginHint" style="display:none;color:var(--muted);font-size:14px;margin-left:12px">Log in to save</span>
+    <input id="strategyDescription" placeholder="" />
+    <button id="saveButton" class="mt-16">Save Strategy</button>
+    <span id="loginHint">Log in to save</span>
     <div id="saveError"></div>
   </div>
-</div>
+</main>
 <script type="module" src="/src/strategy-builder.js"></script>
 </body>
 </html>

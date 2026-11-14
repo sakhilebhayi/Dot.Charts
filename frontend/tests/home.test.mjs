@@ -8,23 +8,26 @@ import { fileURLToPath } from 'node:url';
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 const navPages = ['home', 'index', 'backtest', 'history', 'journal', 'options', 'strategy-builder'];
-const navLinks = (html) => [...html.match(/<header class="bar">[\s\S]*?<\/header>/)[0].matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map((m) => m[1]);
+const PAGE_KEY = { home: 'home', index: 'chart', backtest: 'backtest', history: 'history', journal: 'journal', options: 'options', 'strategy-builder': 'strategy' };
 
-test('Home and Chart read are the first two links in every page that has the instrument nav', () => {
-  for (const p of navPages) {
-    const links = navLinks(read(`${p}.html`)).filter((h) => h !== '/' || true);
-    const bar = read(`${p}.html`).match(/<nav[^>]*>[\s\S]*?<\/nav>/)[0];
-    const hrefs = [...bar.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
-    assert.deepEqual(hrefs.slice(0, 2), ['/home.html', '/'], p);
-    assert.ok(links.length >= 7, p);
-  }
+test('Home and Chart read are the first two links of the one nav model', async () => {
+  const { navModel } = await import('../src/labels.js');
+  const nav = navModel('home');
+  assert.deepEqual(nav.slice(0, 2).map((i) => i.href), ['/home.html', '/']);
+  // seven pages in all: four visible entries (two pages, two groups) instead of seven loose links
+  assert.equal(nav.length, 4);
+  assert.deepEqual(nav.slice(2).map((g) => g.label), ['Tools', 'Records']);
+  const hrefs = nav.flatMap((i) => (i.items ? i.items.map((s) => s.href) : [i.href]));
+  assert.equal(new Set(hrefs).size, 7);
 });
 
-test('exactly one page marks itself current in the nav, and the markup agrees with the page', () => {
-  assert.match(read('home.html'), /<a href="\/home\.html" aria-current="page">Home<\/a>/);
-  assert.match(read('index.html'), /<a href="\/" aria-current="page">Chart read<\/a>/);
-  for (const p of ['backtest', 'history', 'journal', 'options', 'strategy-builder']) {
-    assert.equal((read(`${p}.html`).match(/aria-current="page"/g) || []).length, 1, p);
+test('exactly one page marks itself current in the nav, and the page names its own key', async () => {
+  const { navModel } = await import('../src/labels.js');
+  for (const p of navPages) {
+    const html = read(`${p}.html`);
+    assert.match(html, new RegExp(`<div id="app-header" data-page="${PAGE_KEY[p]}"`), p);
+    const flat = navModel(PAGE_KEY[p]).flatMap((i) => i.items || [i]);
+    assert.equal(flat.filter((i) => i.current).length, 1, p);
   }
 });
 

@@ -1,35 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dot-roboto">
 <head>
   <meta charset="UTF-8" />
   <title>Dot.Charts — Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/instrument.css" />
   <link rel="stylesheet" href="/src/home.css" />
 </head>
 <body class="home">
-<a class="skip" href="#region">Skip to the dashboard</a>
-
-<header class="bar">
-  <a href="/" aria-label="Dot.Charts home"><img src="/images/logo.png" alt="Dot.Charts" class="bar-logo" width="1181" height="886" /></a>
-  <nav aria-label="Instruments">
-    <a href="/home.html" aria-current="page">Home</a>
-    <a href="/">Chart read</a>
-    <a href="/backtest.html">Backtest</a>
-    <a href="/strategy-builder.html">Strategy Builder</a>
-    <a href="/history.html">History</a>
-    <a href="/journal.html">Journal</a>
-    <a href="/options.html">Options Vol</a>
-  </nav>
-  <div class="bar-end">
-    <span class="who" id="who"></span>
-    <span id="authState"><a class="linkish" href="/login.html">Log in</a></span>
-  </div>
-</header>
+<div id="app-header" data-page="home" data-skip="#region"></div>
 
 <main id="region" tabindex="-1">
   <section class="head" aria-labelledby="headline">
@@ -94,7 +74,7 @@
     <li><a href="/options.html">Options Vol</a><span>Realized-vol rank and put-call skew for a symbol.</span></li>
   </ul>
 
-  <div class="pair" id="pair">
+  <div class="pair" id="pair" hidden>
     <section aria-labelledby="strategiesHead">
       <div class="lh"><h2 id="strategiesHead">Saved strategies</h2><a href="/strategy-builder.html">Open the builder</a></div>
       <div class="list" id="strategiesList" hidden></div>
@@ -113,7 +93,7 @@
 </main>
 
 <p class="disc" id="disclaimer"><strong>Disclaimer.</strong> Educational analysis, not financial advice. A backtest describes the past and does not predict future results. Do your own research and never trade more than you can afford to lose.</p>
-<footer class="foot" id="foot" aria-label="Counts on this account" hidden></footer>
+<footer class="foot" id="foot" aria-label="Counts on this account" data-pending hidden></footer>
 <script type="module" src="/src/home.js"></script>
 </body>
 </html>

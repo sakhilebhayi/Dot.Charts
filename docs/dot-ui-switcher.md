@@ -1,6 +1,6 @@
 # Dot Apps switcher (dot-ui) in Dot.Charts
 
-The shared platform switcher sits in the app bar of every page that has one (home, console, Backtest, Strategy Builder,
+The shared platform switcher sits in the app header of every page that has one (home, console, Backtest, Strategy Builder,
 History, Journal, Options Vol). Login and Register have no app bar and no switcher.
 
 ## What it says, and why
@@ -22,8 +22,9 @@ pages need JavaScript anyway). Until the script runs, the control is the same pl
 
 ## Files
 
-- `frontend/src/dot-switcher-mount.js`: the one module every page script imports (like `home-link.js`).
-- `frontend/src/dot-switcher-skin.css`: maps instrument tokens onto `--dsw-*`, places the control, phone layout.
+- `frontend/src/app-header.js`: the one module every page script imports. Since R-52 it prints the whole shared header (brand, nav,
+  search, the switcher in the tools area, account menu, mobile drawer) and mounts the switcher into it; see `docs/R52_TYPE_NAV_SEARCH.md`.
+- `frontend/src/instrument.css`: maps the instrument tokens onto `--dsw-*` / `--dh-*` / `--dsr-*` (the former `dot-switcher-skin.css`).
 - `frontend/src/dot-ui/` and `frontend/public/dot-ui/img/`: unchanged copies from dot-ui, written by
   `dot-ui/sync.sh <this repo>/frontend --stack static` (also generates `src/dot-ui/MANIFEST.json`) and checked by
   `frontend/tests/dot-ui-drift.test.mjs` in `npm test`. Edit in dot-ui, run the sync again.
