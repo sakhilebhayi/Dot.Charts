@@ -146,14 +146,14 @@ export function renderInner(model, opts) {
   else if (model.state === 'degraded') sub = model.sub || 'The core Dot platforms, opened through InfoDot.';
   else sub = 'Platforms are switched on per company.';
 
-  let h = '<a class="dsw-btn dsw-fallback" href="' + esc(model.platforms_url) + '" title="Switch Dot platform">' + GRID + '<span class="dsw-btn__label">Dot Apps</span></a>' +
+  let h = '<a class="dsw-fallback" href="' + esc(model.platforms_url) + '" title="Switch Dot platform">' + GRID + '<span class="dsw-btn__label">Dot Apps</span></a>' +
     '<button type="button" class="dsw-btn" data-dsw-trigger aria-expanded="false" aria-controls="' + esc(id) + '" title="Switch Dot platform">' + GRID + '<span class="dsw-btn__label">Dot Apps</span></button>' +
     '<div id="' + esc(id) + '" class="dsw-panel" data-dsw-panel role="region" aria-label="Dot platforms" hidden><div class="dsw-in"><div class="dsw-head"><div><p class="dsw-title">Dot Apps</p><p class="dsw-sub">' +
     esc(sub) + ' <a href="' + esc(model.platforms_url) + '" class="dsw-all">See all platforms</a></p></div>' +
     (count > 0 ? '<label class="dsw-filter"><span class="dsw-sr">Filter platforms</span>' + SEARCH + '<input type="search" data-dsw-filter placeholder="Filter platforms" autocomplete="off"></label>' : '') + '</div>';
 
   if (model.state === 'degraded') {
-    h += '<p class="dsw-notice" role="status"><strong>' + esc(model.notice) + '.</strong> <span>' + esc(model.notice_detail || 'These open through InfoDot, which checks what your company has.') + '</span></p>';
+    h += '<p class="dsw-notice" role="status"><strong>' + esc(model.notice) + '.</strong> <span>' + esc(model.notice_detail || 'These open through InfoDot, which checks your access.') + '</span></p>';
   }
   if (model.state === 'personal') {
     h += '<p class="dsw-personal">' + esc(model.message) + '</p>';

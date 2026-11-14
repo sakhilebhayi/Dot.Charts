@@ -37,7 +37,7 @@ function placeholder() {
   const root = document.createElement('div');
   root.className = 'dsw dsw--header';
   const a = document.createElement('a');
-  a.className = 'dsw-btn dsw-fallback';
+  a.className = 'dsw-fallback';
   a.href = INFODOT_PLATFORMS_URL;
   a.title = 'Switch Dot platform';
   a.appendChild(grid());
