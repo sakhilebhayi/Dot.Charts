@@ -3,7 +3,8 @@
  *
  * The look is InfoDot's (its `.ix-btn` "Dot Apps" button and the `.ix-yardmap` bay directory), reproduced as plain
  * CSS. Rules this file keeps:
- *   - every class is `.dsw-*`, every custom property `--dsw-*`, all declared on `.dsw` with baked-in fallbacks;
+ *   - every class is `.dsw-*`, every custom property `--dsw-*`, all declared on `:where(.dsw)` (zero specificity, so a
+ *     host's `.dsw { --dsw-ink: ... }` or `.topbar .dsw { ... }` always wins, in either file order) with baked-in fallbacks;
  *   - no Tailwind utilities, no `style=""` anywhere, nothing that relies on a host's preflight (a small scoped
  *     reset sits under `.dsw`);
  *   - a host re-skins it by mapping its own tokens onto the `--dsw-*` names in ONE block, for example
@@ -17,7 +18,7 @@
  * (`.is-busy`), the "nothing matches" line (`.dsw-empty`) and the "could not check" line (`.dsw-notice`).
  */
 
-.dsw {
+:where(.dsw) {
     --dsw-font: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
     --dsw-stencil-font: 'Big Shoulders Stencil Display', 'Archivo', system-ui, sans-serif;
     --dsw-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -38,6 +39,11 @@
     --dsw-tile: #ffffff;
     --dsw-tile-rule: rgba(27, 33, 36, 0.22);
     --dsw-tile-current: #ece9df;
+    /* the tiles are white logo plates: their own text and surface, so a host can dark-theme the panel (--dsw-paper,
+       --dsw-ink) and the tiles stay readable on the plate. Each defaults to the value the tile used before. */
+    --dsw-tile-ink: var(--dsw-ink);
+    --dsw-tile-surface: var(--dsw-tile);
+    --dsw-tile-tag-ink: var(--dsw-paper);
     --dsw-stencil: #e7a717;
     --dsw-plate-ink: #ffffff;
     --dsw-max: 1280px;
@@ -49,7 +55,9 @@
     --dsw-tone-platforms: #c98f12;
     --dsw-tone-analytics: #2b3439;
     --dsw-tone-people: #56636b;
+}
 
+.dsw {
     position: static;
     font-family: var(--dsw-font);
 }
@@ -258,7 +266,7 @@
     pointer-events: none;
 }
 
-.dsw-filter input {
+.dsw .dsw-filter input {
     display: inline-block;
     width: 100%;
     height: 42px;
@@ -272,17 +280,22 @@
     appearance: none;
 }
 
-.dsw-filter input::placeholder {
+.dsw .dsw-filter input::placeholder {
     color: #6b767b;
     opacity: 1;
 }
 
-.dsw-filter input::-webkit-search-cancel-button {
+.dsw .dsw-filter input::-webkit-search-cancel-button {
     -webkit-appearance: none;
     display: none;
 }
 
-.dsw-filter input:focus-visible {
+/* The focus look is stated here, one step above a host's global `input:focus { border-color: ... }` or
+   `input[type=search]:focus { ... }`: the filter keeps its own border and ring in every host. */
+.dsw .dsw-filter input:focus,
+.dsw .dsw-filter input:focus-visible {
+    border-color: var(--dsw-ink);
+    box-shadow: none;
     outline: 3px solid var(--dsw-stencil);
     outline-offset: 0;
 }
@@ -371,8 +384,8 @@
     padding: 12px 6px 10px;
     border: 1px solid var(--dsw-tile-rule);
     border-radius: var(--dsw-radius);
-    background: var(--dsw-tile);
-    color: var(--dsw-ink);
+    background: var(--dsw-tile-surface);
+    color: var(--dsw-tile-ink);
     font: 600 13px/1.25 var(--dsw-font);
     text-align: center;
     cursor: pointer;
@@ -414,8 +427,8 @@
     top: 4px;
     right: 4px;
     padding: 1px 5px;
-    background: var(--dsw-ink);
-    color: var(--dsw-paper);
+    background: var(--dsw-tile-ink);
+    color: var(--dsw-tile-tag-ink);
     font-family: var(--dsw-stencil-font);
     font-weight: 800;
     font-size: 11px;
@@ -431,7 +444,7 @@
 /* current platform: a marker, not a link */
 .dsw-bay.is-current {
     background: var(--dsw-tile-current);
-    border-color: var(--dsw-ink);
+    border-color: var(--dsw-tile-ink);
     cursor: default;
 }
 

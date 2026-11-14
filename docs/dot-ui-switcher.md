@@ -24,9 +24,10 @@ pages need JavaScript anyway). Until the script runs, the control is the same pl
 
 - `frontend/src/dot-switcher-mount.js`: the one module every page script imports (like `home-link.js`).
 - `frontend/src/dot-switcher-skin.css`: maps instrument tokens onto `--dsw-*`, places the control, phone layout.
-- `frontend/src/dot-ui/` and `frontend/public/dot-ui/img/`: unchanged copies from dot-ui, pinned in
-  `frontend/src/dot-ui/MANIFEST.json` and checked by `npm test`. Edit in dot-ui, re-copy, regenerate the manifest.
-- Tests: `backend/tests/Feature/EcosystemSwitcherEndpointTest.php`, `frontend/tests/switcher.test.mjs`.
+- `frontend/src/dot-ui/` and `frontend/public/dot-ui/img/`: unchanged copies from dot-ui, written by
+  `dot-ui/sync.sh <this repo>/frontend --stack static` (also generates `src/dot-ui/MANIFEST.json`) and checked by
+  `frontend/tests/dot-ui-drift.test.mjs` in `npm test`. Edit in dot-ui, run the sync again.
+- Tests: `backend/tests/Feature/EcosystemSwitcherEndpointTest.php`, `frontend/tests/switcher.test.mjs`, `frontend/tests/dot-ui-drift.test.mjs`.
 
 CSP: no inline style or script is added; fonts, logos and the model request are same-origin, so the report-only policy in
 `security-headers.htaccess` and `SecurityHeaders.php` needs no change.

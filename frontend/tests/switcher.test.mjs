@@ -3,7 +3,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -36,12 +35,7 @@ test('the mount module and the skin write no style attribute and load nothing ex
   }
 });
 
-test('the copied dot-ui files are exactly the pinned ones', () => {
-  const m = JSON.parse(read('src/dot-ui/MANIFEST.json')).files;
-  const actual = [...walk('src/dot-ui'), ...walk('public/dot-ui')].filter((f) => !f.endsWith('MANIFEST.json')).sort();
-  assert.deepEqual(actual, Object.keys(m).sort());
-  for (const [f, sum] of Object.entries(m)) assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root, f))).digest('hex'), sum, f);
-});
+// The copied dot-ui files are pinned by tests/dot-ui-drift.test.mjs (shipped by dot-ui/sync.sh --stack static).
 
 test('the renderer builds the Charts model into a degraded, honest control', async () => {
   const S = await import('../src/dot-ui/js/dot-switcher-static.js');
@@ -59,4 +53,16 @@ test('the renderer builds the Charts model into a degraded, honest control', asy
 test('every logo the switcher can print exists in the public path', () => {
   const m = JSON.parse(read('public/dot-ui/img/platforms/manifest.json')).platforms;
   for (const v of Object.values(m)) assert.ok(fs.existsSync(path.join(root, 'public/dot-ui/img/platforms', v.file)), v.file);
+});
+
+test('the skin carries no override of the shared filter focus (dot-ui guards it itself)', () => {
+  assert.doesNotMatch(read('src/dot-switcher-skin.css'), /dsw-filter/);
+});
+
+test('the registry model passes the Charts wording and the renderer prints it', async () => {
+  const S = await import('../src/dot-ui/js/dot-switcher-static.js');
+  const model = S.buildModel({ state: 'degraded', current: 'charts', infodot_url: 'https://infodot.co.za', notice: 'Could not check your platforms from here', notice_detail: 'Dot.Charts has its own sign-in.', platforms: [{ key: 'charts', name: 'Dot.Charts' }] });
+  const html = S.renderInner(model, { logos: '/dot-ui/img/platforms' });
+  assert.match(html, /<strong>Could not check your platforms from here\.<\/strong> <span>Dot\.Charts has its own sign-in\.<\/span>/);
+  assert.match(html, /aria-current="page"/);
 });

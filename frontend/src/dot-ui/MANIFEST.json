@@ -1,5 +1,7 @@
 {
-  "source": "dot-ui (local git, commit 322aa24 + 58f35fc static/ and switcher files), copied unchanged. Edit in dot-ui, then re-copy and regenerate.",
+  "source": "dot-ui",
+  "version": "9b89afe30b8ff75e06d8597e7a03b46a7b96fa71",
+  "algorithm": "sha256",
   "files": {
     "public/dot-ui/img/platforms/agents.png": "06d96b42071b6517b0f830a5bbdf2bd29e271c222c1220fe203e2f7ad5d25818",
     "public/dot-ui/img/platforms/analytics.png": "d1b18b5c5d3326aa90519f65216aa4f241e279b372fe251f4dbfa4bf0768e4a9",
@@ -27,11 +29,19 @@
     "public/dot-ui/img/platforms/tutor.png": "7ed3eaf2b0f94a4553dce088ba5bef14776e2ec02092b5e52bd32bd5662ea031",
     "src/dot-ui/css/dot-fonts.css": "0c8ad1d628e1381879cc11e8c641c520b786b12855a3d7c24f68b5908aff97bd",
     "src/dot-ui/css/dot-switcher-fonts.css": "caf9fd3556174397bb0e55351f8f111b3166a422fec0f5d0c3792fbba04febfb",
-    "src/dot-ui/css/dot-switcher.css": "49f860487857cdacf979f5aedb0df2b3bbc2ecade2fd39d2e796a8c65659e556",
+    "src/dot-ui/css/dot-switcher.css": "30eb633ac0abc4c92a50ca5f66d4a2d74089ef3b2abc0635741abf4d6004eb91",
     "src/dot-ui/fonts/archivo-latin-ext-wght-normal.woff2": "ff4f17d21930e36d6d93baba663e624cb767afc3feebf7adaebd82242638de05",
     "src/dot-ui/fonts/archivo-latin-wght-normal.woff2": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
-    "src/dot-ui/js/dot-switcher-static.js": "81c5b428a414d53550604f33ffc55e54aadca066a362bfac7cf287b97b320a9a",
+    "src/dot-ui/js/dot-switcher-data.js": "cca6c9d66fdfbfaa4fd6768b04c25d141ca202c6c000931cc7bdf2e00c8a3f8a",
+    "src/dot-ui/js/dot-switcher-static.js": "64ab19fffd72e6e7b22e359902c2a04854bd6590ccc052533ca88d179d2b6531",
     "src/dot-ui/js/dot-switcher.js": "fcdc8989b890c2d42c7c40ce63baad82edcd6e8cf301e7285472eca953841878",
     "src/dot-ui/switcher-fonts/big-shoulders-stencil-display-latin-wght-normal.woff2": "0af62ad276479dff6f51769c9e6fedfc8ef933415b39515c442c2ce4afb40798"
+  },
+  "copied_not_hashed": [
+    "tests/dot-ui-drift.test.mjs"
+  ],
+  "roots": {
+    "src": "src",
+    "public": "public"
   }
 }

@@ -19,41 +19,14 @@
  *     notice_detail: string                          what follows it (default: "These open through InfoDot, ...")
  *     sub:           string                          sentence under the title for the degraded state
  *   }
- * The constants below are a copy of src/PlatformSwitcher.php; static/tests/static.test.mjs fails if they drift.
+ * The constants come from ./dot-switcher-data.js, generated from data/categories.json (the one canonical copy PHP reads
+ * too); static/tests/static.test.mjs fails if it drifts.
  */
 
-export const NOTICE = 'Could not check your platforms just now';
-export const PERSONAL_MESSAGE = 'You are in your personal workspace, which has no company platforms to switch between. Switch to a company in InfoDot to see what it has.';
-export const CORE = ['infodot', 'files', 'docs', 'tasks', 'finance'];
-export const PLAIN = ['mines', 'charts'];
-export const INTERNAL = ['memory', 'dopemine', 'brain', 'assets'];
+import { NOTICE, PERSONAL_MESSAGE, CORE, PLAIN, INTERNAL, NAMES, CATEGORIES, PRIMARY_CATEGORY, LOGO_SIZES } from './dot-switcher-data.js';
 
-export const CATEGORIES = {
-  business_management: ['BSNS', 'people', 'Business Management'],
-  finance_administration: ['FINA', 'files', 'Finance and Administration'],
-  productivity_collaboration: ['WORK', 'knowledge', 'Productivity and Collaboration'],
-  sales_commerce: ['SALE', 'platforms', 'Sales and Commerce'],
-  marketing_design: ['MRKT', 'documents', 'Marketing and Design'],
-  data_intelligence: ['DATA', 'analytics', 'Data and Intelligence'],
-  human_resources: ['CREW', 'people', 'Human Resources'],
-  learning_development: ['LEARN', 'documents', 'Learning and Development'],
-  operations_industry: ['OPER', 'files', 'Operations and Industry'],
-  automation_ai: ['AUTO', 'analytics', 'Automation and AI'],
-};
-
-export const PRIMARY_CATEGORY = {
-  infodot: 'business_management', engage: 'business_management', projects: 'business_management',
-  files: 'productivity_collaboration', docs: 'productivity_collaboration', tasks: 'productivity_collaboration',
-  forms: 'productivity_collaboration', press: 'productivity_collaboration', sheet: 'productivity_collaboration',
-  finance: 'finance_administration', agents: 'automation_ai', notify: 'automation_ai',
-  analytics: 'data_intelligence', charts: 'data_intelligence',
-  auction: 'sales_commerce', emall: 'sales_commerce', pulse: 'sales_commerce',
-  central: 'operations_industry', ehail: 'operations_industry', mines: 'operations_industry',
-  design: 'marketing_design', hr: 'human_resources', tutor: 'learning_development',
-};
-
-/** Logo pixel sizes (img/platforms/manifest.json), so a tile never jumps. A test pins this table to the manifest. */
-export const LOGO_SIZES = {"agents":[200,200],"analytics":[200,150],"auction":[200,150],"central":[200,150],"charts":[200,150],"design":[200,150],"docs":[200,200],"ehail":[200,150],"emall":[200,150],"engage":[200,200],"files":[200,200],"finance":[200,150],"forms":[200,200],"hr":[200,150],"infodot":[200,83],"mines":[200,150],"notify":[200,150],"press":[200,200],"projects":[200,150],"pulse":[200,150],"sheet":[200,200],"tasks":[200,150],"tutor":[200,200]};
+// The data is generated (dot-switcher-data.js, from data/categories.json and the logo manifest): there is no copy here.
+export { NOTICE, PERSONAL_MESSAGE, CORE, PLAIN, INTERNAL, NAMES, CATEGORIES, PRIMARY_CATEGORY, LOGO_SIZES };
 
 const MAX_W = 112;
 const MAX_H = 68;
@@ -116,12 +89,12 @@ export function buildModel(input) {
       if (r.entitled || isCurrent) tiles.push(tile(r.key, r.name, company, isCurrent, r.plain));
       else more.push({ key: r.key, name: r.name, href: infodot + '/platforms/' + encodeURIComponent(r.key) });
     });
-    if (!seen[current] && INTERNAL.indexOf(current) === -1 && current) tiles.unshift(tile(current, names[current] || current, company, true, false));
+    if (!seen[current] && INTERNAL.indexOf(current) === -1 && current) tiles.unshift(tile(current, names[current] || NAMES[current] || current, company, true, false));
   } else if (state === 'degraded') {
     notice = typeof input.notice === 'string' && input.notice ? input.notice : NOTICE;
-    CORE.forEach((key) => tiles.push(tile(key, names[key] || key, null, key === current, false)));
-    // Not in the Blade version: a host that is not in the core set still says where the person is.
-    if (current && CORE.indexOf(current) === -1 && INTERNAL.indexOf(current) === -1) tiles.push(tile(current, names[current] || current, null, true, false));
+    CORE.forEach((key) => tiles.push(tile(key, names[key] || NAMES[key] || key, null, key === current, false)));
+    // As in PlatformSwitcher::degraded(): a host that is not in the core set still says where the person is.
+    if (current && CORE.indexOf(current) === -1 && INTERNAL.indexOf(current) === -1) tiles.push(tile(current, names[current] || NAMES[current] || current, null, true, false));
   } else {
     message = PERSONAL_MESSAGE;
   }

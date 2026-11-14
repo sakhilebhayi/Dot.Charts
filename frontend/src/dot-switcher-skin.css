@@ -21,10 +21,6 @@
   text-transform: uppercase;
 }
 
-/* The page's global `input:focus { border-color: var(--signal) }` has the same specificity as `.dsw-filter input` and
-   arrives later, so it leaks into the panel's filter. Keep the shared look. */
-.bar > .dsw .dsw-filter input:focus { border-color: var(--dsw-ink); }
-
 /* Phone: the logo and the control share the first row, the links take the full row beneath, so the control never
    squeezes the links into a third line. */
 @media (max-width: 760px) {
