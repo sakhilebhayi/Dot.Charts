@@ -12,7 +12,7 @@ Reading Dot.Brain's own reference repo (`/Users/sakhilebhayi/Dot/Dot.Brain`)
 surfaced the real contract: `schemas/knowledge-pack.schema.json`,
 `schemas/platform-manifest.schema.json`, and per-payload-type body schemas
 (`metric.schema.json`, `insight.schema.json`, `incident.schema.json`,
-`recommendation.schema.json`). Two platforms — Dot.Billing and Dot.Emall —
+`recommendation.schema.json`). Two platforms — Dot.Emall and one other platform —
 have already completed real onboarding step 1 against this exact contract:
 a real Ed25519 keypair, a manifest validated against the schema, and a
 hand-run publish command that canonicalizes, signs, and self-verifies before
@@ -31,7 +31,7 @@ exist. Per Dot.Brain's own documentation, the transport layer (how a
 published pack would actually reach a running Dot.Brain instance) is
 unbuilt ecosystem-wide — this sub-project produces real, correctly-signed,
 schema-shaped artifacts, retrievable via ChartSense's own API, exactly as
-far as Dot.Billing and Dot.Emall got.
+far as Dot.Emall and one other platform got.
 
 ## Goal
 
@@ -98,7 +98,7 @@ list/filter queries don't need to parse JSON for every row.
 - `canonicalize(array $envelopeWithoutSignatures): string` — recursive
   key-sort (`ksort` at every array depth) then
   `json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)`.
-  This is described as "RFC-8785-shaped" (matching Dot.Billing's own
+  This is described as "RFC-8785-shaped" (matching a sibling platform's own
   documented approach) rather than a certified strict-conformance JCS
   implementation — no such PHP package exists in this stack or anywhere
   else in the ecosystem's own shipped code.
@@ -113,7 +113,7 @@ list/filter queries don't need to parse JSON for every row.
 - **Every pack generation calls `verify()` on its own output before
   persisting.** A canonicalization bug or key mismatch throws
   (`RuntimeException: generated pack failed self-verification`) rather than
-  writing an unverifiable artifact — matching Dot.Billing's documented
+  writing an unverifiable artifact — matching a sibling platform's documented
   practice exactly.
 
 ## Envelope Content
@@ -201,7 +201,7 @@ fields exactly (`additionalProperties: false`, so no extra fields):
 
 `publish_topic`/`response_topic` are documentary placeholders — per
 Dot.Brain's own reference documentation, no transport layer exists
-anywhere in the ecosystem yet; Dot.Billing and Dot.Emall committed the same
+anywhere in the ecosystem yet; Dot.Emall and one other platform committed the same
 kind of placeholder values in their own real manifests.
 
 `keys[0].algorithm` is `"ed25519"` (the manifest's key-registration
@@ -282,5 +282,5 @@ requirements, not a typo.
   documentation.
 - A certified, strictly-conformant RFC 8785 implementation — "RFC-8785-
   shaped" canonicalization matches the ecosystem's own established
-  precedent (Dot.Billing, Dot.Emall), not a stricter standard neither of
+  precedent (Dot.Emall and one other platform), not a stricter standard neither of
   those platforms met either.

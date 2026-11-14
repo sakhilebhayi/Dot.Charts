@@ -16,6 +16,7 @@
   --blue:#8ec9dc;              /* the logo's powder blue — secondary */
   --green:#2fd06d;--green-soft:rgba(47,208,109,.1);
   --red:#ff4d55;--red-soft:rgba(255,77,85,.1);
+  --on-signal:#211a06;         /* text on the amber signal colour */
   --font-display:'IBM Plex Sans Condensed',system-ui,sans-serif;
   --font-body:'IBM Plex Sans',system-ui,sans-serif;
   --font-mono:'IBM Plex Mono',ui-monospace,monospace;
@@ -167,6 +168,79 @@ button.danger:hover{background:var(--red-soft);filter:none}
 .switch{margin-top:18px;font-size:14px;color:var(--muted);text-align:center}
 .switch a{color:var(--blue);text-decoration:none}
 .switch a:hover{color:var(--signal)}
+
+/* ── Signed-in landing (home.html) ── */
+.landing ::selection{background:var(--signal);color:var(--on-signal)}
+.landing a:focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+.landing .bar{margin-bottom:0}
+.landing .bar nav a{display:inline-flex;align-items:center;min-height:44px;padding:0}
+.landing-hero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr);gap:56px;
+  align-items:start;padding:44px 0 56px}
+.landing-logo{display:block;width:200px;height:auto;margin:0 0 20px -27px}
+.landing-hero h1{margin:0;min-width:0;font-family:var(--font-display);font-weight:700;
+  font-size:clamp(34px,4.4vw,54px);line-height:1;letter-spacing:.005em;
+  text-transform:uppercase;text-wrap:balance;overflow-wrap:break-word}
+.landing-sub{margin:20px 0 0;max-width:54ch;font-size:16px;line-height:1.6;color:var(--muted)}
+.landing-sub strong{color:var(--text);font-weight:600}
+.primary-action{display:inline-flex;align-items:center;min-height:52px;margin-top:30px;
+  padding:0 30px;background:var(--signal);color:var(--on-signal);
+  font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:.06em;
+  text-transform:uppercase;text-decoration:none}
+.primary-action:hover{filter:brightness(1.08)}
+.primary-action:active{transform:translateY(1px)}
+
+.landing-panel{background:var(--panel);border:1px solid var(--line);min-width:0}
+.landing-hero .landing-panel{margin-top:12px}
+.landing-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:8px 16px;border-bottom:1px solid var(--line);background:var(--panel-sunken)}
+.landing-panel-head h2{margin:0;font-family:var(--font-display);font-weight:700;font-size:12px;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.landing-panel-head a{display:inline-flex;align-items:center;min-height:44px;margin:-8px 0;font-size:13.5px;
+  color:var(--blue);text-decoration:none;white-space:nowrap}
+.landing-panel-head a:hover{color:var(--signal)}
+.landing-list{list-style:none;margin:0;padding:0}
+.landing-list li{padding:13px 16px;border-bottom:1px solid var(--line)}
+.landing-list li:last-child{border-bottom:0}
+.landing-item-title{font-family:var(--font-display);font-weight:700;font-size:16px;
+  letter-spacing:.03em;overflow-wrap:anywhere}
+.landing-item-title.mono{font-family:var(--font-mono);font-weight:600;font-size:15.5px;letter-spacing:0}
+.landing-item-title .status{font-family:var(--font-mono);font-size:11px;font-weight:400;
+  letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;margin-left:10px}
+.landing-item-meta{font-size:13px;color:var(--muted);margin-top:3px;overflow-wrap:anywhere}
+.landing-empty{margin:0;padding:18px 16px 20px;max-width:52ch;color:var(--muted);font-size:14px;line-height:1.6}
+.landing-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1px;
+  background:var(--line);border:1px solid var(--line)}
+.landing-pair .landing-panel{border:0}
+
+.landing-tools{margin-top:44px}
+.landing-tools ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.landing-tools li{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px;align-items:center;
+  padding:4px 0;border-bottom:1px solid var(--line)}
+.landing-tools a{display:inline-flex;align-items:center;min-height:44px;
+  font-family:var(--font-display);font-weight:600;font-size:13px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--text);text-decoration:none}
+.landing-tools a:hover{color:var(--signal)}
+.landing-tools span{font-size:13.5px;color:var(--muted)}
+.landing .disclosure{margin-top:36px}
+
+/* One authored moment: the headline block settles in. CSS only, so the page is complete without script. */
+@media (prefers-reduced-motion: no-preference){
+  .landing-lead{animation:landing-in .55s cubic-bezier(.16,1,.3,1) both}
+  @keyframes landing-in{from{opacity:0;transform:translateY(10px)}}
+}
+
+@media(max-width:900px){
+  .landing-hero{grid-template-columns:minmax(0,1fr);gap:28px;padding:28px 0 40px}
+  .landing-hero .landing-panel{margin-top:0}
+}
+@media(max-width:760px){
+  .landing .container{padding:0 16px 40px}
+  .landing-logo{width:150px;margin-left:-20px}
+  .landing-hero h1{font-size:clamp(26px,8.2vw,40px)}
+  .landing-pair{grid-template-columns:minmax(0,1fr)}
+  .landing-tools li{grid-template-columns:minmax(0,1fr);gap:0;padding:4px 0 12px}
+  .primary-action{width:100%;justify-content:center}
+}
 
 @media(max-width:760px){
   .row,.panels{grid-template-columns:1fr}

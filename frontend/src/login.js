@@ -24,7 +24,7 @@ button.addEventListener('click', async () => {
     }
 
     setToken(body.token);
-    window.location.href = '/backtest.html';
+    window.location.href = '/home.html';
   } catch (err) {
     errorEl.textContent = err.message;
     errorEl.style.display = 'block';
