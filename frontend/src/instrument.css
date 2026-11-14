@@ -98,7 +98,7 @@ body{margin:0;min-height:100vh;min-height:100dvh;color:var(--text);font-family:v
 #app-header{min-height:var(--dot-header-offset)}
 #app-header .dh-brand img{display:block;height:44px;width:auto}
 #app-header .dh-nav__link{font-weight:500}
-.dh-signin{display:inline-flex;align-items:center;min-height:36px;padding:0 14px;color:var(--text);
+.dh-signin{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;color:var(--text);
   border:1px solid var(--line);font:500 14px/1 var(--font-body);text-decoration:none;white-space:nowrap}
 .dh-signin:hover{border-color:var(--muted)}
 .dh-signin:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
@@ -245,10 +245,11 @@ button.block,.block{width:100%}
 
 /* ── Auth pages ── */
 .auth-head{padding:40px 0 8px;text-align:center}
-.auth-head img{width:150px;height:auto}
+.auth-head a{display:inline-block;line-height:0}
+.auth-head img{width:150px;height:auto;aspect-ratio:1181 / 886}
 .page-head.centred{text-align:center}
-.switch{margin-top:18px;font-size:15px;color:var(--muted);text-align:center;line-height:2}
-.switch a{color:var(--blue);text-decoration:none;display:inline-block;padding:4px 2px}
+.switch{margin-top:18px;font-size:15px;color:var(--muted);text-align:center;line-height:1.6}
+.switch a{color:var(--blue);text-decoration:none;display:inline-flex;align-items:center;min-height:44px;padding:0 6px}
 .switch a:hover{color:var(--signal)}
 
 /* The two rule lists are filled by script; reserve what the default (one condition each) takes so the cards below do not jump. */
