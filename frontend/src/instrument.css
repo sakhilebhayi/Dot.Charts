@@ -251,11 +251,15 @@ button.block,.block{width:100%}
 .switch a{color:var(--blue);text-decoration:none;display:inline-block;padding:4px 2px}
 .switch a:hover{color:var(--signal)}
 
+/* The two rule lists are filled by script; reserve what the default (one condition each) takes so the cards below do not jump. */
+#entryConditions,#exitConditions{min-height:118px}
+@media(min-width:761px) and (max-width:1000px){#entryConditions,#exitConditions{min-height:170px}}
 @media(max-width:760px){
   .row,.panels{grid-template-columns:1fr}
   .metrics-grid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:560px){
+  #entryConditions,#exitConditions{min-height:222px}
   .container{padding:20px 16px 40px}
   .card{padding:18px 16px}
   /* iOS zooms the page when a focused field is under 16px */

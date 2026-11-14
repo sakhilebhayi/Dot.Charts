@@ -242,7 +242,7 @@ body.home .foot span b { margin-left: 4px; color: var(--ink); font: 500 12px var
     content: attr(data-label); display: block; margin-bottom: 2px; color: var(--soft);
     font: 600 12px var(--font-body); letter-spacing: .06em; text-transform: uppercase;
   }
-  body.home .inst a { min-height: 0; padding: 0; }
+  body.home .inst a { display: flex; flex-direction: column; justify-content: center; min-height: 44px; padding: 0; }
   body.home .inst small { white-space: normal; }
   body.home .stage-head .acts { width: 100%; }
   body.home .acts .btn { flex: 1 1 auto; }
