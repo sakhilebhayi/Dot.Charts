@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BacktestController;
 use App\Http\Controllers\ChartAnalysisController;
 use App\Http\Controllers\CustomStrategyController;
+use App\Http\Controllers\EcosystemSwitcherController;
 use App\Http\Controllers\JournalEntryController;
 use App\Http\Controllers\KnowledgePackController;
 use App\Http\Controllers\OptionsVolController;
@@ -48,3 +49,6 @@ Route::post('/backtests', [BacktestController::class, 'store'])
     ->middleware('throttle:backtests');
 Route::get('/options/vol-signal/{symbol}', [OptionsVolController::class, 'show'])
     ->middleware('throttle:options-vol');
+
+// The registry for the shared platform switcher (public, not personal: see the controller).
+Route::get('/ecosystem/switcher', EcosystemSwitcherController::class);

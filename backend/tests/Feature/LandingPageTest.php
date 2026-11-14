@@ -103,17 +103,13 @@ class LandingPageTest extends TestCase
         $this->assertStringContainsString('not financial advice', $text);
     }
 
-    public function test_the_way_back_to_infodot_is_two_plain_links(): void
+    public function test_the_way_back_to_infodot_is_the_shared_switcher(): void
     {
-        $xpath = $this->landing();
-
-        $home = $xpath->query('//a[@href="https://infodot.co.za/home"]');
-        $platforms = $xpath->query('//a[@href="https://infodot.co.za/platforms"]');
-
-        $this->assertSame(1, $home->length);
-        $this->assertSame('InfoDot', trim($home->item(0)->textContent));
-        $this->assertSame(1, $platforms->length);
-        $this->assertSame('Platforms', trim($platforms->item(0)->textContent));
+        // The two plain links ("InfoDot", "Platforms") were superseded by the shared Dot Apps switcher, which the
+        // landing's script mounts into the app bar. InfoDot is its first tile and "See all platforms" is its link.
+        $this->assertStringContainsString("import './dot-switcher-mount.js';", $this->frontend('src/home.js'));
+        $this->assertStringNotContainsString('infodot.co.za', $this->frontend('home.html'));
+        $this->assertSame('InfoDot', config('ecosystem.platforms.infodot.name'));
     }
 
     public function test_everything_the_landing_links_to_inside_the_app_exists(): void
@@ -167,30 +163,21 @@ class LandingPageTest extends TestCase
     {
         $this->assertSame([], array_values(array_diff(array_keys(config('ecosystem.platforms')), self::LIVE_PLATFORM_KEYS)));
 
-        // The frontend keeps a static mirror of the registry (frontend/src/ecosystem.js): same rule, by name.
-        $liveNames = array_column(config('ecosystem.platforms'), 'name');
-        preg_match_all("/name: '([^']+)'/", $this->frontend('src/ecosystem.js'), $matches);
-
-        $this->assertNotEmpty($matches[1]);
-        $this->assertSame([], array_values(array_diff($matches[1], $liveNames)));
+        // The frontend keeps NO mirror of the registry any more: it reads the endpoint (see EcosystemSwitcherEndpointTest).
+        $this->assertSame(0, preg_match("/name: '[^']+'/", $this->frontend('src/ecosystem.js')));
     }
 
-    public function test_the_frontend_registry_mirror_uses_the_same_addresses_as_the_registry(): void
+    public function test_the_frontend_reads_the_registry_from_the_endpoint_and_keeps_no_copy(): void
     {
-        $registry = array_column(config('ecosystem.platforms'), 'url', 'name');
-        preg_match_all("/name: '([^']+)', url: '([^']+)'/", $this->frontend('src/ecosystem.js'), $matches, PREG_SET_ORDER);
-
-        $this->assertNotEmpty($matches);
-        foreach ($matches as [, $name, $url]) {
-            $this->assertSame($registry[$name] ?? null, $url, "{$name} in frontend/src/ecosystem.js");
-        }
+        $this->assertStringContainsString('/ecosystem/switcher', $this->frontend('src/registry.js'));
+        $this->assertSame(0, preg_match('/https:\/\/[a-z]+\.infodot\.co\.za/', $this->frontend('src/ecosystem.js')));
     }
 
     public function test_nothing_shipped_points_at_the_dead_infodot_app_domain(): void
     {
         $shipped = array_merge(
             glob(base_path('../frontend/*.html')),
-            glob(base_path('../frontend/src/*')),
+            array_filter(glob(base_path('../frontend/src/*')), 'is_file'),
             glob(base_path('config/*.php')),
             glob(base_path('resources/views/errors/*.php')),
             [base_path('.env.example')],
