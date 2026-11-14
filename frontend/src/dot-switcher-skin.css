@@ -1,0 +1,30 @@
+/* Dot.Charts skin for the shared switcher (dot-ui): maps the instrument tokens onto the --dsw-* names and places the
+   control in the app bar. The panel itself stays the fixed paper sheet every Dot platform shares. */
+.bar { position: relative; }
+.bar > nav { margin-left: auto; }
+.bar > .dsw {
+  --dsw-btn-ink: var(--muted);
+  --dsw-btn-border: var(--line);
+  --dsw-btn-bg-hover: var(--panel);
+  --dsw-focus: var(--signal);
+  --dsw-btn-height: 36px;
+  flex: 0 0 auto;
+}
+.bar > .dsw .dsw-btn:hover,
+.bar > .dsw .dsw-btn[aria-expanded='true'] { color: var(--text); }
+/* The bar's own voice for the trigger label: condensed, uppercase, tracked, like its links. */
+.bar > .dsw .dsw-btn {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+/* Phone: the logo and the control share the first row, the links take the full row beneath, so the control never
+   squeezes the links into a third line. */
+@media (max-width: 760px) {
+  .bar { flex-wrap: wrap; }
+  .bar > .dsw { order: 2; margin-left: auto; }
+  .bar > nav { order: 3; flex: 1 0 100%; margin-left: 0; }
+}

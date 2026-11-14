@@ -3,6 +3,7 @@
 // and the empty states. This only fills in what the API knows about the
 // person: their name and their own most recent records. Nothing here is
 // computed or invented; every value shown is a field of a stored record.
+import './dot-switcher-mount.js';
 import { getToken, clearToken, isLoggedIn, logout } from './auth.js';
 import { API_BASE } from './api-base.js';
 

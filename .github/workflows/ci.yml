@@ -113,6 +113,10 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
 
+      # Switcher checks: one mount module, no second platform list, no style attributes, pinned dot-ui copies.
+      - name: Frontend tests
+        run: npm test
+
   pint:
     name: Code style (Pint, informational)
     runs-on: ubuntu-latest

@@ -1,0 +1,47 @@
+{
+  "source": "dot-ui",
+  "version": "9b89afe30b8ff75e06d8597e7a03b46a7b96fa71",
+  "algorithm": "sha256",
+  "files": {
+    "public/dot-ui/img/platforms/agents.png": "06d96b42071b6517b0f830a5bbdf2bd29e271c222c1220fe203e2f7ad5d25818",
+    "public/dot-ui/img/platforms/analytics.png": "d1b18b5c5d3326aa90519f65216aa4f241e279b372fe251f4dbfa4bf0768e4a9",
+    "public/dot-ui/img/platforms/auction.png": "14b2f024bd905a1edb16f3e3003f9380a3df76e64a751cf0ca9fb5a721edad2a",
+    "public/dot-ui/img/platforms/central.png": "3335f6da0a75c5db9a6255a3cdfcce97101198bed2bd64d9d5fd309ddfbca280",
+    "public/dot-ui/img/platforms/charts.png": "a72d14c92847b8de1a681e00c0bcb4f00de6c600bec829b8ad0f8f7486c81b4c",
+    "public/dot-ui/img/platforms/design.png": "67ee544dffa22aab8b8accac8da652c1dde721c5caa45139fb4cccc4bde6b448",
+    "public/dot-ui/img/platforms/docs.png": "d5d1436146e37ec4e7729ff8a114b9f37fbc82efb44b4c91c9cddc906016eeba",
+    "public/dot-ui/img/platforms/ehail.png": "499bd5f5d3d16c275128bfc7a7f589f8d94257158c09d41fd675d43abc752764",
+    "public/dot-ui/img/platforms/emall.png": "e0f20e93a4ff45b3bc0f57651f086a9289e24861229172bca3cf5bd850df7312",
+    "public/dot-ui/img/platforms/engage.png": "7411cd1872399aba9f99739d7bfcf9a5406867f8571794f1e16d0f4f4bb9f83d",
+    "public/dot-ui/img/platforms/files.png": "ed8c487972c5cde9c38788f20cc692df036af8d8a57f193dac94f1156e279155",
+    "public/dot-ui/img/platforms/finance.png": "ace3a0119d7fd6083f91d6a0dd3cb53868c1603859ac6acd5d9b6d5aa35f7559",
+    "public/dot-ui/img/platforms/forms.png": "ba590e0df7280ea163c6e8e3d1d020030f20ed756325d97bd9346c8a9b85af90",
+    "public/dot-ui/img/platforms/hr.png": "a78c4ee16a01fc064fbbdad68397c1d9fc34eb08644f3c7de48da06370559634",
+    "public/dot-ui/img/platforms/infodot.png": "4b09cff76ab2beba82446d2fa9825ed1176842c7d11d4fa681a7836dfed20025",
+    "public/dot-ui/img/platforms/manifest.json": "ec3a63a26a315609041e6a5319b214258304486fd22bb86d6b5a661bb8529b29",
+    "public/dot-ui/img/platforms/mines.png": "b87cd6581945284b778d3ef64b447125a7dff508bf49890cc85993cb99cdd663",
+    "public/dot-ui/img/platforms/notify.png": "387eb5065b4ab81280894e8621a8d889b73497da664d5250e2b94e38cd7a8563",
+    "public/dot-ui/img/platforms/press.png": "e0c19b2c8e1ac40e7c1418814c83336571a2e934ac171e5548b0405b72d52f64",
+    "public/dot-ui/img/platforms/projects.png": "a77b241cfeacfff418249eeabe6aaaa72fb3b8b382c982883b023055f9329ba0",
+    "public/dot-ui/img/platforms/pulse.png": "778074e867a1bb24fb28c5c3a688e4fa1f4eb8230ec5c8e3a6843121aa6bc977",
+    "public/dot-ui/img/platforms/sheet.png": "f32e7beb244e7ea8e6aeff336664cf8ad582a01c4b62f3d62993254440bf7555",
+    "public/dot-ui/img/platforms/tasks.png": "2b83e9ff66e163519268b2a3e103e8c41aa978f65925181f07297d412f16c5ca",
+    "public/dot-ui/img/platforms/tutor.png": "7ed3eaf2b0f94a4553dce088ba5bef14776e2ec02092b5e52bd32bd5662ea031",
+    "src/dot-ui/css/dot-fonts.css": "0c8ad1d628e1381879cc11e8c641c520b786b12855a3d7c24f68b5908aff97bd",
+    "src/dot-ui/css/dot-switcher-fonts.css": "caf9fd3556174397bb0e55351f8f111b3166a422fec0f5d0c3792fbba04febfb",
+    "src/dot-ui/css/dot-switcher.css": "30eb633ac0abc4c92a50ca5f66d4a2d74089ef3b2abc0635741abf4d6004eb91",
+    "src/dot-ui/fonts/archivo-latin-ext-wght-normal.woff2": "ff4f17d21930e36d6d93baba663e624cb767afc3feebf7adaebd82242638de05",
+    "src/dot-ui/fonts/archivo-latin-wght-normal.woff2": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
+    "src/dot-ui/js/dot-switcher-data.js": "cca6c9d66fdfbfaa4fd6768b04c25d141ca202c6c000931cc7bdf2e00c8a3f8a",
+    "src/dot-ui/js/dot-switcher-static.js": "64ab19fffd72e6e7b22e359902c2a04854bd6590ccc052533ca88d179d2b6531",
+    "src/dot-ui/js/dot-switcher.js": "fcdc8989b890c2d42c7c40ce63baad82edcd6e8cf301e7285472eca953841878",
+    "src/dot-ui/switcher-fonts/big-shoulders-stencil-display-latin-wght-normal.woff2": "0af62ad276479dff6f51769c9e6fedfc8ef933415b39515c442c2ce4afb40798"
+  },
+  "copied_not_hashed": [
+    "tests/dot-ui-drift.test.mjs"
+  ],
+  "roots": {
+    "src": "src",
+    "public": "public"
+  }
+}
