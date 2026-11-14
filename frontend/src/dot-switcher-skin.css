@@ -7,13 +7,14 @@
   --dsw-btn-border: var(--line);
   --dsw-btn-bg-hover: var(--panel);
   --dsw-focus: var(--signal);
-  --dsw-btn-height: 36px;
   flex: 0 0 auto;
 }
 .bar > .dsw .dsw-btn:hover,
+.bar > .dsw .dsw-fallback:hover,
 .bar > .dsw .dsw-btn[aria-expanded='true'] { color: var(--text); }
 /* The bar's own voice for the trigger label: condensed, uppercase, tracked, like its links. */
-.bar > .dsw .dsw-btn {
+.bar > .dsw .dsw-btn,
+.bar > .dsw .dsw-fallback {
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 13px;
