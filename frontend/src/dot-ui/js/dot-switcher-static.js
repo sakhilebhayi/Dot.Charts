@@ -140,14 +140,15 @@ export function renderInner(model, opts) {
   opts = opts || {};
   const id = opts.id || 'dsw-panel';
   const logoBase = String(opts.logos || '/img/platforms').replace(/\/+$/, '');
+  const label = esc(opts.buttonLabel || 'Dot Apps'); // the trigger's accessible name: the visible label is hidden under 640px and in compact mode
   const count = model.count;
   let sub;
   if (model.state === 'ok') sub = (count === 1 ? 'The one platform' : 'The ' + count + ' platforms') + ' ' + (model.company_name || 'your company') + ' has. Each opens already signed in.';
   else if (model.state === 'degraded') sub = model.sub || 'The core Dot platforms, opened through InfoDot.';
   else sub = 'Platforms are switched on per company.';
 
-  let h = '<a class="dsw-fallback" href="' + esc(model.platforms_url) + '" title="Switch Dot platform">' + GRID + '<span class="dsw-btn__label">Dot Apps</span></a>' +
-    '<button type="button" class="dsw-btn" data-dsw-trigger aria-expanded="false" aria-controls="' + esc(id) + '" title="Switch Dot platform">' + GRID + '<span class="dsw-btn__label">Dot Apps</span></button>' +
+  let h = '<a class="dsw-fallback" href="' + esc(model.platforms_url) + '" title="Switch Dot platform" aria-label="' + label + '">' + GRID + '<span class="dsw-btn__label">Dot Apps</span></a>' +
+    '<button type="button" class="dsw-btn" data-dsw-trigger aria-expanded="false" aria-controls="' + esc(id) + '" title="Switch Dot platform" aria-label="' + label + '">' + GRID + '<span class="dsw-btn__label">Dot Apps</span></button>' +
     '<div id="' + esc(id) + '" class="dsw-panel" data-dsw-panel role="region" aria-label="Dot platforms" hidden><div class="dsw-in"><div class="dsw-head"><div><p class="dsw-title">Dot Apps</p><p class="dsw-sub">' +
     esc(sub) + ' <a href="' + esc(model.platforms_url) + '" class="dsw-all">See all platforms</a></p></div>' +
     (count > 0 ? '<label class="dsw-filter"><span class="dsw-sr">Filter platforms</span>' + SEARCH + '<input type="search" data-dsw-filter placeholder="Filter platforms" autocomplete="off"></label>' : '') + '</div>';
@@ -183,6 +184,7 @@ export function mount(root, input, opts) {
   const model = buildModel(input);
   root.innerHTML = renderInner(model, opts);
   root.setAttribute('data-dsw', '');
+  if (opts.compact === true || (typeof root.getAttribute === 'function' && root.getAttribute('data-compact') !== null)) root.setAttribute('data-compact', '');
   root.setAttribute('data-state', model.state);
   root.setAttribute('data-platform', model.current);
   const behaviour = opts.behaviour || (typeof window !== 'undefined' ? window.DotSwitcher : null);
@@ -217,6 +219,6 @@ export async function mountAll(opts, doc) {
   await Promise.all(roots.map(async (root) => {
     if (root.getAttribute('data-dsw') !== null) return;
     const input = await loadModel(root, opts && opts.fetch);
-    if (input) mount(root, input, Object.assign({ logos: root.getAttribute('data-dsw-logos') || undefined }, opts));
+    if (input) mount(root, input, Object.assign({ logos: root.getAttribute('data-dsw-logos') || undefined, buttonLabel: root.getAttribute('data-dsw-button-label') || undefined }, opts));
   }));
 }

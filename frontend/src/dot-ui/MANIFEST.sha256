@@ -1,6 +1,3 @@
-# dot-ui drift manifest. Written by dot-ui/sync.sh, verified by the host's drift test. Not secrets: file hashes.
-# version 734de1cff4cabbaee05c45e725bb90554a09bc78
-# roots src=src public=public
 06d96b42071b6517b0f830a5bbdf2bd29e271c222c1220fe203e2f7ad5d25818  public/dot-ui/img/platforms/agents.png
 d1b18b5c5d3326aa90519f65216aa4f241e279b372fe251f4dbfa4bf0768e4a9  public/dot-ui/img/platforms/analytics.png
 14b2f024bd905a1edb16f3e3003f9380a3df76e64a751cf0ca9fb5a721edad2a  public/dot-ui/img/platforms/auction.png
@@ -27,10 +24,10 @@ f32e7beb244e7ea8e6aeff336664cf8ad582a01c4b62f3d62993254440bf7555  public/dot-ui/
 7ed3eaf2b0f94a4553dce088ba5bef14776e2ec02092b5e52bd32bd5662ea031  public/dot-ui/img/platforms/tutor.png
 0c8ad1d628e1381879cc11e8c641c520b786b12855a3d7c24f68b5908aff97bd  src/dot-ui/css/dot-fonts.css
 caf9fd3556174397bb0e55351f8f111b3166a422fec0f5d0c3792fbba04febfb  src/dot-ui/css/dot-switcher-fonts.css
-ae6046d2d654331bb23c96742ce307e1166a1ea4609ede859191a92a69c957ad  src/dot-ui/css/dot-switcher.css
+81a9ed9155b61022c9a3bf2d4d62bb5dbb08ac45968aee6d34d494b9adaa61b0  src/dot-ui/css/dot-switcher.css
 ff4f17d21930e36d6d93baba663e624cb767afc3feebf7adaebd82242638de05  src/dot-ui/fonts/archivo-latin-ext-wght-normal.woff2
 8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967  src/dot-ui/fonts/archivo-latin-wght-normal.woff2
 cca6c9d66fdfbfaa4fd6768b04c25d141ca202c6c000931cc7bdf2e00c8a3f8a  src/dot-ui/js/dot-switcher-data.js
-814b1d0e895ae3854c9d50c0b2f9eed72121bef7c35b6ad054e108ecf5ab71c1  src/dot-ui/js/dot-switcher-static.js
+d7bd7b775fe83423318cd2ec0a175f8122befddd6590941890b5ebcdb696beb8  src/dot-ui/js/dot-switcher-static.js
 6d6f572c999771d4d020569c044f240e657ca2ac804f637799605c2edf45dd25  src/dot-ui/js/dot-switcher.js
 0af62ad276479dff6f51769c9e6fedfc8ef933415b39515c442c2ce4afb40798  src/dot-ui/switcher-fonts/big-shoulders-stencil-display-latin-wght-normal.woff2
