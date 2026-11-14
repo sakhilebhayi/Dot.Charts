@@ -136,7 +136,22 @@ class BacktestController extends Controller
             $query->where('status', $request->string('status'));
         }
 
-        $runs = $query->paginate(20)->appends($request->query());
+        // The equity curve can hold thousands of points per run, and a page is 20 runs. The list carries the
+        // metrics and the disclosure (what a table row needs) and says whether a curve exists; the curve itself is
+        // fetched for one run on GET /backtests/{id}.
+        $runs = $query->paginate(20)
+            ->through(function (BacktestRun $run) {
+                $results = $run->results;
+                $hasCurve = is_array($results) && ! empty($results['equity_curve']);
+                if (is_array($results)) {
+                    unset($results['equity_curve']);
+                    $run->results = $results;
+                }
+                $run->setAttribute('has_equity_curve', $hasCurve);
+
+                return $run;
+            })
+            ->appends($request->query());
 
         return response()->json($runs);
     }
