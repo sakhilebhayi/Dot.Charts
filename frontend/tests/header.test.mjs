@@ -41,8 +41,9 @@ test('Roboto is the typeface: declared, served from the origin, mapped to the pl
     assert.ok(fs.existsSync(path.join(root, 'src/dot-ui/css', url.split('?')[0])), url);
   }
   const css = read('src/instrument.css');
-  assert.match(css, /@import '\.\/dot-ui\/css\/dot-roboto\.css';/);
-  assert.match(css, /@import '\.\/dot-ui\/css\/dot-type\.css';/);
+  // dot-ui 0.6.1: one minified stylesheet carries roboto, type, tokens, search, switcher and header
+  assert.match(css, /@import '\.\/dot-ui\/css\/dot-ui\.min\.css';/);
+  assert.ok(fs.existsSync(path.join(root, 'src/dot-ui/css/dot-ui.min.css')));
   assert.match(css, /--font-display:\s*var\(--dot-font-sans\)/);
   assert.match(css, /--font-body:\s*var\(--dot-font-sans\)/);
   assert.match(css, /--font-mono:\s*var\(--dot-font-mono\)/);
@@ -75,8 +76,8 @@ test('the pages carry no inline style, script or event handler', () => {
 
 test('the app header: one module, the shared static renderer, the shared scripts, a switcher, no bell', () => {
   const src = strip(read('src/app-header.js'));
-  assert.match(src, /import \{ mountHeader \} from '\.\/dot-ui\/js\/dot-header-static\.js'/);
-  for (const f of ['dot-nav.js', 'dot-search.js', 'dot-switcher.js']) assert.match(src, new RegExp(`import '\\./dot-ui/js/${f.replace('.', '\\.')}'`));
+  assert.match(src, /import \{ mountHeader \} from '\.\/dot-ui\/js\/dot-header-static\.min\.js'/);
+  for (const f of ['dot-nav.min.js', 'dot-search.min.js', 'dot-switcher.min.js']) assert.match(src, new RegExp(`import '\\./dot-ui/js/${f.replace(/\./g, '\\.')}'`));
   assert.doesNotMatch(src, /\bbell\(/, 'Dot.Charts has no notifications: no bell');
   assert.match(src, /skip: host\.dataset\.skip/);
   assert.match(src, /navModel\(page\)/);

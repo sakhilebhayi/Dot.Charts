@@ -8,11 +8,13 @@
 // Signed in (a Sanctum token in localStorage): account menu with the name and "Log out", search over the account's own
 // backtests, journal entries and strategies. Signed out: a "Log in" link, search over the platform's pages only, and the
 // pill says so. No bell: Dot.Charts has no notifications, so there is nothing for one to show.
-import './dot-ui/js/dot-search.js';
-import './dot-ui/js/dot-switcher.js';
-import './dot-ui/js/dot-nav.js';
-import { mountHeader } from './dot-ui/js/dot-header-static.js';
-import { mount as mountSwitcher } from './dot-ui/js/dot-switcher-static.js';
+// dot-ui 0.6.1: the minified files, imported together (the static header and switcher share dot-switcher-data.min.js).
+// The host's own search results code does not call DotSearchResults.attach, so the results controller is not needed.
+import './dot-ui/js/dot-search.min.js';
+import './dot-ui/js/dot-switcher.min.js';
+import './dot-ui/js/dot-nav.min.js';
+import { mountHeader } from './dot-ui/js/dot-header-static.min.js';
+import { mount as mountSwitcher } from './dot-ui/js/dot-switcher-static.min.js';
 import { registry, INFODOT_PLATFORMS_URL } from './registry.js';
 import { API_BASE } from './api-base.js';
 import { isLoggedIn, getToken, clearToken, logout } from './auth.js';

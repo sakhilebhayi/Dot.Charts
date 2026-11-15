@@ -8,12 +8,8 @@
    corners, uppercase tracked labels. Data readouts (figures, symbols,
    status words) keep a monospace stack so columns of numbers line up.
    ──────────────────────────────────────────────────────────────────── */
-@import './dot-ui/css/dot-roboto.css';
-@import './dot-ui/css/dot-type.css';
-@import './dot-ui/css/dot-tokens.css';
-@import './dot-ui/css/dot-search.css';
-@import './dot-ui/css/dot-switcher.css';
-@import './dot-ui/css/dot-header.css';
+/* dot-ui 0.6.1: Roboto, the type scale, tokens, search, switcher and header as one minified file (first rule of the stylesheet). */
+@import './dot-ui/css/dot-ui.min.css';
 
 :root {
   --bg:#01040d;
