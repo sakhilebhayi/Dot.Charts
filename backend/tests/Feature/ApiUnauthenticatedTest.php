@@ -14,7 +14,7 @@ class ApiUnauthenticatedTest extends TestCase
 {
     public function test_protected_routes_answer_401_json_without_an_accept_header(): void
     {
-        foreach (['/api/me', '/api/strategies', '/api/backtests', '/api/journal-entries'] as $uri) {
+        foreach (['/api/me', '/api/strategies', '/api/backtests', '/api/journal-entries', '/api/search'] as $uri) {
             $response = $this->call('GET', $uri);
 
             $response->assertStatus(401);

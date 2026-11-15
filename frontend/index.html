@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dot-roboto">
 <head>
   <meta charset="UTF-8" />
   <title>Dot.Charts</title>
@@ -7,212 +7,12 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --bg:#01040d;
-      --panel:#070d1c;
-      --panel-sunken:#040917;
-      --line:rgba(148,163,184,.18);
-      --text:#e8ebf2;
-      --muted:#8496b0;
-      --ghost:#3d4c66;
-      --signal:#f2a70b;            /* the logo's amber — the instrument's signal colour */
-      --signal-soft:rgba(242,167,11,.1);
-      --blue:#8ec9dc;              /* the logo's powder blue — secondary */
-      --green:#2fd06d;--green-soft:rgba(47,208,109,.1);
-      --red:#ff4d55;--red-soft:rgba(255,77,85,.1);
-      --font-display:'IBM Plex Sans Condensed',system-ui,sans-serif;
-      --font-body:'IBM Plex Sans',system-ui,sans-serif;
-      --font-mono:'IBM Plex Mono',ui-monospace,monospace;
-    }
-    *{box-sizing:border-box}
-    /* CSS display on a class outranks the UA's [hidden] rule — restore it. */
-    [hidden]{display:none !important}
-    body{margin:0;min-height:100vh;color:var(--text);font-family:var(--font-body);
-      font-size:15px;background:var(--bg)}
-    .app{max-width:1280px;margin:0 auto;padding:0 24px 48px}
-
-    .bar{display:flex;align-items:center;justify-content:space-between;gap:18px;
-      padding:14px 0;border-bottom:1px solid var(--line)}
-    .bar-logo{height:46px;width:auto;display:block}
-    .bar nav{display:flex;flex-wrap:wrap;gap:2px 22px}
-    .bar nav a{font-family:var(--font-display);font-weight:600;font-size:13px;
-      letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
-      text-decoration:none;padding:4px 0}
-    .bar nav a:hover{color:var(--text)}
-    .bar nav a.login{color:var(--blue)}
-
-    .hero{padding:64px 0 40px;max-width:860px}
-    .hero h1{margin:0;font-family:var(--font-display);font-weight:700;
-      font-size:clamp(44px,7.2vw,84px);line-height:.94;letter-spacing:-.01em;
-      text-transform:uppercase}
-    .hero h1 em{font-style:normal;color:var(--signal)}
-    .hero-sub{margin:22px 0 0;max-width:600px;font-size:16.5px;line-height:1.6;color:var(--muted)}
-    .hero-sub strong{color:var(--text);font-weight:600}
-    .specline{margin:22px 0 0;font-family:var(--font-mono);font-size:12px;
-      letter-spacing:.12em;text-transform:uppercase;color:var(--ghost)}
-    .specline b{color:var(--muted);font-weight:500}
-
-    /* ── The instrument: scan stage + signal readout, one shared edge ── */
-    .deck{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:1px;
-      background:var(--line);border:1px solid var(--line)}
-    .stage-col{background:var(--panel);display:flex;flex-direction:column;min-width:0}
-    .stage{position:relative;flex:1;min-height:440px;cursor:pointer;overflow:hidden;
-      background:var(--panel-sunken)}
-    .stage:hover .prompt-main,.stage.drag-over .prompt-main{color:var(--signal)}
-    .stage.drag-over{outline:1px solid var(--signal);outline-offset:-1px}
-    /* corner brackets — a crosshair frame, drawn not faked */
-    .tick{position:absolute;width:16px;height:16px;border:0 solid var(--ghost)}
-    .tick.tl{top:10px;left:10px;border-top-width:1px;border-left-width:1px}
-    .tick.tr{top:10px;right:10px;border-top-width:1px;border-right-width:1px}
-    .tick.bl{bottom:10px;left:10px;border-bottom-width:1px;border-left-width:1px}
-    .tick.br{bottom:10px;right:10px;border-bottom-width:1px;border-right-width:1px}
-    .stage.drag-over .tick,.stage:hover .tick{border-color:var(--signal)}
-    .plot-axes{position:absolute;inset:0;color:var(--ghost)}
-    .stage-empty{position:absolute;inset:0;display:flex;flex-direction:column;
-      align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}
-    .prompt-main{font-family:var(--font-mono);font-weight:500;font-size:clamp(20px,3vw,30px);
-      letter-spacing:.22em;color:var(--muted)}
-    .prompt-sub{font-size:13.5px;color:var(--ghost)}
-    .stage-image{position:absolute;inset:0;display:flex;align-items:center;
-      justify-content:center;background:var(--panel-sunken)}
-    .stage-image img{max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in}
-    .scanline{position:absolute;inset:0;pointer-events:none;display:none;
-      background:linear-gradient(to bottom,transparent 0%,transparent 46%,
-        rgba(242,167,11,.16) 49%,var(--signal) 50%,rgba(242,167,11,.16) 51%,
-        transparent 54%,transparent 100%);
-      background-size:100% 220%;background-repeat:no-repeat;
-      animation:scan 1.5s linear infinite}
-    .stage.scanning .scanline{display:block}
-    @keyframes scan{from{background-position:0 92%}to{background-position:0 8%}}
-    .stage-foot{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;
-      padding:14px 16px;border-top:1px solid var(--line)}
-    .stage-foot .fld{flex:1;min-width:150px}
-    .stage-foot label{display:block;font-family:var(--font-display);font-weight:600;
-      font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ghost);
-      margin-bottom:6px}
-    .stage-foot input,.stage-foot select{width:100%;padding:9px 11px;border-radius:0;
-      background:var(--panel-sunken);border:1px solid var(--line);color:var(--text);
-      font-family:var(--font-mono);font-size:13.5px}
-    .stage-foot input::placeholder{color:var(--ghost)}
-    .stage-foot input:focus,.stage-foot select:focus{outline:none;border-color:var(--signal)}
-    .stage-foot .note{flex-basis:100%;margin:0;font-size:12px;color:var(--ghost)}
-
-    .readout{background:var(--panel);display:flex;flex-direction:column;min-width:0}
-    .readout-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
-      padding:11px 16px;border-bottom:1px solid var(--line);background:var(--panel-sunken)}
-    .readout-head span:first-child{font-family:var(--font-display);font-weight:700;
-      font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
-    #panelStatus{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.12em}
-    #panelStatus[data-state="idle"]{color:var(--muted)}
-    #panelStatus[data-state="busy"]{color:var(--signal)}
-    #panelStatus[data-state="good"]{color:var(--green)}
-    #panelStatus[data-state="warn"]{color:var(--signal)}
-    #panelStatus[data-state="bad"]{color:var(--red)}
-    .readout-body{padding:20px 16px;flex:1;display:flex;flex-direction:column;min-width:0}
-
-    .ro-label{font-family:var(--font-display);font-weight:600;font-size:11px;
-      letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-    .ro-signal{font-family:var(--font-mono);font-weight:600;text-transform:uppercase;
-      font-size:clamp(38px,4vw,52px);line-height:1.05;letter-spacing:.01em;margin:8px 0 0}
-    .idle .ro-signal{color:var(--ghost)}
-    .segbar{position:relative;height:8px;margin-top:16px;
-      background:repeating-linear-gradient(90deg,rgba(132,150,176,.22) 0 6px,transparent 6px 10px)}
-    .segbar b{position:absolute;top:0;bottom:0;left:0;
-      background:repeating-linear-gradient(90deg,currentColor 0 6px,transparent 6px 10px)}
-    .ro-conf{margin-top:9px;font-family:var(--font-mono);font-size:12px;
-      letter-spacing:.1em;color:var(--muted)}
-    .ro-rows{margin-top:22px;border-top:1px solid var(--line)}
-    .ro-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
-      padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
-    .ro-row span{font-family:var(--font-display);font-weight:600;font-size:11px;
-      letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
-    .ro-row b{font-family:var(--font-mono);font-weight:500;text-align:right;overflow-wrap:anywhere}
-    .idle .ro-row b{color:var(--ghost)}
-    .ro-note{margin:16px 0 0;font-size:13px;line-height:1.6;color:var(--muted)}
-    .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
-    .tag{display:inline-flex;padding:4px 9px;font-size:12.5px;color:var(--text);
-      border:1px solid var(--line)}
-    .tag.green{color:var(--green);border-color:rgba(47,208,109,.4);font-family:var(--font-mono)}
-    .tag.red{color:var(--red);border-color:rgba(255,77,85,.4);font-family:var(--font-mono)}
-    .ro-section{margin-top:16px}
-    .summary{font-size:13px;color:var(--muted);line-height:1.65;margin-top:8px}
-    .meta{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--ghost);margin-top:12px}
-    .primary-btn{margin-top:18px;padding:12px 20px;background:var(--signal);color:#211a06;
-      border:none;border-radius:0;font-family:var(--font-display);font-weight:700;
-      font-size:13.5px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
-    .primary-btn:hover{filter:brightness(1.08)}
-    .primary-btn:active{transform:translateY(1px)}
-    .fade-in{animation:fadeIn .25s ease forwards;opacity:0;width:100%}
-    @keyframes fadeIn{to{opacity:1}}
-    .spinner{width:26px;height:26px;border:2px solid var(--line);border-top-color:var(--signal);
-      border-radius:50%;animation:spin .9s linear infinite;margin-bottom:12px}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .demo-banner{display:flex;flex-direction:column;gap:4px;text-align:left;margin-bottom:16px;
-      padding:11px 13px;background:var(--signal-soft);
-      border:1px solid rgba(242,167,11,.35);color:#f5c76a;font-size:12.5px;line-height:1.55}
-    .demo-banner strong{font-family:var(--font-display);letter-spacing:.06em;
-      text-transform:uppercase;font-size:11.5px}
-    .err-text{color:var(--red);font-size:13.5px;line-height:1.6;margin:10px 0 0}
-
-    /* ── the other instruments ── */
-    .modules{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:1px;
-      background:var(--line);border:1px solid var(--line);border-top:0}
-    .module{background:var(--panel);padding:18px 16px 16px;text-decoration:none;display:block}
-    .module:hover{background:var(--panel-sunken)}
-    .module h2{margin:0;font-family:var(--font-display);font-weight:700;font-size:14px;
-      letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
-    .module p{margin:8px 0 0;font-size:12.5px;line-height:1.55;color:var(--muted)}
-    .module .go{display:inline-block;margin-top:12px;font-family:var(--font-mono);
-      font-size:11px;letter-spacing:.12em;color:var(--blue)}
-    .module:hover .go{color:var(--signal)}
-
-    .disclaimer{margin-top:28px;padding:13px 16px;background:var(--signal-soft);
-      border:1px solid rgba(242,167,11,.3);color:#f5c76a;font-size:13px;line-height:1.6;
-      display:flex;gap:14px;align-items:baseline}
-    .disclaimer b{font-family:var(--font-display);font-weight:700;font-size:11px;
-      letter-spacing:.16em;text-transform:uppercase;white-space:nowrap}
-
-    .image-modal{position:fixed;inset:0;background:rgba(1,4,13,.88);display:none;
-      align-items:center;justify-content:center;z-index:50;padding:24px}
-    .image-modal.open{display:flex}
-    .image-modal img{max-width:92vw;max-height:92vh;border:1px solid var(--line)}
-    .modal-close{position:absolute;top:18px;right:18px;background:var(--panel);
-      color:var(--text);border:1px solid var(--line);padding:8px 12px;cursor:pointer;font-size:14px}
-    .modal-close:hover{border-color:var(--signal)}
-
-    @media(max-width:960px){
-      .deck{grid-template-columns:1fr}
-      .modules{grid-template-columns:1fr 1fr}
-      .hero{padding-top:44px}
-      .stage{min-height:320px}
-    }
-    @media(max-width:560px){
-      .modules{grid-template-columns:1fr}
-      .bar-logo{height:38px}
-    }
-      /* Reduced motion (WCAG 2.3.3) */
-    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
-  </style>
+  <link rel="stylesheet" href="/src/instrument.css" />
+  <link rel="stylesheet" href="/src/index.css" />
 </head>
 <body>
-<div class="app">
-<header class="bar">
-  <a href="/" aria-label="Dot.Charts home"><img src="/images/logo.png" alt="Dot.Charts" class="bar-logo" /></a>
-  <nav>
-    <a href="/home.html">Home</a>
-    <a href="/" aria-current="page">Chart read</a>
-    <a href="/backtest.html">Backtest</a>
-    <a href="/strategy-builder.html">Strategy Builder</a>
-    <a href="/journal.html">Journal</a>
-    <a href="/options.html">Options Vol</a>
-    <a href="/login.html" class="login">Log in</a>
-  </nav>
-</header>
-
+<div id="app-header" data-page="chart"></div>
+<div class="app" id="main" tabindex="-1">
 <section class="hero">
   <h1>Every chart<br>has a <em>signal</em>.</h1>
   <p class="hero-sub">
@@ -248,7 +48,7 @@
       <i class="tick tl"></i><i class="tick tr"></i><i class="tick bl"></i><i class="tick br"></i>
     </div>
     <input type="file" id="fileInput" accept="image/*" hidden>
-    <div class="stage-foot" onclick="event.stopPropagation()">
+    <div class="stage-foot">
       <div class="fld">
         <label for="symbolOverride">Symbol override</label>
         <input id="symbolOverride" placeholder="AAPL / GC=F / BTC-USDT" autocomplete="off" />
@@ -274,7 +74,7 @@
       <div class="idle">
         <span class="ro-label">Signal</span>
         <div class="ro-signal">&ndash;&ndash;&ndash;&ndash;</div>
-        <div class="segbar"><b style="width:0%"></b></div>
+        <div class="segbar"><b></b></div>
         <div class="ro-conf">CONFIDENCE &ndash;&ndash;%</div>
         <div class="ro-rows">
           <div class="ro-row"><span>Symbol</span><b>&ndash;&ndash;</b></div>
@@ -324,6 +124,6 @@
   <button class="modal-close" id="modalClose" aria-label="Close image">&#10005;</button>
   <img id="modalImg" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" alt="Uploaded chart preview">
 </div>
-</body>
 <script type="module" src="/src/main.js"></script>
+</body>
 </html>

@@ -125,7 +125,7 @@ function tileHtml(t, logoBase) {
   const name = esc(t.name);
   let inner;
   if (t.href === null) {
-    inner = '<div class="dsw-bay is-current" aria-current="page"><span class="dsw-bay__logo">' + img(false) + '</span><span class="dsw-bay__name">' + name + '</span><span class="dsw-bay__tag dsw-bay__tag--here">You are here</span></div>';
+    inner = '<div class="dsw-bay is-current" aria-current="page"><span class="dsw-bay__logo">' + img(true) + '</span><span class="dsw-bay__name">' + name + '</span><span class="dsw-bay__tag dsw-bay__tag--here">You are here</span></div>';
   } else {
     inner = '<a class="dsw-bay" href="' + esc(t.href) + '" data-dsw-go data-dsw-label="' + name + '" title="' + esc(t.via_infodot ? 'Open ' + t.name + ' through InfoDot' : 'Open ' + t.name) + '">' +
       '<span class="dsw-bay__logo">' + img(true) + '</span><span class="dsw-bay__name">' + name + '</span>' +

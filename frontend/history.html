@@ -1,30 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dot-roboto">
 <head>
   <meta charset="UTF-8" />
   <title>Dot.Charts — History</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/instrument.css" />
 </head>
 <body>
-<div class="container">
-<header class="bar">
-  <a href="/" aria-label="Dot.Charts home"><img src="/images/logo.png" alt="Dot.Charts" class="bar-logo" /></a>
-  <nav>
-    <a href="/home.html">Home</a>
-    <a href="/">Chart read</a>
-    <a href="/backtest.html">Backtest</a>
-    <a href="/strategy-builder.html">Strategy Builder</a>
-    <a href="/history.html" aria-current="page">History</a>
-    <a href="/journal.html">Journal</a>
-    <a href="/options.html">Options Vol</a>
-    <span id="authState"></span>
-  </nav>
-</header>
+<div id="app-header" data-page="history"></div>
+<main class="container" id="main" tabindex="-1">
 <div class="page-head">
   <h1>Backtest History</h1>
   <p class="sub">Your past runs. Login required &mdash; this list is always scoped to your own account.</p>
@@ -72,7 +57,7 @@
   <div id="error"></div>
   <div id="empty">No backtests match these filters yet.</div>
   <div id="runsList"></div>
-  <button id="loadMore" class="secondary" style="display:none">Load more</button>
+  <button id="loadMore" class="secondary">Load more</button>
 
   <div id="results" class="card">
     <h2 id="resultTitle"></h2>
@@ -88,10 +73,10 @@
     <div class="disclosure">
       <strong id="dConfidence"></strong>
       <div id="dAttribution"></div>
-      <div id="dRisk" style="margin-top:8px"></div>
+      <div id="dRisk" class="mt-8"></div>
     </div>
   </div>
-</div>
+</main>
 <script type="module" src="/src/history.js"></script>
 </body>
 </html>

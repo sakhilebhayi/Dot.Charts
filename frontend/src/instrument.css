@@ -1,8 +1,16 @@
 /* ─────────────────────────────────────────────────────────────────────
-   Dot.Charts instrument design — the shared skin for every module page.
-   Landing (index.html) carries its own tuned copy of these tokens; keep
-   the two in step when tokens change.
+   Dot.Charts instrument design: the shared skin for every page (the
+   landing and the module pages alike; index.css holds only what the
+   landing adds). Dark only: the platform has no light theme.
+
+   R-52: Roboto is the typeface (self-hosted, from the shared dot-ui
+   package). The instrument look stays: amber signal, hairlines, square
+   corners, uppercase tracked labels. Data readouts (figures, symbols,
+   status words) keep a monospace stack so columns of numbers line up.
    ──────────────────────────────────────────────────────────────────── */
+/* dot-ui 0.6.1: Roboto, the type scale, tokens, search, switcher and header as one minified file (first rule of the stylesheet). */
+@import './dot-ui/css/dot-ui.min.css';
+
 :root {
   --bg:#01040d;
   --panel:#070d1c;
@@ -11,18 +19,20 @@
   --text:#e8ebf2;
   --muted:#8496b0;
   --ghost:#3d4c66;
-  --signal:#f2a70b;            /* the logo's amber — the instrument's signal colour */
+  --quiet:#6b7c99;             /* placeholders and small quiet text: 4.6:1 on --panel-sunken (--ghost is about 2:1 and stays decorative) */
+  --signal:#f2a70b;            /* the logo's amber: the instrument's signal colour */
   --signal-soft:rgba(242,167,11,.1);
-  --blue:#8ec9dc;              /* the logo's powder blue — secondary */
+  --blue:#8ec9dc;              /* the logo's powder blue: secondary */
   --green:#2fd06d;--green-soft:rgba(47,208,109,.1);
   --red:#ff4d55;--red-soft:rgba(255,77,85,.1);
   --on-signal:#211a06;         /* text on the amber signal colour */
-  --font-display:'IBM Plex Sans Condensed',system-ui,sans-serif;
-  --font-body:'IBM Plex Sans',system-ui,sans-serif;
-  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+  --hover:#0d1528;
+  /* Roboto everywhere; one monospace stack for readouts (dot-ui's --dot-font-mono). */
+  --font-display:var(--dot-font-sans);
+  --font-body:var(--dot-font-sans);
+  --font-mono:var(--dot-font-mono);
 
-  /* Compatibility aliases — page markup and JS-rendered inline styles
-     still reference the original token names. */
+  /* Compatibility aliases: page markup and JS-rendered markup still use the original token names. */
   --accent:var(--blue);
   --accent-soft:rgba(142,201,220,.12);
   --border:var(--line);
@@ -32,73 +42,134 @@
   --warn-border:rgba(242,167,11,.3);
   --success:var(--green);
   --danger:var(--red);
+
+  color-scheme:dark;
+
+  /* dot-ui search: the dropdown surface follows the instrument panel. The pill itself is InfoDot's and is not remapped. */
+  --dsr-panel:var(--panel);
+  --dsr-hover:var(--hover);
+  --dsr-rule:rgba(148,163,184,.22);
+  --dsr-rule-strong:#51617d;
+  --dsr-text:var(--text);
+  --dsr-text-2:#c3ccdb;
+  --dsr-text-3:var(--muted);
+  --dsr-icon:var(--muted);
+  --dsr-mark:rgba(242,167,11,.38);
+  --dsr-filter-bg:var(--panel-sunken);
+  --dsr-filter-ink:var(--text);
 }
 *{box-sizing:border-box}
-/* CSS display on a class outranks the UA's [hidden] rule — restore it. */
+/* CSS display on a class outranks the UA's [hidden] rule: restore it. */
 [hidden]{display:none !important}
-body{margin:0;min-height:100vh;color:var(--text);font-family:var(--font-body);
-  font-size:15px;background:var(--bg);line-height:1.55}
+html{background:var(--bg)}
+body{margin:0;min-height:100vh;min-height:100dvh;color:var(--text);font-family:var(--font-body);
+  font-size:15px;background:var(--bg);line-height:1.55;-webkit-font-smoothing:antialiased}
+.sr{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 
-.container{max-width:1080px;margin:0 auto;padding:0 24px 48px}
+.container{max-width:1080px;margin:0 auto;padding:28px 24px 48px}
 .container.narrow{max-width:460px}
+.container:focus{outline:none}
 
-/* ── App bar ── */
-.bar{display:flex;align-items:center;justify-content:space-between;gap:18px;
-  padding:14px 0;border-bottom:1px solid var(--line);margin-bottom:34px}
-.bar-logo{height:46px;width:auto;display:block}
-.bar nav{display:flex;flex-wrap:wrap;align-items:center;gap:2px 22px}
-.bar nav a,.bar nav span a{font-family:var(--font-display);font-weight:600;font-size:13px;
-  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
-  text-decoration:none;padding:4px 0}
-.bar nav a:hover,.bar nav span a:hover{color:var(--text)}
-.bar nav a[aria-current="page"]{color:var(--signal)}
-.bar nav #authState{font-size:13px}
+/* ── App bar: the shared dot-ui header (src/app-header.js builds it, ONE model for every page) ──
+   The package ships neutral defaults; this block maps the instrument tokens onto them. The package declares its tokens on
+   .dh itself, so the mapping is written on .dh too (a :root mapping would lose to the element's own value). */
+.dh, .dh-drawer {
+  --dh-bg:var(--bg);
+  --dh-ink:var(--text);
+  --dh-ink-2:var(--muted);
+  --dh-rule:var(--line);
+  --dh-hover:rgba(148,163,184,.12);
+  --dh-accent:var(--signal);
+  --dh-focus:var(--signal);
+  --dh-radius:0;
+  --dh-panel:var(--panel);
+  --dh-panel-ink:var(--text);
+  --dh-panel-ink-2:var(--muted);
+  --dh-panel-rule:rgba(148,163,184,.22);
+  --dh-panel-hover:var(--hover);
+  --dh-scrim:rgba(1,4,13,.7);
+  --dh-badge-bg:var(--signal);
+  --dh-badge-ink:var(--on-signal);
+}
+#app-header{min-height:var(--dot-header-offset)}
+#app-header .dh-brand img{display:block;height:44px;width:auto}
+#app-header .dh-nav__link{font-weight:500}
+.dh-signin{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;color:var(--text);
+  border:1px solid var(--line);font:500 14px/1 var(--font-body);text-decoration:none;white-space:nowrap}
+.dh-signin:hover{border-color:var(--muted)}
+.dh-signin:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.dh .dsw{--dsw-btn-ink:var(--muted);--dsw-btn-border:var(--line);--dsw-btn-bg-hover:var(--panel);--dsw-focus:var(--signal);flex:0 0 auto}
+.dh .dsw .dsw-btn:hover,.dh .dsw .dsw-fallback:hover,.dh .dsw .dsw-btn[aria-expanded='true']{color:var(--text)}
+.dh-dsignin{display:grid;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--dh-rule)}
+.dh-dsignin a{display:flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid var(--line);color:var(--text);text-decoration:none;font:500 15px/1 var(--font-body)}
+.dh-dsignin a:first-child{background:var(--signal);border-color:var(--signal);color:var(--on-signal);font-weight:700}
+.dh-dsignin p{margin:0 0 4px;color:var(--muted);font-size:13px}
+@media (max-width:860px){
+  #app-header .dh-brand img{height:34px}
+  .dh-signin{display:none}
+  .dh .dsw .dsw-btn__label{display:none}
+}
+/* the search results the host fills: the tag and ref chips stay on the instrument scale */
+.dsr .dsr-ref{font-family:var(--font-mono)}
+.dsr .dsr-sub{color:var(--dsr-text-3);font-size:12px;font-weight:400}
 
 /* ── Page head ── */
 .page-head h1{margin:0;font-family:var(--font-display);font-weight:700;
-  font-size:clamp(28px,4vw,40px);letter-spacing:.02em;text-transform:uppercase;line-height:1.1}
-.page-head .sub{margin:10px 0 0;max-width:640px;color:var(--muted);font-size:14.5px;line-height:1.6}
+  font-size:clamp(26px,4vw,38px);letter-spacing:.01em;text-transform:uppercase;line-height:1.12;overflow-wrap:anywhere}
+.page-head .sub{margin:10px 0 0;max-width:640px;color:var(--muted);font-size:15px;line-height:1.6}
 
 /* ── Panels (the legacy .card class, reskinned) ── */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:0;
   padding:24px;margin-top:22px}
 .card h2{font-family:var(--font-display);font-weight:700;font-size:18px;
-  letter-spacing:.06em;text-transform:uppercase;margin:0 0 4px}
+  letter-spacing:.04em;text-transform:uppercase;margin:0 0 4px}
 .card h3{font-family:var(--font-display);font-weight:700;font-size:14px;
-  letter-spacing:.08em;text-transform:uppercase;margin:0 0 6px}
+  letter-spacing:.06em;text-transform:uppercase;margin:0 0 6px}
+.card h3.flush{margin-top:0}
 
 /* ── Forms ── */
-label{display:block;font-family:var(--font-display);font-weight:600;font-size:11px;
-  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:16px 0 7px}
-input,select,textarea{width:100%;padding:10px 12px;border-radius:0;
+/* The element rules below skip the shared dot-ui components (.dh header, .dsr search, .dsw switcher): they style their own controls. */
+label:not(:where(.dh, .dh-drawer, .dsr, .dsw) *){display:block;font-family:var(--font-display);font-weight:600;font-size:12px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 0 7px}
+input:not(:where(.dh, .dh-drawer, .dsr, .dsw) *),select:not(:where(.dh, .dh-drawer, .dsr, .dsw) *),textarea:not(:where(.dh, .dh-drawer, .dsr, .dsw) *){width:100%;padding:10px 12px;border-radius:0;min-height:44px;
   border:1px solid var(--line);background:var(--panel-sunken);color:var(--text);
-  font-family:var(--font-mono);font-size:14px}
-select,textarea{font-family:var(--font-body)}
+  font-family:var(--font-body);font-size:15px}
+input[type=number],input[type=date]{font-variant-numeric:tabular-nums}
 textarea{resize:vertical;min-height:110px;line-height:1.6}
-input::placeholder,textarea::placeholder{color:var(--ghost)}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--signal)}
+input::placeholder,textarea::placeholder{color:var(--quiet)}
+input:not(:where(.dh, .dh-drawer, .dsr, .dsw) *):focus,select:not(:where(.dh, .dh-drawer, .dsr, .dsw) *):focus,textarea:not(:where(.dh, .dh-drawer, .dsr, .dsw) *):focus{outline:none;border-color:var(--signal)}
+input:not(:where(.dh, .dh-drawer, .dsr, .dsw) *):focus-visible,select:not(:where(.dh, .dh-drawer, .dsr, .dsw) *):focus-visible,textarea:not(:where(.dh, .dh-drawer, .dsr, .dsw) *):focus-visible{outline:2px solid var(--signal);outline-offset:1px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.row > *{min-width:0}
 
-button{margin-top:22px;padding:12px 22px;background:var(--signal);color:#211a06;
+button:not(:where(.dh, .dh-drawer, .dsr, .dsw) *){margin-top:22px;padding:12px 22px;min-height:44px;background:var(--signal);color:var(--on-signal);
   border:none;border-radius:0;font-family:var(--font-display);font-weight:700;
-  font-size:13.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
-button:hover{filter:brightness(1.08)}
-button:active{transform:translateY(1px)}
-button:disabled{opacity:.45;cursor:not-allowed;filter:none}
+  font-size:14px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+button:not(:where(.dh, .dh-drawer, .dsr, .dsw) *):hover{filter:brightness(1.08)}
+button:not(:where(.dh, .dh-drawer, .dsr, .dsw) *):active{transform:translateY(1px)}
+button:not(:where(.dh, .dh-drawer, .dsr, .dsw) *):focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+button:not(:where(.dh, .dh-drawer, .dsr, .dsw) *):disabled{opacity:.45;cursor:not-allowed;filter:none}
 button.secondary{background:transparent;border:1px solid var(--line);color:var(--text)}
 button.secondary:hover{border-color:var(--muted);filter:none}
 button.danger{background:transparent;border:1px solid var(--red);color:var(--red)}
 button.danger:hover{background:var(--red-soft);filter:none}
+button.block,.block{width:100%}
+.mt-0{margin-top:0}
+.mt-16{margin-top:16px}
+.mt-20{margin-top:20px}
+.mt-8{margin-top:8px}
+.ink-muted{color:var(--muted)}
+.fine{font-size:14px}
 
 /* ── Status / message strips ── */
 #error,#formError,#saveError{color:var(--red);margin-top:14px;display:none;font-size:14px;line-height:1.6}
 #empty,#loginNotice{color:var(--muted);margin-top:20px;display:none}
 .disclosure,.demo-banner{margin-top:20px;padding:14px 16px;border-radius:0;
   background:var(--signal-soft);border:1px solid rgba(242,167,11,.3);
-  color:#f5c76a;font-size:13.5px;line-height:1.6}
+  color:#f5c76a;font-size:14px;line-height:1.6}
 .disclosure strong,.demo-banner strong{display:block;margin-bottom:6px;
-  font-family:var(--font-display);font-weight:700;font-size:11.5px;
-  letter-spacing:.14em;text-transform:uppercase;color:#f5c76a}
+  font-family:var(--font-display);font-weight:700;font-size:12px;
+  letter-spacing:.1em;text-transform:uppercase;color:#f5c76a}
 
 /* Result panels start hidden; page JS reveals them after a run. */
 #results{display:none}
@@ -107,24 +178,27 @@ button.danger:hover{background:var(--red-soft);filter:none}
 /* ── Metric readouts ── */
 .metrics-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;margin-top:16px;
   background:var(--line);border:1px solid var(--line)}
-.metric-box{background:var(--panel-sunken);border:0;border-radius:0;padding:14px 16px}
+.metric-box{background:var(--panel-sunken);border:0;border-radius:0;padding:14px 16px;min-width:0}
 .metric-box label{margin:0 0 6px}
-.metric-box .value{font-family:var(--font-mono);font-size:19px;font-weight:600}
+.metric-box .value{font-family:var(--font-body);font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .metric-box .value.negative{color:var(--red)}
 .metric-box .value.positive{color:var(--green)}
-#equityCurve{width:100%;height:170px;margin-top:20px;background:var(--panel-sunken);
+/* The equity curve is drawn at the width the panel really has (results-renderer.js redraws it when that changes). */
+#equityCurve{display:block;width:100%;height:170px;margin-top:20px;background:var(--panel-sunken);
   border-radius:0;border:1px solid var(--line)}
+#equityCurve .eq-line{fill:none;stroke:#22d3ee;stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
 
 /* ── History run rows ── */
 .run-row{background:var(--panel-sunken);border:1px solid var(--line);border-radius:0;
   padding:14px 16px;margin-top:12px;display:flex;justify-content:space-between;
-  align-items:center;gap:14px;flex-wrap:wrap}
+  align-items:center;gap:14px;flex-wrap:wrap;cursor:pointer}
+.run-row > div:first-child{min-width:0;flex:1 1 240px}
 .run-row:hover{border-color:var(--muted)}
-.run-row .symbol{font-family:var(--font-mono);font-weight:600;font-size:15.5px}
-.run-row .meta{font-size:12.5px;color:var(--muted);margin-top:3px}
-.run-row .run-actions{display:flex;gap:8px}
-.run-row button{margin-top:0;padding:8px 14px;font-size:12px}
-.run-row .status{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;
+.run-row .symbol{font-family:var(--font-mono);font-weight:600;font-size:16px;overflow-wrap:anywhere}
+.run-row .meta{font-size:13px;color:var(--muted);margin-top:3px;overflow-wrap:anywhere}
+.run-row .run-actions{display:flex;gap:8px;flex-wrap:wrap}
+.run-row button{margin-top:0;padding:8px 14px;font-size:12.5px}
+.run-row .status{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.08em;
   text-transform:uppercase;padding:3px 8px;border-radius:0;margin-left:8px}
 .status.complete{background:var(--green-soft);color:var(--green)}
 .status.failed{background:var(--red-soft);color:var(--red)}
@@ -133,50 +207,84 @@ button.danger:hover{background:var(--red-soft);filter:none}
 /* ── Journal entry cards ── */
 .entry-card{background:var(--panel-sunken);border:1px solid var(--line);border-radius:0;
   padding:16px;margin-top:12px}
+.entry-card.found{border-color:var(--signal)}
 .entry-card .entry-title{font-family:var(--font-display);font-weight:700;font-size:16px;
-  letter-spacing:.03em}
-.entry-card .entry-meta{font-size:12.5px;color:var(--muted);margin-top:5px;
+  letter-spacing:.01em;overflow-wrap:anywhere}
+.entry-card .entry-meta{font-size:13px;color:var(--muted);margin-top:5px;
   display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.entry-card .entry-body{margin-top:10px;font-size:14px;line-height:1.65;white-space:pre-wrap}
-.entry-card .entry-actions{display:flex;gap:8px;margin-top:12px}
-.entry-card button{margin-top:0;padding:8px 14px;font-size:12px}
-.badge{display:inline-block;font-family:var(--font-mono);font-size:11px;
-  letter-spacing:.06em;padding:2px 8px;border-radius:0;
+.entry-card .entry-body{margin-top:10px;font-size:15px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.entry-card .entry-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.entry-card button{margin-top:0;padding:8px 14px;font-size:12.5px}
+.badge{display:inline-block;font-family:var(--font-mono);font-size:12px;
+  letter-spacing:.04em;padding:2px 8px;border-radius:0;
   border:1px solid rgba(142,201,220,.4);color:var(--blue);margin-right:6px}
 
 /* ── Strategy builder panels ── */
 .panels{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);
   border:1px solid var(--line)}
-.panel{background:var(--panel-sunken);border:0;border-radius:0;padding:16px}
+.panels.mt-20{margin-top:20px}
+.panel{background:var(--panel-sunken);border:0;border-radius:0;padding:16px;min-width:0}
 .panel-header{display:flex;justify-content:space-between;align-items:center;
   gap:12px;margin-bottom:12px}
 .panel-header h3{margin:0}
-.panel-header select{width:auto;padding:6px 10px;font-size:12px}
+.panel-header select{width:auto;padding:6px 10px;font-size:14px}
 .condition-card{display:flex;gap:8px;align-items:center;flex-wrap:wrap;
   background:var(--panel);border:1px solid var(--line);padding:10px;margin-bottom:8px}
 .condition-card[draggable="true"]{cursor:grab}
 .condition-card.dragging{opacity:.4}
-.condition-card select,.condition-card input{width:auto;padding:6px 8px;font-size:12.5px}
-.condition-card input[type=number]{width:64px}
-.condition-card .remove-btn{margin:0 0 0 auto;padding:4px 9px;background:transparent;
-  border:1px solid var(--red);color:var(--red);font-size:12px}
+.condition-card select,.condition-card input{width:auto;max-width:100%;padding:6px 8px;font-size:14px}
+.condition-card input[type=number]{width:72px}
+.condition-card .operand{display:inline-flex;gap:6px;flex-wrap:wrap;max-width:100%}
+.condition-card .remove-btn{margin:0 0 0 auto;padding:4px 9px;min-width:44px;background:transparent;
+  border:1px solid var(--red);color:var(--red);font-size:14px}
 .add-condition-btn{width:100%;margin-top:4px}
 
 /* ── Auth pages ── */
 .auth-head{padding:40px 0 8px;text-align:center}
-.auth-head img{width:150px;height:auto}
-.switch{margin-top:18px;font-size:14px;color:var(--muted);text-align:center}
-.switch a{color:var(--blue);text-decoration:none}
+.auth-head a{display:inline-block;line-height:0}
+.auth-head img{width:150px;height:auto;aspect-ratio:1181 / 886}
+.page-head.centred{text-align:center}
+.switch{margin-top:18px;font-size:15px;color:var(--muted);text-align:center;line-height:1.6}
+.switch a{color:var(--blue);text-decoration:none;display:inline-flex;align-items:center;min-height:44px;padding:0 6px}
 .switch a:hover{color:var(--signal)}
 
-
+/* The two rule lists are filled by script; reserve what the default (one condition each) takes so the cards below do not jump. */
+#entryConditions,#exitConditions{min-height:118px}
+@media(min-width:761px) and (max-width:1000px){#entryConditions,#exitConditions{min-height:170px}}
 @media(max-width:760px){
   .row,.panels{grid-template-columns:1fr}
   .metrics-grid{grid-template-columns:1fr 1fr}
-  .bar-logo{height:38px}
+}
+@media(max-width:560px){
+  #entryConditions,#exitConditions{min-height:222px}
+  .container{padding:20px 16px 40px}
+  .card{padding:18px 16px}
+  /* iOS zooms the page when a focused field is under 16px */
+  input,select,textarea{font-size:16px}
+  .condition-card{display:grid;grid-template-columns:1fr 1fr;align-items:stretch}
+  .condition-card > select,.condition-card > .operand{grid-column:1 / -1}
+  .condition-card select,.condition-card input{width:100%}
+  .condition-card .operand > *{flex:1 1 90px}
+  .condition-card input[type=number]{width:100%}
+  .condition-card .remove-btn{grid-column:1 / -1;margin:0;width:100%}
+  .run-row .run-actions{width:100%}
+  .run-row .run-actions button{flex:1 1 auto;min-height:44px}
+  .entry-card .entry-actions button{flex:1 1 auto;min-height:44px}
+  #loadMore{width:100%}
+}
+@media(max-width:380px){
+  .metrics-grid{grid-template-columns:1fr}
 }
 
 /* Reduced motion (WCAG 2.3.3): no animation, transition or smooth scrolling for people who ask for less. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
  }
+
+/* controls the page scripts reveal by setting display (their first state used to be an inline style) */
+#loadMore,#cancelEditButton{display:none}
+#loadMore{width:100%;margin-top:16px}
+#loginHint{display:none;color:var(--muted);font-size:14px;margin-left:12px}
+.actions-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.actions-row button{margin-top:0}
+#formError{margin-top:10px}

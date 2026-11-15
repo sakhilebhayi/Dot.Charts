@@ -1,6 +1,5 @@
-import './dot-switcher-mount.js';
-import { getToken, clearToken, isLoggedIn, logout } from './auth.js';
-import './home-link.js';
+import { refreshHeader } from './app-header.js';
+import { getToken, clearToken, isLoggedIn } from './auth.js';
 import { renderBacktestResult } from './results-renderer.js';
 import { showFailure } from './ecosystem.js';
 
@@ -81,8 +80,7 @@ export function currentRules() {
 
 function renderOperandFields(operand, onTypeChange) {
   const wrap = document.createElement('span');
-  wrap.style.display = 'inline-flex';
-  wrap.style.gap = '6px';
+  wrap.className = 'operand';
 
   const typeSelect = document.createElement('select');
   OPERAND_TYPES.forEach((t) => {
@@ -202,20 +200,6 @@ document.getElementById('addExitCondition').addEventListener('click', () => {
   renderPanel('exit');
 });
 
-const authStateEl = document.getElementById('authState');
-if (authStateEl) {
-  if (isLoggedIn()) {
-    authStateEl.innerHTML = '<a href="#" id="logoutLink" style="color:var(--accent)">Log out</a>';
-    document.getElementById('logoutLink').addEventListener('click', async (e) => {
-      e.preventDefault();
-      await logout();
-      window.location.reload();
-    });
-  } else {
-    authStateEl.innerHTML = '<a href="/login.html" style="color:var(--accent)">Log in</a>';
-  }
-}
-
 renderPanel('entry');
 renderPanel('exit');
 
@@ -296,10 +280,7 @@ async function loadSavedStrategiesList() {
         // Stale token: clear it and reflect the logged-out state instead of
         // silently leaving the header showing "Log out" with no explanation.
         clearToken();
-        const authStateEl = document.getElementById('authState');
-        if (authStateEl) {
-          authStateEl.innerHTML = '<a href="/login.html" style="color:var(--accent)">Log in</a>';
-        }
+        refreshHeader();
         saveButton.disabled = true;
         loginHint.style.display = 'inline';
         if (errorEl) {
@@ -345,7 +326,7 @@ function conditionsFromRule(rule) {
   }));
 }
 
-loadSelect.addEventListener('change', async () => {
+async function loadSelected() {
   if (!loadSelect.value) return;
 
   const response = await fetch(`${API_BASE}/strategies/${loadSelect.value}`, {
@@ -365,7 +346,8 @@ loadSelect.addEventListener('change', async () => {
 
   renderPanel('entry');
   renderPanel('exit');
-});
+}
+loadSelect.addEventListener('change', loadSelected);
 
 saveButton.addEventListener('click', async () => {
   const saveErrorEl = document.getElementById('saveError');
@@ -427,4 +409,11 @@ saveButton.addEventListener('click', async () => {
   }
 });
 
-loadSavedStrategiesList();
+// The header search links here with ?strategy=<id>: open that saved strategy once the list is in.
+loadSavedStrategiesList().then(() => {
+  const wanted = new URLSearchParams(window.location.search).get('strategy');
+  if (wanted && loadSelect.querySelector(`option[value="${CSS.escape(wanted)}"]`)) {
+    loadSelect.value = wanted;
+    loadSelected();
+  }
+});

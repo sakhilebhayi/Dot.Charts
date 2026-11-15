@@ -78,6 +78,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perHour(20)->by('options-vol:ip:'.$request->ip());
         });
 
+        // The header search fires as the person types (the page debounces): 40 a minute per account is generous for a person
+        // (the page debounces and asks only from two characters) and a hard stop for a script; the global 'api' limit still applies. Keyed by user, not IP, so a shared office address does not share one budget.
+        RateLimiter::for('search', function (Request $request) {
+            $user = $request->user('sanctum');
+
+            return Limit::perMinute(40)->by($user ? 'search:user:'.$user->id : 'search:ip:'.$request->ip());
+        });
+
         // Keyed by email+IP, not IP alone: a per-IP-only limit would let one
         // slow attacker rotate the target email and keep guessing forever,
         // while a per-email-only limit would let a botnet lock a victim out

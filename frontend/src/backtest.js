@@ -1,6 +1,5 @@
-import './dot-switcher-mount.js';
-import { getToken, clearToken, isLoggedIn, logout } from './auth.js';
-import './home-link.js';
+import { refreshHeader } from './app-header.js';
+import { getToken, clearToken, isLoggedIn } from './auth.js';
 import { renderBacktestResult } from './results-renderer.js';
 
 import { API_BASE } from './api-base.js';
@@ -19,7 +18,7 @@ const symbolBInput = document.getElementById('symbolB');
 const savedStrategyRules = {};
 
 strategySelect.addEventListener('change', () => {
-  symbolBRow.style.display = strategySelect.value === 'pairs_trading' ? '' : 'none';
+  symbolBRow.hidden = strategySelect.value !== 'pairs_trading';
 });
 
 async function loadSavedStrategyOptions() {
@@ -38,10 +37,7 @@ async function loadSavedStrategyOptions() {
         // Stale token: clear it and reflect the logged-out state instead of
         // silently leaving the header showing "Log out" with no explanation.
         clearToken();
-        const authStateEl = document.getElementById('authState');
-        if (authStateEl) {
-          authStateEl.innerHTML = '<a href="/login.html" style="color:var(--accent)">Log in</a>';
-        }
+        refreshHeader();
         errorEl.textContent = 'Your session has expired. Log in again to see your saved strategies.';
         errorEl.style.display = 'block';
         return;
@@ -68,26 +64,12 @@ async function loadSavedStrategyOptions() {
 
 loadSavedStrategyOptions();
 
-const authStateEl = document.getElementById('authState');
-if (authStateEl) {
-  if (isLoggedIn()) {
-    authStateEl.innerHTML = '<a href="#" id="logoutLink" style="color:var(--accent)">Log out</a>';
-    document.getElementById('logoutLink').addEventListener('click', async (e) => {
-      e.preventDefault();
-      await logout();
-      window.location.reload();
-    });
-  } else {
-    authStateEl.innerHTML = '<a href="/login.html" style="color:var(--accent)">Log in</a>';
-  }
-}
-
 assetClassSelect.addEventListener('change', () => {
   const isCommodity = assetClassSelect.value === 'commodity';
   const isForex = assetClassSelect.value === 'forex';
-  symbolInput.style.display = (isCommodity || isForex) ? 'none' : '';
-  symbolCommoditySelect.style.display = isCommodity ? '' : 'none';
-  symbolForexSelect.style.display = isForex ? '' : 'none';
+  symbolInput.hidden = isCommodity || isForex;
+  symbolCommoditySelect.hidden = !isCommodity;
+  symbolForexSelect.hidden = !isForex;
 });
 
 function currentSymbol() {

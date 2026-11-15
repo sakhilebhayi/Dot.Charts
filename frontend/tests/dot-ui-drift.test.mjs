@@ -53,7 +53,7 @@ test('no unlisted file sits in a shared folder', () => {
   const listed = new Set(Object.keys(manifest.files));
   const roots = manifest.roots || { src: 'src', public: 'public' };
   const extra = [...walk(roots.src + '/dot-ui'), ...walk(roots.public + '/dot-ui')].filter((f) => !listed.has(f) && !/\/(MANIFEST\.sha256|VERSION|ROOTS)$/.test(f));
-  assert.deepEqual(extra, [], 'Files in shared dot-ui folders that the manifest does not list');
+  assert.deepEqual(extra, [], 'Files in shared dot-ui folders that the manifest does not list. A host-owned copy (for example the Archivo / stencil fonts that 0.6.0 stopped distributing) belongs OUTSIDE the dot-ui folders: see docs/MIGRATION_0.5_to_0.6.md.');
 });
 
 test('VERSION names the commit and the package version, and the manifest is clean sha256sum input', () => {

@@ -1,23 +1,13 @@
-import './dot-switcher-mount.js';
-import { getToken, clearToken, isLoggedIn, logout } from './auth.js';
-import './home-link.js';
+import { refreshHeader } from './app-header.js';
+import { getToken, clearToken, isLoggedIn } from './auth.js';
 
 import { API_BASE } from './api-base.js';
 import { showFailure } from './ecosystem.js';
 
-const authStateEl = document.getElementById('authState');
 const loginNoticeEl = document.getElementById('loginNotice');
 const formCardEl = document.getElementById('formCard');
 
-if (isLoggedIn()) {
-  authStateEl.innerHTML = '<a href="#" id="logoutLink" style="color:var(--accent)">Log out</a>';
-  document.getElementById('logoutLink').addEventListener('click', async (e) => {
-    e.preventDefault();
-    await logout();
-    window.location.reload();
-  });
-} else {
-  authStateEl.innerHTML = '<a href="/login.html" style="color:var(--accent)">Log in</a>';
+if (!isLoggedIn()) {
   loginNoticeEl.style.display = 'block';
   formCardEl.style.display = 'none';
 }
@@ -48,7 +38,7 @@ function authHeaders() {
 
 async function handleUnauthorized() {
   clearToken();
-  authStateEl.innerHTML = '<a href="/login.html" style="color:var(--accent)">Log in</a>';
+  refreshHeader();
   loginNoticeEl.style.display = 'block';
   formCardEl.style.display = 'none';
   errorEl.textContent = 'Your session has expired. Log in again.';
@@ -82,6 +72,7 @@ async function loadDropdownOptions(endpoint, selectEl, labelKey) {
 }
 
 function renderEntry(entry) {
+  listEl.querySelector(`.entry-card[data-id="${entry.id}"]`)?.remove(); // an entry opened from the search may also arrive in a later page
   const card = document.createElement('div');
   card.className = 'entry-card';
   card.dataset.id = entry.id;
@@ -259,4 +250,22 @@ loadDropdownOptions('/backtests', backtestSelect, 'symbol').then(() => {
     symbolInput.value = prefilledSymbol;
   }
 });
-loadEntries(`${API_BASE}/journal-entries`, { reset: true });
+
+// The header search links here with ?entry=<id>: show that entry (it may be on a page that is not loaded yet) and mark it.
+async function openEntryFromLink() {
+  const wanted = new URLSearchParams(window.location.search).get('entry');
+  if (!wanted || !isLoggedIn()) return;
+  let card = listEl.querySelector(`.entry-card[data-id="${CSS.escape(wanted)}"]`);
+  if (!card) {
+    const response = await fetch(`${API_BASE}/journal-entries/${encodeURIComponent(wanted)}`, { headers: authHeaders() });
+    if (!response.ok) return;
+    renderEntry(await response.json());
+    card = listEl.lastElementChild;
+    listEl.prepend(card);
+    emptyEl.style.display = 'none';
+  }
+  card.classList.add('found');
+  card.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+
+loadEntries(`${API_BASE}/journal-entries`, { reset: true }).then(openEntryFromLink);

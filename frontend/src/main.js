@@ -1,6 +1,5 @@
-import './dot-switcher-mount.js';
+import './app-header.js';
 import { API_BASE } from './api-base.js';
-import './home-link.js';
 import { ecosystemStrip, isHardFailure } from './ecosystem.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -33,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="idle">
       <span class="ro-label">Signal</span>
       <div class="ro-signal">&ndash;&ndash;&ndash;&ndash;</div>
-      <div class="segbar"><b style="width:0%"></b></div>
+      <div class="segbar"><b></b></div>
       <div class="ro-conf">CONFIDENCE &ndash;&ndash;%</div>
       <div class="ro-rows">
         <div class="ro-row"><span>Symbol</span><b>&ndash;&ndash;</b></div>
@@ -147,11 +146,12 @@ document.addEventListener('DOMContentLoaded', () => {
     analysisPanel.innerHTML = `
       <div class="fade-in">
         <span class="ro-label">Signal</span>
-        <div class="ro-signal" style="color:var(--red)">FAULT</div>
+        <div class="ro-signal tone-red">FAULT</div>
         <p class="err-text">${message}</p>
-        <button class="primary-btn" onclick="location.reload()">Try again</button>
+        <button class="primary-btn" id="tryAgain">Try again</button>
       </div>
     `;
+    document.getElementById('tryAgain').addEventListener('click', () => location.reload());
     if (isHardFailure(status)) {
       analysisPanel.appendChild(ecosystemStrip());
     }
@@ -159,10 +159,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function accentFor(signal) {
     const s = signal.toLowerCase();
-    if (s.includes('sell')) return 'var(--red)';
-    if (s.includes('buy')) return 'var(--green)';
+    if (s.includes('sell')) return 'red';
+    if (s.includes('buy')) return 'green';
     // hold / neutral / anything unrecognised: amber, the attention colour
-    return 'var(--signal)';
+    return 'amber';
   }
 
   function displayResults(analysis, meta = {}) {
@@ -186,8 +186,8 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadArea.classList.remove('scanning');
     setStatus(meta.isDemo ? 'DEMO' : 'COMPLETE', meta.isDemo ? 'warn' : 'good');
     const accent = accentFor(analysis.signal);
-    const trendColor = analysis.trend === 'Bullish' ? 'var(--green)'
-      : analysis.trend === 'Bearish' ? 'var(--red)' : 'var(--text)';
+    const trendTone = analysis.trend === 'Bullish' ? 'green'
+      : analysis.trend === 'Bearish' ? 'red' : 'text';
     const demoBanner = meta.isDemo
       ? `<div class="demo-banner" role="status">
           <strong>Demo result — not real analysis</strong>
@@ -199,16 +199,16 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="fade-in">
         ${demoBanner}
         <span class="ro-label">Signal</span>
-        <div class="ro-signal" style="color:${accent}">${analysis.signal}</div>
-        <div class="segbar" style="color:${accent}"><b style="width:${analysis.confidence}%"></b></div>
-        <div class="ro-conf">CONFIDENCE <span style="color:${accent}">${analysis.confidence}%</span></div>
+        <div class="ro-signal tone-${accent}">${analysis.signal}</div>
+        <div class="segbar tone-${accent}"><b></b></div>
+        <div class="ro-conf">CONFIDENCE <span class="tone-${accent}">${analysis.confidence}%</span></div>
 
         <div class="ro-rows">
           ${meta.symbol ? `<div class="ro-row"><span>Symbol</span><b>${meta.symbol}</b></div>` : ''}
-          <div class="ro-row"><span>Trend</span><b style="color:${trendColor}">${analysis.trend}</b></div>
+          <div class="ro-row"><span>Trend</span><b class="tone-${trendTone}">${analysis.trend}</b></div>
           <div class="ro-row"><span>Entry</span><b>${analysis.entryZone}</b></div>
-          <div class="ro-row"><span>Stop</span><b style="color:var(--red)">${analysis.stopLoss}</b></div>
-          <div class="ro-row"><span>Targets</span><b style="color:var(--green)">${analysis.takeProfits.join(' / ')}</b></div>
+          <div class="ro-row"><span>Stop</span><b class="tone-red">${analysis.stopLoss}</b></div>
+          <div class="ro-row"><span>Targets</span><b class="tone-green">${analysis.takeProfits.join(' / ')}</b></div>
           <div class="ro-row"><span>Risk/reward</span><b>${analysis.riskReward}</b></div>
         </div>
 
@@ -234,6 +234,10 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
 
+    // the confidence bar's width is data: set through the CSSOM (a style attribute would need 'unsafe-inline')
+    const confidence = Math.max(0, Math.min(100, Number(analysis.confidence) || 0));
+    analysisPanel.querySelector('.segbar b').style.width = `${confidence}%`;
+
     const resetBtn = document.getElementById('analyzeAgain');
     resetBtn.addEventListener('click', () => {
       resetStage();
@@ -250,11 +254,16 @@ document.addEventListener('DOMContentLoaded', () => {
     openModal(previewSrc);
   });
 
+  let modalReturn = null;
+
   function openModal(src) {
     if (!src) return;
+    modalReturn = document.activeElement;
     modalImg.src = src;
     imageModal.classList.add('open');
     imageModal.setAttribute('aria-hidden', 'false');
+    document.documentElement.classList.add('dot-scroll-locked'); // the same lock the header drawer uses: the page behind does not scroll
+    modalClose.focus();
   }
 
   modalClose.addEventListener('click', closeModal);
@@ -266,5 +275,15 @@ document.addEventListener('DOMContentLoaded', () => {
     imageModal.classList.remove('open');
     imageModal.setAttribute('aria-hidden', 'true');
     modalImg.src = BLANK;
+    document.documentElement.classList.remove('dot-scroll-locked');
+    if (modalReturn && modalReturn.focus) modalReturn.focus();
+    modalReturn = null;
   }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && imageModal.classList.contains('open')) closeModal();
+  });
+
+  // The symbol and market fields sit inside the stage column: typing there must not reach the stage's own click handler.
+  document.querySelector('.stage-foot')?.addEventListener('click', (e) => e.stopPropagation());
 });

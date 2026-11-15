@@ -1,30 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dot-roboto">
 <head>
   <meta charset="UTF-8" />
   <title>Dot.Charts — Journal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/instrument.css" />
 </head>
 <body>
-<div class="container">
-<header class="bar">
-  <a href="/" aria-label="Dot.Charts home"><img src="/images/logo.png" alt="Dot.Charts" class="bar-logo" /></a>
-  <nav>
-    <a href="/home.html">Home</a>
-    <a href="/">Chart read</a>
-    <a href="/backtest.html">Backtest</a>
-    <a href="/strategy-builder.html">Strategy Builder</a>
-    <a href="/history.html">History</a>
-    <a href="/journal.html" aria-current="page">Journal</a>
-    <a href="/options.html">Options Vol</a>
-    <span id="authState"></span>
-  </nav>
-</header>
+<div id="app-header" data-page="journal"></div>
+<main class="container" id="main" tabindex="-1">
 <div class="page-head">
   <h1>Journal</h1>
   <p class="sub">Reflections on your backtests and strategies &mdash; not a trade log. Dot.Charts never stores real positions or orders.</p>
@@ -33,7 +18,7 @@
   <div id="loginNotice">Log in to view and write journal entries.</div>
 
   <div class="card" id="formCard">
-    <h3 id="formTitle" style="margin-top:0">New entry</h3>
+    <h3 id="formTitle" class="flush">New entry</h3>
     <label for="entryTitle">Title</label>
     <input id="entryTitle" placeholder="What are you reflecting on?" />
     <label for="entryBody">Notes</label>
@@ -55,18 +40,18 @@
         <select id="entryBacktest"><option value="">— none —</option></select>
       </div>
     </div>
-    <div style="margin-top:16px;display:flex;gap:8px">
+    <div class="actions-row">
       <button id="saveButton">Save entry</button>
-      <button id="cancelEditButton" class="secondary" style="display:none">Cancel edit</button>
+      <button id="cancelEditButton" class="secondary">Cancel edit</button>
     </div>
-    <div id="formError" style="color:var(--red);margin-top:10px;display:none"></div>
+    <div id="formError"></div>
   </div>
 
   <div id="error"></div>
   <div id="empty">No journal entries yet.</div>
   <div id="entriesList"></div>
-  <button id="loadMore" class="secondary" style="display:none">Load more</button>
-</div>
+  <button id="loadMore" class="secondary">Load more</button>
+</main>
 <script type="module" src="/src/journal.js"></script>
 </body>
 </html>
