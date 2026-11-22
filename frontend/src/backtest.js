@@ -1,5 +1,5 @@
 import { refreshHeader } from './app-header.js';
-import { getToken, clearToken, isLoggedIn } from './auth.js';
+import { clearToken, isLoggedIn, apiFetch } from './auth.js';
 import { renderBacktestResult } from './results-renderer.js';
 
 import { API_BASE } from './api-base.js';
@@ -29,9 +29,7 @@ async function loadSavedStrategyOptions() {
     const strategies = [];
 
     while (url) {
-      const response = await fetch(url, {
-        headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
-      });
+      const response = await apiFetch(url);
 
       if (response.status === 401) {
         // Stale token: clear it and reflect the logged-out state instead of
@@ -146,15 +144,9 @@ runButton.addEventListener('click', async () => {
   };
 
   try {
-    const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
-    const token = getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${API_BASE}/backtests`, {
+    const response = await apiFetch(`${API_BASE}/backtests`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     failStatus = response.status;

@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -23,7 +25,7 @@ class AuthController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
-        $token = $user->createToken('api')->plainTextToken;
+        $token = $user->createToken('api', ['*'], now()->addDays(max(1, (int) config('dotsso.token_ttl_days', 30))))->plainTextToken;
 
         return response()->json([
             'success' => true,
@@ -48,7 +50,7 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $token = $user->createToken('api')->plainTextToken;
+        $token = $user->createToken('api', ['*'], now()->addDays(max(1, (int) config('dotsso.token_ttl_days', 30))))->plainTextToken;
 
         return response()->json([
             'success' => true,
@@ -59,7 +61,16 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $token = $request->user()->currentAccessToken();
+
+        if ($token instanceof PersonalAccessToken) {
+            $token->delete();
+        } elseif ($request->hasSession()) {
+            // A cookie-session caller (R-54) has no token to revoke: end the session instead.
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
 
         return response()->json(['success' => true]);
     }

@@ -1,5 +1,5 @@
 import './app-header.js';
-import { getToken } from './auth.js';
+import { authHeaders as sessionHeaders, apiFetch } from './auth.js';
 import { renderBacktestResult } from './results-renderer.js';
 
 import { API_BASE } from './api-base.js';
@@ -18,8 +18,7 @@ const filterStatus = document.getElementById('filterStatus');
 let nextPageUrl = null;
 
 function authHeaders() {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}`, Accept: 'application/json' } : { Accept: 'application/json' };
+  return sessionHeaders();
 }
 
 async function loadRuns(url, { reset }) {
@@ -154,7 +153,7 @@ async function deleteRun(id, rowEl) {
   if (!confirm('Delete this backtest run? This cannot be undone.')) return;
 
   try {
-    const response = await fetch(`${API_BASE}/backtests/${id}`, {
+    const response = await apiFetch(`${API_BASE}/backtests/${id}`, {
       method: 'DELETE',
       headers: authHeaders(),
     });

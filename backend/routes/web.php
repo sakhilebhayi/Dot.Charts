@@ -29,3 +29,6 @@ Route::post('/csp-report', CspReportController::class)
 Route::get('/', function () {
     return view('welcome');
 });
+
+// The sign-in package's default landing path. Charts' home is a static page, so a person who somehow reaches it lands there.
+Route::redirect('/dashboard', '/home.html');

@@ -1,11 +1,17 @@
 import { refreshHeader } from './app-header.js';
-import { getToken, clearToken, isLoggedIn } from './auth.js';
+import { clearToken, isLoggedIn, authHeaders as sessionHeaders, apiFetch, signInUrl } from './auth.js';
 
 import { API_BASE } from './api-base.js';
 import { showFailure } from './ecosystem.js';
 
 const loginNoticeEl = document.getElementById('loginNotice');
 const formCardEl = document.getElementById('formCard');
+
+// The notice carries the way in: the link comes back to this page after signing in.
+loginNoticeEl.replaceChildren(
+  Object.assign(document.createElement('a'), { href: signInUrl('login'), textContent: 'Log in' }),
+  ' to view and write journal entries.',
+);
 
 if (!isLoggedIn()) {
   loginNoticeEl.style.display = 'block';
@@ -30,10 +36,7 @@ let nextPageUrl = null;
 let editingId = null; // set by the edit flow (added next)
 
 function authHeaders() {
-  const token = getToken();
-  return token
-    ? { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' }
-    : { Accept: 'application/json', 'Content-Type': 'application/json' };
+  return sessionHeaders({ 'Content-Type': 'application/json' });
 }
 
 async function handleUnauthorized() {
@@ -153,7 +156,7 @@ async function deleteEntry(id, cardEl) {
   if (!confirm('Delete this journal entry? This cannot be undone.')) return;
 
   try {
-    const response = await fetch(`${API_BASE}/journal-entries/${id}`, { method: 'DELETE', headers: authHeaders() });
+    const response = await apiFetch(`${API_BASE}/journal-entries/${id}`, { method: 'DELETE', headers: authHeaders() });
     if (response.status === 401) {
       await handleUnauthorized();
       return;
@@ -210,7 +213,7 @@ saveButton.addEventListener('click', async () => {
   try {
     const url = editingId ? `${API_BASE}/journal-entries/${editingId}` : `${API_BASE}/journal-entries`;
     const method = editingId ? 'PATCH' : 'POST';
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method,
       headers: authHeaders(),
       body: JSON.stringify(payload),

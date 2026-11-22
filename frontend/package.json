@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/switcher.test.mjs tests/dot-ui-drift.test.mjs tests/home.test.mjs tests/header.test.mjs"
+    "test": "node --test tests/sso-auth.test.mjs tests/switcher.test.mjs tests/dot-ui-drift.test.mjs tests/home.test.mjs tests/header.test.mjs"
   },
   "keywords": ["trading", "charts", "analysis", "ai"],
   "author": "",
