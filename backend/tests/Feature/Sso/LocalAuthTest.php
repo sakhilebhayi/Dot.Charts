@@ -51,6 +51,13 @@ class LocalAuthTest extends TestCase
         $this->getJson('/api/auth/config')->assertJsonPath('local_login', true);
     }
 
+    public function test_the_post_logout_address_has_the_trailing_slash_infodot_matches_exactly(): void
+    {
+        $config = require base_path('config/dotsso.php');
+
+        $this->assertStringEndsWith('/', (string) $config['post_logout_redirect_uri']);
+    }
+
     public function test_new_tokens_expire(): void
     {
         config(['dotsso.enabled' => false, 'dotsso.token_ttl_days' => 30]);

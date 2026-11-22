@@ -23,6 +23,11 @@ return [
         '#^/(\?[A-Za-z0-9_=&%.\-]{0,200})?$#',
     ],
 
+    // Where InfoDot returns the person after signing out. InfoDot matches this EXACTLY against the registered post-logout URI
+    // (`<origin>/`, with the slash), but the package's own default, url('/'), has no trailing slash, which InfoDot refuses
+    // (the person then lands on InfoDot's home page instead of back here). So the slash is set here, from APP_URL.
+    'post_logout_redirect_uri' => env('DOTSSO_POST_LOGOUT_URI') ?: (env('APP_URL') ? rtrim((string) env('APP_URL'), '/').'/' : null),
+
     // New API tokens expire after this many days (the old ones never did).
     'token_ttl_days' => (int) env('CHARTS_TOKEN_TTL_DAYS', 30),
 ];

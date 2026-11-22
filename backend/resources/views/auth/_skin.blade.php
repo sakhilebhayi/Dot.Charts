@@ -43,6 +43,6 @@
   .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
   .actions .btn{flex:1 1 180px}
   .ref{margin:18px 0 0;font:12.5px/1.4 var(--mono);color:var(--quiet);letter-spacing:.04em}
-  .fine{margin:16px 0 0;font-size:14px;color:var(--muted)}
+  .panel p.fine{margin:18px 0 0;font-size:14px;color:var(--muted)}
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
