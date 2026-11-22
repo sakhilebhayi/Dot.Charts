@@ -1,8 +1,27 @@
-import { setToken } from './auth.js';
-
+import { setToken, authConfig, ssoStartUrl } from './auth.js';
 import { API_BASE } from './api-base.js';
 const errorEl = document.getElementById('error');
 const button = document.getElementById('registerButton');
+
+const handover = document.getElementById('handover');
+const legacy = document.getElementById('legacyForm');
+const handoverText = document.getElementById('handoverText');
+const handoverLink = document.getElementById('handoverLink');
+
+// With InfoDot in charge, creating an account happens there (register screen), then back to the page that was asked for.
+authConfig().then((config) => {
+  const wantsLocal = config.local_login && new URLSearchParams(window.location.search).get('local') === '1';
+
+  if (config.sso && !wantsLocal) {
+    const to = ssoStartUrl('register');
+    handoverLink.href = to;
+    handoverText.textContent = 'Taking you to InfoDot to create your account.';
+    window.location.replace(to);
+  } else {
+    handover.hidden = true;
+    legacy.hidden = false;
+  }
+});
 
 button.addEventListener('click', async () => {
   errorEl.style.display = 'none';

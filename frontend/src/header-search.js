@@ -10,7 +10,7 @@
 // States, as InfoDot's: empty box (Go to chips and a hint), typed (groups, <mark> highlight), loading (one line in the
 // dropdown, never on the pill), no match, unavailable. Arrow keys move a highlight, Enter opens it, Escape clears and closes.
 import { API_BASE } from './api-base.js';
-import { getToken, clearToken } from './auth.js';
+import { clearToken, authHeaders, signInUrl } from './auth.js';
 import { STRATEGY_NAMES, PAGES } from './labels.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -111,7 +111,7 @@ export function createSearch({ signedIn, onUnauthorized }) {
 
   function signInNote() {
     const a = document.createElement('a');
-    a.href = '/login.html';
+    a.href = signInUrl('login');
     a.textContent = 'Log in';
     return foot('Search is limited to the pages here. ', a, ' to search your backtests, journal entries and strategies.');
   }
@@ -184,9 +184,9 @@ export function createSearch({ signedIn, onUnauthorized }) {
     loading(true);
     try {
       const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`, {
-        headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
+        headers: authHeaders(),
         signal: ctrl.signal,
-        credentials: 'omit',
+        credentials: 'same-origin',
       });
       if (mine !== serial) return;
       if (res.status === 401) {

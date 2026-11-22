@@ -9,14 +9,24 @@ use App\Http\Controllers\JournalEntryController;
 use App\Http\Controllers\KnowledgePackController;
 use App\Http\Controllers\OptionsVolController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\SsoSessionController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register'])
-    ->middleware('throttle:auth-register');
+    ->middleware(['charts.local-auth', 'throttle:auth-register']);
 Route::post('/login', [AuthController::class, 'login'])
-    ->middleware('throttle:auth-login');
+    ->middleware(['charts.local-auth', 'throttle:auth-login']);
 
-Route::middleware('auth:sanctum')->group(function () {
+// R-54: tells the sign-in pages which mode the platform is in (public, no secrets).
+Route::get('/auth/config', [SsoSessionController::class, 'config']);
+
+// Ends the session and returns the InfoDot end-session address. Cookie session + CSRF only (never a bearer call).
+Route::post('/auth/sso-logout', [SsoSessionController::class, 'logout'])
+    ->middleware('charts.stateful');
+
+// charts.stateful: with DOTSSO_ENABLED, a same-origin SPA request is authenticated by the Laravel session cookie (CSRF-checked);
+// a request with a bearer token, or with the flag off, is authenticated by the token exactly as before.
+Route::middleware(['charts.stateful', \Dot\SsoClient\Http\Middleware\EnforceSsoRevocation::class, 'auth:sanctum'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     // Header search over the account's own backtests, journal entries and strategies (account-scoped, limited).
@@ -48,8 +58,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::post('/chart/analyze', [ChartAnalysisController::class, 'analyzeChart'])
     ->middleware('throttle:chart-analysis');
+// Public, but attaches the signed-in person to the run: a session cookie (when there is one) is honoured, see StatefulWhenSso.
 Route::post('/backtests', [BacktestController::class, 'store'])
-    ->middleware('throttle:backtests');
+    ->middleware(['charts.stateful:optional', 'throttle:backtests']);
 Route::get('/options/vol-signal/{symbol}', [OptionsVolController::class, 'show'])
     ->middleware('throttle:options-vol');
 

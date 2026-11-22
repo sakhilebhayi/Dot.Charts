@@ -4,7 +4,7 @@
 // invented. The equity curve is NOT in the list response; it is fetched for the one selected run.
 import { refreshHeader } from './app-header.js';
 import { STRATEGY_NAMES } from './labels.js';
-import { getToken, clearToken, isLoggedIn } from './auth.js';
+import { clearToken, isLoggedIn, apiFetch, signInUrl } from './auth.js';
 import { API_BASE } from './api-base.js';
 import { drawEquityChart, money, day } from './equity-chart.js';
 
@@ -66,8 +66,8 @@ function setSignedOut(message) {
   headline.textContent = message;
   headlineSub.textContent = 'Log in to see the runs, strategies and notes kept on your account. The chart read works without an account.';
   primary.textContent = 'Log in';
-  primary.href = '/login.html';
-  if (!headAct.querySelector('.second')) headAct.append(link('Create account', '/register.html', 'btn second'));
+  primary.href = signInUrl('login');
+  if (!headAct.querySelector('.second')) headAct.append(link('Create account', signInUrl('register'), 'btn second'));
   desk.hidden = true;
   $('firstRun').hidden = true;
   $('pair').hidden = true;
@@ -77,9 +77,7 @@ function setSignedOut(message) {
 }
 
 async function get(path) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
-  });
+  const response = await apiFetch(`${API_BASE}${path}`);
   if (response.status === 401) throw Object.assign(new Error('unauthenticated'), { status: 401 });
   if (!response.ok) throw Object.assign(new Error('unavailable'), { status: response.status });
   return response.json();
@@ -288,9 +286,7 @@ function confirmDelete(run, acts) {
   go.addEventListener('click', async () => {
     go.disabled = true;
     try {
-      const response = await fetch(`${API_BASE}/backtests/${run.id}`, {
-        method: 'DELETE', headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
-      });
+      const response = await apiFetch(`${API_BASE}/backtests/${run.id}`, { method: 'DELETE' });
       if (response.status === 401) { clearToken(); setSignedOut('Your session has expired.'); return; }
       if (!response.ok) throw new Error('failed');
       state.curves.delete(run.id);

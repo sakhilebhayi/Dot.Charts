@@ -17,7 +17,7 @@ import { mountHeader } from './dot-ui/js/dot-header-static.min.js';
 import { mount as mountSwitcher } from './dot-ui/js/dot-switcher-static.min.js';
 import { registry, INFODOT_PLATFORMS_URL } from './registry.js';
 import { API_BASE } from './api-base.js';
-import { isLoggedIn, getToken, clearToken, logout } from './auth.js';
+import { isLoggedIn, clearToken, logout, authHeaders, signInUrl } from './auth.js';
 import { navModel } from './labels.js';
 import { createSearch } from './header-search.js';
 
@@ -82,7 +82,7 @@ function render() {
   const signedIn = isLoggedIn();
   const me = signedIn ? stored() : null;
   const search = createSearch({ signedIn, onUnauthorized: render });
-  const login = Object.assign(document.createElement('a'), { className: 'dh-signin', href: '/login.html', textContent: 'Log in' });
+  const login = Object.assign(document.createElement('a'), { className: 'dh-signin', href: signInUrl('login'), textContent: 'Log in' });
   const switcherRoot = switcherPlaceholder();
 
   const model = {
@@ -121,8 +121,8 @@ function render() {
       box.setAttribute('aria-label', 'Account');
       const note = document.createElement('p');
       note.textContent = 'Log in to see your backtests, strategies and notes.';
-      const a = Object.assign(document.createElement('a'), { href: '/login.html', textContent: 'Log in' });
-      const b = Object.assign(document.createElement('a'), { href: '/register.html', textContent: 'Create account' });
+      const a = Object.assign(document.createElement('a'), { href: signInUrl('login'), textContent: 'Log in' });
+      const b = Object.assign(document.createElement('a'), { href: signInUrl('register'), textContent: 'Create account' });
       box.append(note, a, b);
       body.appendChild(box);
     }
@@ -139,7 +139,7 @@ function render() {
 // The name for the account menu: one GET /api/me per browser session (cached), filled into the nodes already printed.
 async function hydrateAccount() {
   try {
-    const res = await fetch(`${API_BASE}/me`, { headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` }, credentials: 'omit' });
+    const res = await fetch(`${API_BASE}/me`, { headers: authHeaders(), credentials: 'same-origin' });
     if (res.status === 401) { clearToken(); forget(); render(); return; }
     if (!res.ok) return;
     const body = await res.json();
@@ -160,14 +160,15 @@ async function hydrateAccount() {
   } catch { /* offline: the menu keeps its generic name */ }
 }
 
-// "Log out" really logs out: the token is revoked on the server, then cleared (the form's plain action is the no-script fallback).
+// "Log out" really logs out: the session (or legacy token) ends on the server, then the browser goes to InfoDot's sign-out when a
+// session was used (the form's plain action is the no-script fallback).
 document.addEventListener('submit', async (event) => {
   const form = event.target;
   if (!(form instanceof HTMLFormElement) || !form.classList.contains('dh-signout')) return;
   event.preventDefault();
-  await logout();
+  const destination = await logout();
   forget();
-  window.location.assign('/login.html');
+  window.location.assign(destination);
 });
 
 if (host) render();

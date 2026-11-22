@@ -15,7 +15,11 @@
   <div class="page-head centred">
     <h1>Register</h1>
   </div>
-  <div class="card">
+  <div class="card" id="handover" role="status">
+    <p class="ink-muted" id="handoverText">Checking how to sign you in…</p>
+    <a class="btn-link" id="handoverLink" href="/sso/login?screen=register">Continue to InfoDot</a>
+  </div>
+  <div class="card" id="legacyForm" hidden>
     <label for="name">Name</label>
     <input id="name" placeholder="Ada Lovelace" />
     <label for="email">Email</label>

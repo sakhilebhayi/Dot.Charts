@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -25,6 +26,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // R-54: Charts' own claim and error pages for the sign-in package (the instrument skin). Prepended, so they win over the
+        // package's plain views. (resources/views/vendor is git-ignored by the repo's `vendor/` rule, hence a namespace path.)
+        View::prependNamespace('dotsso', resource_path('views/sso'));
+
         // /up answered 200 whenever PHP booted, even with the database down. The framework dispatches DiagnosingHealth
         // before it renders the page: a failing query turns the answer into a 500 (the exception text is never shown).
         Event::listen(DiagnosingHealth::class, fn () => DB::select('select 1'));

@@ -20,7 +20,15 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'operator' => \App\Http\Middleware\EnsurePlatformOperator::class,
+            'charts.stateful' => \App\Http\Middleware\StatefulWhenSso::class,
+            'charts.local-auth' => \App\Http\Middleware\ClosedWhenSso::class,
         ]);
+
+        // R-54: the sign-in hint cookie is a plain flag the frontend script reads (it grants nothing), so it is not encrypted.
+        $middleware->encryptCookies(except: [\App\Sso\ChartsProvisioner::HINT_COOKIE]);
+
+        // R-54: `next=` on /sso/login becomes the validated deep link (a no-op while DOTSSO_ENABLED is false).
+        $middleware->web(append: [\App\Http\Middleware\CarryDeepLink::class]);
         // Laravel 11/12's minimal skeleton doesn't apply throttling to the
         // 'api' middleware group by default, unlike older Laravel versions
         // -- found during an audit that every route without its own

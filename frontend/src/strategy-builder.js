@@ -1,5 +1,5 @@
 import { refreshHeader } from './app-header.js';
-import { getToken, clearToken, isLoggedIn } from './auth.js';
+import { clearToken, isLoggedIn, apiFetch } from './auth.js';
 import { renderBacktestResult } from './results-renderer.js';
 import { showFailure } from './ecosystem.js';
 
@@ -226,15 +226,9 @@ document.getElementById('testRunButton').addEventListener('click', async () => {
   };
 
   try {
-    const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
-    const token = getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${API_BASE}/backtests`, {
+    const response = await apiFetch(`${API_BASE}/backtests`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     failStatus = response.status;
@@ -272,9 +266,7 @@ async function loadSavedStrategiesList() {
     const strategies = [];
 
     while (url) {
-      const response = await fetch(url, {
-        headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
-      });
+      const response = await apiFetch(url);
 
       if (response.status === 401) {
         // Stale token: clear it and reflect the logged-out state instead of
@@ -329,9 +321,7 @@ function conditionsFromRule(rule) {
 async function loadSelected() {
   if (!loadSelect.value) return;
 
-  const response = await fetch(`${API_BASE}/strategies/${loadSelect.value}`, {
-    headers: { Accept: 'application/json', Authorization: `Bearer ${getToken()}` },
-  });
+  const response = await apiFetch(`${API_BASE}/strategies/${loadSelect.value}`);
   if (!response.ok) return;
   const strategy = await response.json();
 
@@ -371,13 +361,9 @@ saveButton.addEventListener('click', async () => {
   saveButton.textContent = 'Saving…';
 
   try {
-    const response = await fetch(`${API_BASE}/strategies`, {
+    const response = await apiFetch(`${API_BASE}/strategies`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Authorization: `Bearer ${getToken()}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name,
         description: document.getElementById('strategyDescription').value.trim() || null,

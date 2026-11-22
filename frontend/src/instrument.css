@@ -288,3 +288,12 @@ button.block,.block{width:100%}
 .actions-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
 .actions-row button{margin-top:0}
 #formError{margin-top:10px}
+
+/* ── Sign-in hand-over (login.html / register.html while InfoDot is in charge) ── */
+#handover p{margin:0 0 16px;font-size:15px}
+.btn-link{display:flex;align-items:center;justify-content:center;min-height:44px;padding:12px 22px;background:var(--signal);color:var(--on-signal);
+  font-family:var(--font-display);font-weight:700;font-size:14px;letter-spacing:.05em;text-transform:uppercase;text-decoration:none}
+.btn-link:hover{filter:brightness(1.08)}
+.btn-link:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+#loginNotice a{color:var(--blue);display:inline-flex;align-items:center;min-height:44px;padding:0 4px}
+#loginNotice a:hover{color:var(--signal)}

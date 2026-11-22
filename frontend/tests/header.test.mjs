@@ -109,7 +109,9 @@ test('the strategy names match the server\'s (one list in labels.js, one in Sear
 test('the search: signed in it asks /api/search for the account only, signed out it asks nothing', () => {
   const src = strip(read('src/header-search.js'));
   assert.match(src, /\$\{API_BASE\}\/search\?q=\$\{encodeURIComponent\(q\)\}/);
-  assert.match(src, /credentials: 'omit'/);
+  // R-54: the account search carries the session cookie (same origin) instead of omitting credentials; auth.js adds the token or CSRF header.
+  assert.match(src, /credentials: 'same-origin'/);
+  assert.match(src, /headers: authHeaders\(\)/);
   // the request is reachable only from the signed-in branch, after the two-character minimum
   const onInput = src.slice(src.indexOf('function onInput()'), src.indexOf('/* ---- keyboard'));
   assert.ok(onInput.indexOf('if (q.length < MIN)') < onInput.indexOf('if (!signedIn)'));

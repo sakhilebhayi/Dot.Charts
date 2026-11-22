@@ -15,7 +15,11 @@
   <div class="page-head centred">
     <h1>Log In</h1>
   </div>
-  <div class="card">
+  <div class="card" id="handover" role="status">
+    <p class="ink-muted" id="handoverText">Checking how to sign you in…</p>
+    <a class="btn-link" id="handoverLink" href="/sso/login">Continue to InfoDot</a>
+  </div>
+  <div class="card" id="legacyForm" hidden>
     <label for="email">Email</label>
     <input id="email" type="email" placeholder="you@example.com" />
     <label for="password">Password</label>
@@ -23,7 +27,7 @@
     <button id="loginButton" class="block">Log In</button>
     <div id="error"></div>
   </div>
-  <p class="switch">No account? <a href="/register.html">Register</a> &nbsp;&middot;&nbsp; <a href="/">Back to the console</a></p>
+  <p class="switch">No account? <a href="/register.html" id="switchLink">Register</a> &nbsp;&middot;&nbsp; <a href="/">Back to the console</a></p>
 </main>
 <script type="module" src="/src/login.js"></script>
 </body>
