@@ -26,6 +26,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \App\Support\EssentialCron::listen();
+
         // R-54: Charts' own claim and error pages for the sign-in package (the instrument skin). Prepended, so they win over the
         // package's plain views. (resources/views/vendor is git-ignored by the repo's `vendor/` rule, hence a namespace path.)
         View::prependNamespace('dotsso', resource_path('views/sso'));
